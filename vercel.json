@@ -3,12 +3,7 @@
   "services": {
     "api": {
       "root": "apps/api",
-      "framework": "express",
-      "includeFiles": [
-        "node_modules/argon2/**",
-        "node_modules/@phc/format/**",
-        "node_modules/node-gyp-build/**"
-      ]
+      "framework": "express"
     },
     "web": {
       "root": "apps/web",
