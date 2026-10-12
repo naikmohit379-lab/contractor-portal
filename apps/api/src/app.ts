@@ -41,7 +41,7 @@ export function createApp() {
   app.use(sanitize);
   app.use(rateLimit({ windowMs: 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false }));
 
-  app.get("/health", (_req, res) => res.json({ ok: true }));
+  app.get(["/health", "/api/health", "/api/v1/health"], (_req, res) => res.json({ ok: true }));
 
   const v1 = express.Router();
   v1.use("/auth", authRouter);
