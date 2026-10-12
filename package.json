@@ -12,6 +12,9 @@
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down"
   },
+  "dependencies": {
+    "argon2": "^0.41.1"
+  },
   "devDependencies": {
     "turbo": "^2.1.3",
     "typescript": "^5.5.4"
