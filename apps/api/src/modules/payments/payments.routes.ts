@@ -1,5 +1,4 @@
 import { Router } from "express";
-import argon2 from "argon2";
 import rateLimit from "express-rate-limit";
 import { isValidObjectId } from "mongoose";
 import { z } from "zod";
@@ -20,6 +19,7 @@ import { env } from "../../config/env";
 import { audit as userAudit } from "../../core/audit";
 import { hashToken, newRefreshToken, requireAuth } from "../../core/auth";
 import { AppError, notFound } from "../../core/errors";
+import { verifyPassword } from "../../core/password";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
 import { Company } from "../../models/Company";
 import { Job } from "../../models/Job";
@@ -70,7 +70,7 @@ export const toRefundDTO = (r: any): RefundDTO => ({
 /** Step-up check: moving money needs the password again, so a hijacked session alone cannot do it. */
 async function confirmPassword(userId: string, password: string) {
   const u = await User.findById(userId).select("+passwordHash");
-  if (!u || !(await argon2.verify(u.passwordHash, password))) throw new AppError(403, "step_up_failed", "That password is not correct");
+  if (!u || !(await verifyPassword(u.passwordHash, password))) throw new AppError(403, "step_up_failed", "That password is not correct");
 }
 
 // ---------------------------------------------------------------- per-job payments
