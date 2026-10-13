@@ -5,7 +5,8 @@ import { measurementOrderSchema, type MeasurementDTO } from "@roofdesk/shared";
 import { audit } from "../../core/audit";
 import { requireAuth } from "../../core/auth";
 import { logger } from "../../core/logger";
-import { notFound } from "../../core/errors";
+import { notify, touchJob } from "../../core/notify";
+import { AppError, notFound } from "../../core/errors";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
 import { Job } from "../../models/Job";
 import { MeasurementReport } from "../../models/MeasurementReport";
@@ -47,9 +48,31 @@ async function processReport(reportId: string, address: string) {
 
     // First delivered report moves a fresh lead to "measured".
     await Job.updateOne({ _id: report.jobId, stage: "lead" }, { stage: "measured" });
+
+    const companyId = String((report as any).companyId);
+    touchJob(companyId, report.jobId, "measurements");
+    await notify(companyId, {
+      kind: "measurement.delivered",
+      title: "Aerial report is ready",
+      body: `The measurement report for ${address} has arrived.`,
+      href: `/jobs/${report.jobId}?tab=measurements`,
+      userIds: report.createdBy ? [String(report.createdBy)] : [],
+    });
   } catch (err) {
     logger.error({ err, reportId }, "measurement processing failed");
     await MeasurementReport.updateOne({ _id: reportId }, { status: "failed", error: "The provider could not return this report. Try again." });
+    const failed = await MeasurementReport.findById(reportId);
+    if (failed) {
+      const companyId = String((failed as any).companyId);
+      touchJob(companyId, failed.jobId, "measurements");
+      await notify(companyId, {
+        kind: "measurement.failed",
+        title: "Aerial report failed",
+        body: `The report for ${address} could not be produced. You can order it again.`,
+        href: `/jobs/${failed.jobId}?tab=measurements`,
+        userIds: failed.createdBy ? [String(failed.createdBy)] : [],
+      });
+    }
   }
 }
 
@@ -78,6 +101,7 @@ measurementsRouter.post(
       if (existing) return res.status(200).json(toDTO(existing));
     }
 
+    if (!job.property) throw new AppError(409, "property_missing", "Add a property address before ordering a measurement report");
     const address = `${job.property.line1}, ${job.property.city}, ${job.property.state} ${job.property.zip}`;
     const provider = getProvider(req.body.provider);
     const { providerOrderId } = await provider.orderReport({ address, idempotencyKey: idempotencyKey ?? `${job.id}-${Date.now()}` });
@@ -91,6 +115,7 @@ measurementsRouter.post(
       createdBy: req.auth!.userId,
     });
     await audit(req, "measurement.ordered", "MeasurementReport", report._id, { provider: provider.name });
+    touchJob(req.auth!.companyId, job.id, "measurements");
 
     setImmediate(() => void processReport(report.id, address)); // keeps the tenant context via AsyncLocalStorage
     res.status(202).json(toDTO(report));

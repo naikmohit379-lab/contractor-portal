@@ -4,6 +4,7 @@ import { z } from "zod";
 import { partySchema, partyUpdateSchema } from "@roofdesk/shared";
 import { audit } from "../../core/audit";
 import { requireAuth } from "../../core/auth";
+import { touchJob } from "../../core/notify";
 import { AppError, notFound } from "../../core/errors";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
 import { Job } from "../../models/Job";
@@ -35,6 +36,7 @@ partiesRouter.post(
     if (!(await Job.exists({ _id: req.params.jobId }))) throw notFound("Job");
     const p = await Party.create({ ...req.body, jobId: req.params.jobId });
     await audit(req, "party.created", "Party", p._id, { name: p.name });
+    touchJob(req.auth!.companyId, req.params.jobId, "parties", "milestones");
     res.status(201).json(toPartyDTO(p));
   }),
 );
@@ -48,6 +50,7 @@ partiesRouter.patch(
     if (!p) throw notFound("Party");
     Object.assign(p, req.body);
     await p.save();
+    touchJob(req.auth!.companyId, req.params.jobId, "parties", "milestones");
     res.json(toPartyDTO(p));
   }),
 );
@@ -65,6 +68,7 @@ partiesRouter.delete(
     }
     await p.deleteOne();
     await audit(req, "party.deleted", "Party", p._id, { name: p.name });
+    touchJob(req.auth!.companyId, req.params.jobId, "parties", "milestones");
     res.status(204).end();
   }),
 );

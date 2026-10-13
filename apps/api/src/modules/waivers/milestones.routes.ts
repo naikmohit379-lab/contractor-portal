@@ -4,6 +4,7 @@ import { z } from "zod";
 import { markReadySchema, milestoneSchema, milestoneUpdateSchema } from "@roofdesk/shared";
 import { audit } from "../../core/audit";
 import { requireAuth } from "../../core/auth";
+import { touchJob } from "../../core/notify";
 import { AppError, notFound } from "../../core/errors";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
 import { Company } from "../../models/Company";
@@ -36,6 +37,7 @@ milestonesRouter.post(
     const { dueDate, ...rest } = req.body;
     const m = await PaymentMilestone.create({ ...rest, jobId: req.params.jobId, dueDate: dueDate ? new Date(dueDate) : undefined });
     await audit(req, "milestone.created", "PaymentMilestone", m._id, { label: m.label });
+    touchJob(req.auth!.companyId, req.params.jobId, "milestones");
     res.status(201).json((await milestoneDTOs(req.params.jobId!)).find((x) => x.id === m.id));
   }),
 );
@@ -53,6 +55,7 @@ milestonesRouter.patch(
     if (dueDate) m.dueDate = new Date(dueDate);
     await m.save();
     await audit(req, "milestone.updated", "PaymentMilestone", m._id);
+    touchJob(req.auth!.companyId, req.params.jobId, "milestones");
     res.json((await milestoneDTOs(req.params.jobId!)).find((x) => x.id === m.id));
   }),
 );
@@ -87,6 +90,7 @@ milestonesRouter.post(
     m.readyBy = req.auth!.userId as any;
     await m.save();
     await audit(req, "milestone.marked_ready", "PaymentMilestone", m._id, { override: !dto.readiness.ready, missing: dto.readiness.missing.map((x) => x.name) });
+    touchJob(req.auth!.companyId, req.params.jobId, "milestones", "payments");
     res.json((await milestoneDTOs(req.params.jobId!)).find((x) => x.id === m.id));
   }),
 );

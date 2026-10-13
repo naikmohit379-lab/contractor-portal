@@ -5,6 +5,7 @@ import { buildRoofReplacementItems, computeTotals, DEFAULT_SETTINGS, diffVersion
 import { estimateGenerateSchema, estimateSaveSchema, newVersionSchema, type EstimateDTO, type EstimateVersionDTO } from "@roofdesk/shared";
 import { audit } from "../../core/audit";
 import { requireAuth } from "../../core/auth";
+import { touchJob } from "../../core/notify";
 import { AppError, notFound } from "../../core/errors";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
 import { Claim } from "../../models/Claim";
@@ -123,6 +124,7 @@ estimatesRouter.post(
     });
     await advanceStage(job._id, "estimated");
     await audit(req, "estimate.generated", "Estimate", est._id, { measurementId: m.id });
+    touchJob(req.auth!.companyId, job.id, "estimate");
     res.status(201).json({ estimate: toEstimateDTO(est) });
   }),
 );
@@ -145,6 +147,7 @@ estimatesRouter.put(
     if (req.body.note !== undefined) v.note = req.body.note;
     await est.save();
     await audit(req, "estimate.saved", "Estimate", est._id, { versionNo: v.versionNo });
+    touchJob(req.auth!.companyId, req.params.jobId, "estimate");
     res.json({ estimate: toEstimateDTO(est) });
   }),
 );
@@ -172,6 +175,7 @@ estimatesRouter.post(
     est.currentVersion = versionNo;
     await est.save();
     await audit(req, "estimate.version_created", "Estimate", est._id, { versionNo, kind: req.body.kind });
+    touchJob(req.auth!.companyId, req.params.jobId, "estimate");
     res.status(201).json({ estimate: toEstimateDTO(est) });
   }),
 );

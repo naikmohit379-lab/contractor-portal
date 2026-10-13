@@ -87,12 +87,13 @@ function OrderCard({ jobId, order, supplier }: { jobId: string; order: PurchaseO
   const { can } = useAuth();
   const qc = useQueryClient();
   const [link, setLink] = useState<string | null>(null);
+  const [emailedTo, setEmailedTo] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const refresh = () => { qc.invalidateQueries({ queryKey: ["jobs", jobId] }); qc.invalidateQueries({ queryKey: ["jobs", "summary"] }); };
 
   const send = useMutation({
-    mutationFn: () => post<{ order: PurchaseOrderDTO; confirmUrl: string }>(`/jobs/${jobId}/orders/${order.id}/send`),
-    onSuccess: (r) => { setLink(r.confirmUrl); refresh(); },
+    mutationFn: () => post<{ order: PurchaseOrderDTO; confirmUrl: string; emailedTo?: string }>(`/jobs/${jobId}/orders/${order.id}/send`),
+    onSuccess: (r) => { setLink(r.confirmUrl); setEmailedTo(r.emailedTo ?? null); refresh(); },
   });
   const move = useMutation({ mutationFn: (status: POStatus) => post(`/jobs/${jobId}/orders/${order.id}/status`, { status }), onSuccess: refresh });
   const next = PO_TRANSITIONS[order.status].filter((s) => s !== "sent");
@@ -135,7 +136,7 @@ function OrderCard({ jobId, order, supplier }: { jobId: string; order: PurchaseO
 
       {link && (
         <div className="mt-4 space-y-2 rounded-md border border-ember/40 bg-ember/10 p-3 text-sm">
-          <p className="font-medium">Order sent. Share this link with the supplier so they can confirm and set the delivery window.</p>
+          <p className="font-medium">{emailedTo ? `Order sent and emailed to ${emailedTo}.` : "Order sent."} {emailedTo ? "The link is below if you need it too." : "Share this link with the supplier so they can confirm and set the delivery window."}</p>
           <div className="flex flex-wrap gap-2">
             <input readOnly aria-label="Supplier confirmation link" className="field flex-1" value={link} onFocus={(e) => e.currentTarget.select()} />
             <button className="btn btn-ghost" onClick={async () => { await navigator.clipboard.writeText(link); setCopied(true); }}>{copied ? "Copied" : "Copy link"}</button>

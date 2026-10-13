@@ -1,19 +1,22 @@
 "use client";
 
 import clsx from "clsx";
-import { Briefcase, CreditCard, FileSignature, LayoutDashboard, LogOut, Store } from "lucide-react";
+import { Briefcase, CreditCard, FileSignature, LayoutDashboard, LogOut, Settings, Store } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { Logo } from "@/components/Logo";
+import { LiveEvents } from "./LiveEvents";
+import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "@/lib/auth";
 
 const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", short: "Home", icon: LayoutDashboard },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/suppliers", label: "Suppliers", icon: Store },
-  { href: "/waivers", label: "Waiver forms", icon: FileSignature },
+  { href: "/waivers", label: "Waiver forms", short: "Forms", icon: FileSignature },
   { href: "/payments", label: "Payments", icon: CreditCard },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -33,8 +36,9 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[240px_1fr] print:block">
+      <LiveEvents />
       <aside className="hidden print:hidden border-r border-ink-600 bg-ink-950 p-5 lg:flex lg:flex-col">
-        <Logo href="/dashboard" />
+        <div className="flex items-center justify-between"><Logo href="/dashboard" /><NotificationBell /></div>
         <nav className="mt-8 flex-1 space-y-1" aria-label="Portal">
           {NAV.map(({ href, label, icon: Icon }) => (
             <Link key={href} href={href} aria-current={isActive(href) ? "page" : undefined}
@@ -53,17 +57,17 @@ export function Shell({ children }: { children: ReactNode }) {
       <div className="flex min-h-screen flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
         <header className="flex items-center justify-between print:hidden border-b border-ink-600 px-5 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
           <Logo href="/dashboard" />
-          <button onClick={logout} className="btn btn-ghost px-3" aria-label="Sign out"><LogOut size={18} /></button>
+          <div className="flex items-center gap-2"><NotificationBell align="right" /><button onClick={logout} className="btn btn-ghost px-3" aria-label="Sign out"><LogOut size={18} /></button></div>
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 p-5 lg:p-8">{children}</main>
       </div>
 
       {/* mobile bottom navigation */}
       <nav className="fixed print:hidden inset-x-0 bottom-0 z-30 flex border-t border-ink-600 bg-ink-950 pb-[env(safe-area-inset-bottom)] lg:hidden" aria-label="Portal">
-        {NAV.map(({ href, label, icon: Icon }) => (
+        {NAV.map(({ href, label, short, icon: Icon }) => (
           <Link key={href} href={href} aria-current={isActive(href) ? "page" : undefined}
-            className={clsx("flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-xs", isActive(href) ? "text-ember" : "text-mist-strong")}>
-            <Icon size={20} aria-hidden /> {label}
+            className={clsx("flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px]", isActive(href) ? "text-ember" : "text-mist-strong")}>
+            <Icon size={20} aria-hidden /> {short ?? label}
           </Link>
         ))}
       </nav>

@@ -3,12 +3,13 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { JOB_STAGES, STAGE_LABELS, type JobDTO } from "@roofdesk/shared";
+import { ReportsPanel } from "@/components/portal/ReportsPanel";
 import { StageBadge } from "@/components/portal/StageBadge";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const summary = useQuery({ queryKey: ["jobs", "summary"], queryFn: () => api<{ total: number; byStage: Record<string, number> }>("/jobs/summary") });
   const recent = useQuery({ queryKey: ["jobs", "recent"], queryFn: () => api<{ items: JobDTO[] }>("/jobs?limit=6") });
 
@@ -18,6 +19,8 @@ export default function DashboardPage() {
         <h1 className="text-4xl font-bold">Welcome, {user?.name.split(" ")[0]}</h1>
         <p className="text-mist">{summary.data ? `${summary.data.total} jobs across your pipeline` : "Loading your pipeline"}</p>
       </div>
+
+      {can("report:view") && <ReportsPanel />}
 
       <section aria-labelledby="pipeline">
         <h2 id="pipeline" className="mb-3 text-xl font-bold">Pipeline</h2>

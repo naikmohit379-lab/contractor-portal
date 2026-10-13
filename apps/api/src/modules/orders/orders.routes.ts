@@ -13,6 +13,8 @@ import {
 } from "@roofdesk/shared";
 import { audit } from "../../core/audit";
 import { hashToken, newRefreshToken, requireAuth } from "../../core/auth";
+import { sendLinkEmail } from "../../core/mailer";
+import { touchJob } from "../../core/notify";
 import { env } from "../../config/env";
 import { AppError, notFound } from "../../core/errors";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
@@ -119,6 +121,7 @@ ordersRouter.post(
       createdBy: req.auth!.userId,
     });
     await audit(req, "order.created", "PurchaseOrder", po._id, { poNumber: po.poNumber });
+    touchJob(req.auth!.companyId, job.id, "orders");
     res.status(201).json(toPODTO(po, supplier.name));
   }),
 );
@@ -162,12 +165,21 @@ ordersRouter.post(
     await po.save();
     await advanceStage(po.jobId, "materials_ordered");
     await audit(req, "order.sent", "PurchaseOrder", po._id, { poNumber: po.poNumber });
+    touchJob(req.auth!.companyId, po.jobId, "orders");
 
     const names = await supplierNames([po.supplierId]);
-    res.json({
-      order: toPODTO(po, names.get(String(po.supplierId)) ?? "Unknown supplier"),
-      confirmUrl: `${env.WEB_ORIGIN}/confirm/${token}`,
-    });
+    const confirmUrl = `${env.WEB_ORIGIN}/confirm/${token}`;
+    // If the supplier has an email on file, send the confirmation link straight to them.
+    const supplier = await Supplier.findById(po.supplierId);
+    const emailedTo = supplier?.contactEmail && (await sendLinkEmail({
+      companyId: req.auth!.companyId,
+      to: supplier.contactEmail,
+      kind: "order.link",
+      subject: `Purchase order ${po.poNumber}: please confirm`,
+      intro: `Please review purchase order ${po.poNumber} and confirm it, with your delivery window, using the link below.`,
+      url: confirmUrl,
+    })) ? supplier.contactEmail : undefined;
+    res.json({ order: toPODTO(po, names.get(String(po.supplierId)) ?? "Unknown supplier"), confirmUrl, emailedTo });
   }),
 );
 
@@ -187,6 +199,7 @@ ordersRouter.post(
     po.status = status;
     await po.save();
     await audit(req, "order.status_changed", "PurchaseOrder", po._id, { to: status });
+    touchJob(req.auth!.companyId, po.jobId, "orders");
     const names = await supplierNames([po.supplierId]);
     res.json(toPODTO(po, names.get(String(po.supplierId)) ?? "Unknown supplier"));
   }),

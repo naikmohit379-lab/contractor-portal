@@ -18,6 +18,8 @@ import {
 import { env } from "../../config/env";
 import { audit as userAudit } from "../../core/audit";
 import { hashToken, newRefreshToken, requireAuth } from "../../core/auth";
+import { sendLinkEmail } from "../../core/mailer";
+import { notify, touchJob } from "../../core/notify";
 import { AppError, notFound } from "../../core/errors";
 import { verifyPassword } from "../../core/password";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
@@ -120,7 +122,7 @@ paymentsRouter.post(
     const p = await Payment.create({
       jobId: job._id,
       milestoneId: m._id,
-      description: `${m.label} for ${job.property.line1}`,
+      description: `${m.label} for ${job.property?.line1 ?? "your project"}`,
       amountCents,
       payerName: req.body.payerName,
       payerEmail: req.body.payerEmail || undefined,
@@ -129,7 +131,16 @@ paymentsRouter.post(
       requestedBy: req.auth!.userId,
     });
     await userAudit(req, "payment.requested", "Payment", p._id, { amountCents });
-    res.status(201).json({ payment: toPaymentDTO(p), payUrl: payUrl(token) });
+    touchJob(req.auth!.companyId, job.id, "payments", "milestones");
+    const emailedTo = p.payerEmail && (await sendLinkEmail({
+      companyId: req.auth!.companyId,
+      to: p.payerEmail,
+      kind: "payment.link",
+      subject: `Payment request: ${p.description}`,
+      intro: `A payment of ${(amountCents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })} is due for ${p.description}. You will pay on the payment processor's secure page.`,
+      url: payUrl(token),
+    })) ? p.payerEmail : undefined;
+    res.status(201).json({ payment: toPaymentDTO(p), payUrl: payUrl(token), emailedTo });
   }),
 );
 
@@ -145,7 +156,16 @@ paymentsRouter.post(
     p.tokenHash = hashToken(token);
     await p.save();
     await userAudit(req, "payment.link_reissued", "Payment", p._id);
-    res.json({ payment: toPaymentDTO(p), payUrl: payUrl(token) });
+    touchJob(req.auth!.companyId, req.params.jobId, "payments");
+    const emailedTo = p.payerEmail && (await sendLinkEmail({
+      companyId: req.auth!.companyId,
+      to: p.payerEmail,
+      kind: "payment.link",
+      subject: `Payment request: ${p.description}`,
+      intro: `Here is a new link to pay for ${p.description}. The earlier link no longer works.`,
+      url: payUrl(token),
+    })) ? p.payerEmail : undefined;
+    res.json({ payment: toPaymentDTO(p), payUrl: payUrl(token), emailedTo });
   }),
 );
 
@@ -162,6 +182,7 @@ paymentsRouter.post(
     p.tokenHash = undefined;
     await p.save();
     await userAudit(req, "payment.canceled", "Payment", p._id);
+    touchJob(req.auth!.companyId, req.params.jobId, "payments");
     res.json({ payment: toPaymentDTO(p) });
   }),
 );
@@ -187,8 +208,20 @@ paymentsRouter.post(
     const refund = await Refund.create({ paymentId: p._id, jobId: p.jobId, amountCents: req.body.amountCents, reason: req.body.reason, requestedBy: req.auth!.userId, status: "pending_approval" });
     await userAudit(req, "refund.requested", "Refund", refund._id, { amountCents: refund.amountCents, needsApproval });
 
-    if (needsApproval) return res.status(202).json({ refund: toRefundDTO(refund), needsApproval: true });
+    touchJob(req.auth!.companyId, req.params.jobId, "payments");
+    if (needsApproval) {
+      await notify(req.auth!.companyId, {
+        kind: "refund.approval_needed",
+        title: `Refund of ${(refund.amountCents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })} needs approval`,
+        body: refund.reason,
+        href: "/payments",
+        roles: ["owner", "admin"],
+        excludeUserId: req.auth!.userId,
+      });
+      return res.status(202).json({ refund: toRefundDTO(refund), needsApproval: true });
+    }
     const out = await executeRefund(refund.id);
+    touchJob(req.auth!.companyId, req.params.jobId, "payments", "milestones");
     const fresh = (await Refund.findById(refund.id))!;
     if (!out.ok) return res.status(502).json({ error: { code: "refund_failed", message: out.error ?? "The refund failed" } });
     res.status(201).json({ refund: toRefundDTO(fresh), needsApproval: false });
@@ -210,6 +243,7 @@ paymentsRouter.post(
     await r.save();
     await userAudit(req, "refund.approved", "Refund", r._id);
     const out = await executeRefund(r.id);
+    touchJob(req.auth!.companyId, req.params.jobId, "payments", "milestones");
     if (!out.ok) return res.status(502).json({ error: { code: "refund_failed", message: out.error ?? "The refund failed" } });
     res.json({ refund: toRefundDTO((await Refund.findById(r.id))!) });
   }),
@@ -227,6 +261,7 @@ paymentsRouter.post(
     r.failureReason = req.body.reason;
     await r.save();
     await userAudit(req, "refund.rejected", "Refund", r._id, { reason: req.body.reason });
+    touchJob(req.auth!.companyId, req.params.jobId, "payments");
     res.json({ refund: toRefundDTO(r) });
   }),
 );
@@ -245,7 +280,7 @@ companyPaymentsRouter.get(
       LedgerEntry.find(),
     ]);
     const jobs = await Job.find({ _id: { $in: [...new Set(payments.map((p) => String(p.jobId)))] } });
-    const byJob = new Map(jobs.map((j) => [j.id, { jobNumber: j.jobNumber, customer: j.customer.name }]));
+    const byJob = new Map(jobs.map((j) => [j.id, { jobNumber: j.jobNumber, customer: j.customer?.name ?? "" }]));
     res.json({
       provider: env.PAYMENT_PROVIDER,
       payments: payments.map((p) => ({ ...toPaymentDTO(p), job: byJob.get(String(p.jobId)) })),

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { JOB_STAGES, jobCreateSchema, jobListQuerySchema, jobStageSchema, jobUpdateSchema, type JobDTO } from "@roofdesk/shared";
 import { audit } from "../../core/audit";
 import { requireAuth } from "../../core/auth";
+import { touchJob } from "../../core/notify";
 import { AppError, notFound } from "../../core/errors";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
 import { Job } from "../../models/Job";
@@ -70,6 +71,7 @@ jobsRouter.post(
     const jobNumber = `JOB-${randomBytes(3).toString("hex").toUpperCase()}`;
     const job = await Job.create({ ...req.body, jobNumber, createdBy: req.auth!.userId });
     await audit(req, "job.created", "Job", job._id, { jobNumber });
+    touchJob(req.auth!.companyId, job.id);
     res.status(201).json(toJobDTO(job));
   }),
 );
@@ -97,6 +99,7 @@ jobsRouter.patch(
     Object.assign(job, rest);
     await job.save();
     await audit(req, "job.updated", "Job", job._id);
+    touchJob(req.auth!.companyId, job.id);
     res.json(toJobDTO(job));
   }),
 );
@@ -113,6 +116,7 @@ jobsRouter.patch(
     job.stage = req.body.stage;
     await job.save();
     await audit(req, "job.stage_changed", "Job", job._id, { from, to: job.stage });
+    touchJob(req.auth!.companyId, job.id);
     res.json(toJobDTO(job));
   }),
 );

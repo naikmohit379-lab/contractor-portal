@@ -21,11 +21,11 @@ const TONE: Record<string, string> = {
 
 interface PaymentsResponse { provider: string; payments: PaymentDTO[]; refunds: RefundDTO[]; collectedCents: number }
 
-function LinkBox({ url, onClose }: { url: string; onClose: () => void }) {
+function LinkBox({ url, emailedTo, onClose }: { url: string; emailedTo?: string; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="space-y-2 rounded-md border border-ember/40 bg-ember/10 p-3 text-sm">
-      <p className="font-medium">Send this link to the payer. It is shown once. They pay on the gateway's secure page.</p>
+      <p className="font-medium">{emailedTo ? `Emailed to ${emailedTo}. ` : "Send this link to the payer. "}It is shown once. They pay on the gateway's secure page.</p>
       <div className="flex flex-wrap gap-2">
         <input readOnly aria-label="Payment link" className="field flex-1" value={url} onFocus={(e) => e.currentTarget.select()} />
         <button className="btn btn-ghost" onClick={async () => { await navigator.clipboard.writeText(url); setCopied(true); }}>{copied ? "Copied" : "Copy"}</button>
@@ -70,10 +70,10 @@ function RefundForm({ jobId, p, onDone }: { jobId: string; p: PaymentDTO; onDone
 function PaymentRow({ jobId, p, refunds }: { jobId: string; p: PaymentDTO; refunds: RefundDTO[] }) {
   const { can } = useAuth();
   const qc = useQueryClient();
-  const [link, setLink] = useState<string | null>(null);
+  const [link, setLink] = useState<{ url: string; emailedTo?: string } | null>(null);
   const [refunding, setRefunding] = useState(false);
   const refresh = () => qc.invalidateQueries({ queryKey: ["jobs", jobId] });
-  const resend = useMutation({ mutationFn: () => post<{ payUrl: string }>(`/jobs/${jobId}/payments/${p.id}/resend`), onSuccess: (r) => { setLink(r.payUrl); refresh(); } });
+  const resend = useMutation({ mutationFn: () => post<{ payUrl: string; emailedTo?: string }>(`/jobs/${jobId}/payments/${p.id}/resend`), onSuccess: (r) => { setLink({ url: r.payUrl, emailedTo: r.emailedTo }); refresh(); } });
   const cancel = useMutation({ mutationFn: () => post(`/jobs/${jobId}/payments/${p.id}/cancel`), onSuccess: refresh });
   const refundable = (p.status === "succeeded" || p.status === "partially_refunded") && p.refundedCents < p.amountCents;
 
@@ -94,7 +94,7 @@ function PaymentRow({ jobId, p, refunds }: { jobId: string; p: PaymentDTO; refun
         {["requested", "failed"].includes(p.status) && can("payment:request") && <button className="btn btn-ghost h-9 min-h-0 px-3" onClick={() => cancel.mutate()}>Cancel</button>}
         {refundable && can("payment:refund") && !refunding && <button className="btn btn-ghost h-9 min-h-0 px-3" onClick={() => setRefunding(true)}>Refund</button>}
       </div>
-      {link && <div className="mt-3"><LinkBox url={link} onClose={() => setLink(null)} /></div>}
+      {link && <div className="mt-3"><LinkBox url={link.url} emailedTo={link.emailedTo} onClose={() => setLink(null)} /></div>}
       {refunding && <RefundForm jobId={jobId} p={p} onDone={() => setRefunding(false)} />}
       {refunds.length > 0 && (
         <ul className="mt-3 space-y-1 border-t border-ink-600 pt-3 text-mist">
@@ -105,14 +105,14 @@ function PaymentRow({ jobId, p, refunds }: { jobId: string; p: PaymentDTO; refun
   );
 }
 
-function RequestPayment({ jobId, m, onDone }: { jobId: string; m: MilestoneDTO; onDone: (url: string) => void }) {
+function RequestPayment({ jobId, m, onDone }: { jobId: string; m: MilestoneDTO; onDone: (l: { url: string; emailedTo?: string }) => void }) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [amount, setAmount] = useState<number | null>(null);
   const req = useMutation({
-    mutationFn: () => post<{ payUrl: string }>(`/jobs/${jobId}/payments`, { milestoneId: m.id, payerName: name, payerEmail: email, amountCents: amount ?? undefined }),
-    onSuccess: (r) => { qc.invalidateQueries({ queryKey: ["jobs", jobId] }); onDone(r.payUrl); },
+    mutationFn: () => post<{ payUrl: string; emailedTo?: string }>(`/jobs/${jobId}/payments`, { milestoneId: m.id, payerName: name, payerEmail: email, amountCents: amount ?? undefined }),
+    onSuccess: (r) => { qc.invalidateQueries({ queryKey: ["jobs", jobId] }); onDone({ url: r.payUrl, emailedTo: r.emailedTo }); },
   });
   return (
     <div className="mt-3 space-y-3 rounded-md border border-ink-500 p-4">
@@ -129,8 +129,8 @@ function RequestPayment({ jobId, m, onDone }: { jobId: string; m: MilestoneDTO; 
 
 export function PaymentsTab({ jobId }: { jobId: string }) {
   const [open, setOpen] = useState<string | null>(null);
-  const [link, setLink] = useState<string | null>(null);
-  const q = useQuery({ queryKey: ["jobs", jobId, "payments"], queryFn: () => api<PaymentsResponse>(`/jobs/${jobId}/payments`), refetchInterval: 10_000 });
+  const [link, setLink] = useState<{ url: string; emailedTo?: string } | null>(null);
+  const q = useQuery({ queryKey: ["jobs", jobId, "payments"], queryFn: () => api<PaymentsResponse>(`/jobs/${jobId}/payments`) });
   const ms = useQuery({ queryKey: ["jobs", jobId, "milestones"], queryFn: () => api<{ items: MilestoneDTO[] }>(`/jobs/${jobId}/milestones`) });
   const { can } = useAuth();
 
@@ -155,7 +155,7 @@ export function PaymentsTab({ jobId }: { jobId: string }) {
               {can("payment:request") && <button className="btn btn-primary" onClick={() => { setOpen(open === m.id ? null : m.id); setLink(null); }}>Request payment</button>}
             </div>
             {open === m.id && !link && <RequestPayment jobId={jobId} m={m} onDone={setLink} />}
-            {open === m.id && link && <div className="mt-3"><LinkBox url={link} onClose={() => { setLink(null); setOpen(null); }} /></div>}
+            {open === m.id && link && <div className="mt-3"><LinkBox url={link.url} emailedTo={link.emailedTo} onClose={() => { setLink(null); setOpen(null); }} /></div>}
           </article>
         ))}
       </div>

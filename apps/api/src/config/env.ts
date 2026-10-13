@@ -17,6 +17,10 @@ const schema = z.object({
   PAYMENT_PROVIDER: z.enum(["mock", "stripe"]).default("mock"),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  // Email: "log" prints to the server console (development); "resend" sends through the Resend HTTP API.
+  EMAIL_PROVIDER: z.enum(["log", "resend"]).default("log"),
+  EMAIL_FROM: z.string().default("RoofDesk <no-reply@example.com>"),
+  RESEND_API_KEY: z.string().optional(),
 });
 
 export const env = schema.parse(process.env);

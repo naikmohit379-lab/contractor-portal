@@ -31,7 +31,7 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 /** The waiver that best represents a party for one payment: signed beats open beats closed, newest first. */
-function bestWaiver(waivers: WaiverDTO[], partyId: string, milestone: MilestoneDTO): WaiverDTO | undefined {
+function bestWaiver(waivers: WaiverDTO[], partyId: string, milestone: MilestoneDTO) {
   const ok = new Set(acceptableWaiverTypes(milestone.type));
   const rank = (s: string) => (s === "signed" ? 0 : s === "viewed" || s === "requested" ? 1 : 2);
   return waivers
@@ -39,14 +39,14 @@ function bestWaiver(waivers: WaiverDTO[], partyId: string, milestone: MilestoneD
     .sort((a, b) => rank(a.status) - rank(b.status) || b.requestedAt.localeCompare(a.requestedAt))[0];
 }
 
-function CopyLinks({ links, onClose }: { links: { label: string; url: string }[]; onClose: () => void }) {
+function CopyLinks({ links, onClose }: { links: { label: string; url: string; emailedTo?: string }[]; onClose: () => void }) {
   const [copied, setCopied] = useState<string | null>(null);
   return (
     <div className="space-y-3 rounded-md border border-ember/40 bg-ember/10 p-4 text-sm">
-      <p className="font-medium">Send each person their own signing link. These links are shown once.</p>
+      <p className="font-medium">Each person has their own signing link. Links are shown once. {links.some((l) => l.emailedTo) && "People with an email on file were emailed automatically."}</p>
       {links.map((l) => (
         <div key={l.url} className="flex flex-wrap items-center gap-2">
-          <span className="w-40 shrink-0 font-medium">{l.label}</span>
+          <span className="w-40 shrink-0 font-medium">{l.label}{l.emailedTo && <span className="block text-xs font-normal text-ok">Emailed to {l.emailedTo}</span>}</span>
           <input readOnly aria-label={`Signing link for ${l.label}`} className="field flex-1" value={l.url} onFocus={(e) => e.currentTarget.select()} />
           <button className="btn btn-ghost" onClick={async () => { await navigator.clipboard.writeText(l.url); setCopied(l.url); }}>{copied === l.url ? "Copied" : "Copy"}</button>
         </div>
@@ -86,7 +86,7 @@ function MilestoneCard({ jobId, m, parties, waivers, gating }: { jobId: string; 
   const accept = acceptableWaiverTypes(m.type);
   const [type, setType] = useState<WaiverType>(defaultRequestType(m.type));
   const [through, setThrough] = useState(new Date().toISOString().slice(0, 10));
-  const [links, setLinks] = useState<{ label: string; url: string }[] | null>(null);
+  const [links, setLinks] = useState<{ label: string; url: string; emailedTo?: string }[] | null>(null);
   const [skipped, setSkipped] = useState<{ party: string; reason: string }[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const [needsTemplate, setNeedsTemplate] = useState(false);
@@ -94,12 +94,12 @@ function MilestoneCard({ jobId, m, parties, waivers, gating }: { jobId: string; 
   const onErr = (e: unknown) => setNeedsTemplate(e instanceof ApiError && e.code === "template_not_approved");
 
   const bulk = useMutation({
-    mutationFn: () => post<{ created: { party: string; signUrl: string }[]; skipped: { party: string; reason: string }[] }>(`/jobs/${jobId}/waivers/bulk`, { milestoneId: m.id, type, throughDate: through }),
-    onSuccess: (r) => { setNeedsTemplate(false); setSkipped(r.skipped); setLinks(r.created.map((c) => ({ label: c.party, url: c.signUrl }))); refresh(); },
+    mutationFn: () => post<{ created: { party: string; signUrl: string; emailedTo?: string }[]; skipped: { party: string; reason: string }[] }>(`/jobs/${jobId}/waivers/bulk`, { milestoneId: m.id, type, throughDate: through }),
+    onSuccess: (r) => { setNeedsTemplate(false); setSkipped(r.skipped); setLinks(r.created.map((c) => ({ label: c.party, url: c.signUrl, emailedTo: c.emailedTo }))); refresh(); },
     onError: onErr,
   });
   const resend = useMutation({
-    mutationFn: ({ id, label }: { id: string; label: string }) => post<{ signUrl: string }>(`/jobs/${jobId}/waivers/${id}/resend`).then((r) => ({ label, url: r.signUrl })),
+    mutationFn: ({ id, label }: { id: string; label: string }) => post<{ signUrl: string; emailedTo?: string }>(`/jobs/${jobId}/waivers/${id}/resend`).then((r) => ({ label, url: r.signUrl, emailedTo: r.emailedTo })),
     onSuccess: (l) => { setLinks([l]); refresh(); },
   });
   const cancel = useMutation({ mutationFn: (id: string) => post(`/jobs/${jobId}/waivers/${id}/cancel`), onSuccess: refresh });
@@ -131,7 +131,7 @@ function MilestoneCard({ jobId, m, parties, waivers, gating }: { jobId: string; 
             <tbody>
               {parties.filter((p) => p.requiresWaiver).map((p) => {
                 const w = bestWaiver(waivers, p.id, m);
-                const status = w?.status ?? "none";
+                const status: string = w ? w.status : "none";
                 return (
                   <tr key={p.id} className="border-t border-ink-600 align-top">
                     <td className="py-3 pr-3 font-medium">{p.name}</td>
@@ -268,7 +268,7 @@ export function WaiversTab({ jobId }: { jobId: string }) {
   const [adding, setAdding] = useState(false);
   const parties = useQuery({ queryKey: ["jobs", jobId, "parties"], queryFn: () => api<{ items: PartyDTO[] }>(`/jobs/${jobId}/parties`) });
   const milestones = useQuery({ queryKey: ["jobs", jobId, "milestones"], queryFn: () => api<{ gating: string; items: MilestoneDTO[] }>(`/jobs/${jobId}/milestones`) });
-  const waivers = useQuery({ queryKey: ["jobs", jobId, "waivers"], queryFn: () => api<{ items: WaiverDTO[] }>(`/jobs/${jobId}/waivers`), refetchInterval: 15_000 });
+  const waivers = useQuery({ queryKey: ["jobs", jobId, "waivers"], queryFn: () => api<{ items: WaiverDTO[] }>(`/jobs/${jobId}/waivers`) });
 
   return (
     <div className="space-y-8">

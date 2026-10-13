@@ -12,6 +12,7 @@ export const PERMISSIONS = [
   "payment:request",
   "payment:refund",
   "payment:approve",
+  "report:view",
   "user:manage",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
@@ -24,7 +25,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   admin: ALL.filter((p) => p !== "payment:refund"), // admins approve large refunds but cannot start one
   estimator: ["job:read", "job:write", "measurement:order", "estimate:write", "claim:write"],
   pm: ["job:read", "job:write", "measurement:order", "order:send", "waiver:request"],
-  billing: ["job:read", "claim:write", "waiver:request", "payment:request"],
+  billing: ["job:read", "claim:write", "waiver:request", "payment:request", "report:view"],
   readonly: ["job:read"],
 };
 

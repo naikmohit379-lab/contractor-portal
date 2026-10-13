@@ -1,10 +1,10 @@
 # RoofDesk: Roofing Contractor Portal
 
-Build status: steps 0 to 8 of the implementation plan. Foundation (auth, tenancy, jobs, measurements), estimates and claims, supplier orders, lien waivers with e-signature, and payments with a ledger.
+Build status: steps 0 to 9 of the implementation plan. Foundation (auth, tenancy, jobs, measurements), estimates and claims, supplier orders, lien waivers with e-signature, payments with a ledger, and notifications, live updates and reporting.
 
 ## Stack
 - **Web:** Next.js 14 (App Router), React 18, TypeScript, Tailwind, TanStack Query, React Hook Form + Zod
-- **API:** Node.js, Express 4, MongoDB (Mongoose), Zod, JWT + rotating refresh tokens, Argon2
+- **API:** Node.js, Express 4, MongoDB (Mongoose), Zod, JWT + rotating refresh tokens, bcryptjs for portable password hashes (legacy Argon2 verification where available)
 - **Packages:** `shared` (Zod schemas, types, permissions, claim and order state machines) and `estimate-engine` (pure money math, templates, diffs, material lists), both used by web and API
 - **Local infra:** Docker Compose (MongoDB replica set, Redis, MinIO)
 
@@ -29,6 +29,9 @@ pnpm dev                                    # web :3000, API :4000
 9. Back on the job, watch the status board update, view a signed document and its integrity check, then **Mark payment ready**. If waivers are missing you are warned (or blocked, if the company setting is `block`).
 10. **Payments** tab: a ready payment can now be billed. **Request payment**, copy the link, open it in a private window as the homeowner, press **Pay securely**, then choose **Simulate successful payment** on the test checkout page. The payment turns Paid, the ledger posts, the milestone becomes Paid and the job's collected total updates. (With `PAYMENT_PROVIDER=mock`, the default, no real money moves.)
 11. As the owner, **Refund** part of that payment (re-enter your password). Refunds above $1,000 wait on the **Payments** page for a different admin or owner to approve. The same page shows a reconciliation check of the ledger.
+12. Open the app in two browser windows (two users, or one normal and one private window with a second login). Sign a waiver or simulate a payment in one window: the other window's tabs refresh on their own, a toast appears, and the bell shows an unread count. Click the bell to jump to the item.
+13. **Settings**: choose which kinds of notification are also emailed. With `EMAIL_PROVIDER=log` (default) emails are printed in the API console, including the secure links, so you can click them. Add an email to a waiver party, a payer or a supplier and the link is sent automatically.
+14. **Dashboard** (owner, admin or billing): collected by month, owed and overdue amounts, claim approval rate and cycle time, how long waivers have waited, claims by status, and **CSV exports** for jobs, payments, waivers and the ledger.
 
 ## What is built
 | Area | Status |
@@ -55,6 +58,13 @@ pnpm dev                                    # web :3000, API :4000
 | Double-entry, append-only ledger written in the same transaction as the payment | Done (needs the MongoDB replica set from Docker Compose) |
 | Refunds with password re-check, dual approval above a threshold, gateway-side refunds picked up | Done |
 | Internal reconciliation (ledger vs payment records, stuck refunds, disputes, stalled payments) | Done; gateway balance-report matching not built |
+| In-app notifications (bell, unread count, mark read) for measurements, claims, supplier replies, waivers, payments, disputes and refund approvals | Done |
+| Per-person email preferences by notification group | Done |
+| Email sending behind an interface: log provider (development) and Resend over HTTP | Done; Resend not yet tried against a real account |
+| Secure links emailed automatically to waiver parties, payers and suppliers; link text stripped from stored copies | Done |
+| Live updates over Server-Sent Events: data refreshes in other open windows, toasts, notification push | Done; single API instance (see below) |
+| Owner dashboard: collected by month, receivables, overdue, claim approval rate and cycle time, waiver aging, claims by status | Done, report math executed and passing |
+| CSV exports (jobs, payments, waivers, ledger) with spreadsheet-formula protection | Done |
 | Marketing page, SEO files, responsive portal | Done |
 
 ## Not built yet
@@ -64,11 +74,11 @@ pnpm dev                                    # web :3000, API :4000
 4. Delivery verification, invoice upload and price-variance checks on orders.
 5. Waivers: statutory per-state forms (must come from your counsel), automatic reminders and escalation (needs the scheduler and email), SMS/email delivery of links, OTP or notarization, preliminary-notice deadlines, closeout waiver packet export, and a waiver-amount check against real payments.
 6. Payments: matching against the gateway's own balance report, dispute evidence packets, payouts to suppliers and crews, receipts by email, an unapproved-waiver check on payouts, a settings page for gating and the refund threshold (they are fields on the company, with sensible defaults), and a strict Content-Security-Policy on payer pages.
-7. Notifications, live updates and dashboards (Step 9).
+7. Step 9 gaps: SMS delivery; automatic waiver and payment reminders and escalation (needs a scheduler); Redis-backed live events so several API servers share one stream (today events stay inside one server process); PDF exports and exports as background jobs; QuickBooks or Xero sync; a material-price-variance report (needs supplier invoice upload); per-user report filters and date ranges; a public API and outgoing webhooks.
 8. API integration tests (tenant isolation, state machines, waiver immutability, payment transactions and webhook redelivery against a real MongoDB), CI/CD, deployment.
 
 ## Verification status
-- The estimate engine, waiver readiness rules, ledger and reconciliation rules, and the Stripe webhook signature check and event mapping were compiled and their assertions executed in the build sandbox.
+- The estimate engine, waiver readiness rules, ledger and reconciliation rules, report math and CSV writer, notification preferences, the Stripe webhook signature check and event mapping, and the real email and live-event modules (with their database and logger stubbed) were compiled and executed in the build sandbox, and their assertions pass.
 - Everything else was written without installing dependencies (no network there) and has only had a syntax-level TypeScript check. Run `pnpm install && pnpm typecheck && pnpm test` first and expect to fix small issues.
 
 ## Design notes
@@ -87,3 +97,10 @@ pnpm dev                                    # web :3000, API :4000
 - Every tenant model is scoped by `companyId` through `tenancyPlugin`; an unscoped query throws.
 - Mongo operator keys are stripped from input, all bodies and queries are validated with Zod.
 - Set a strong `JWT_ACCESS_SECRET`, serve over HTTPS, and review CORS (`WEB_ORIGIN`) before deploying.
+
+## Notifications and live updates: how they work
+- Every change that matters calls `touchJob` (refresh these screens) and, where a person should know, `notify` (bell, toast, optional email). Both are in `apps/api/src/core/notify.ts`. `notify` never throws, so a notification problem cannot undo a payment.
+- Payment notifications are queued inside the payment transaction and sent only after it commits, so no one is told about a payment that was rolled back.
+- The browser holds one stream to `GET /api/v1/events`. It is read with `fetch` (so the access token can be sent), reconnects with backoff, and the server ends it every 10 minutes so a revoked session cannot listen for long. If the stream is down, screens still refresh when you return to the tab.
+- Live events are in memory (`core/realtime.ts`). To run more than one API server, replace the body of `publish` and `subscribe` with Redis pub/sub; nothing else changes.
+- Emails never store secure links: signing, payment and confirmation links are replaced with `[secure link]` in the outbox record, and in production logs.

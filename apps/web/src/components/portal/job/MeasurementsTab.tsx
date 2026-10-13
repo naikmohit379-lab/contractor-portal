@@ -50,8 +50,8 @@ export function MeasurementsTab({ jobId }: { jobId: string }) {
   const measurements = useQuery({
     queryKey: ["jobs", jobId, "measurements"],
     queryFn: () => api<{ items: MeasurementDTO[] }>(`/jobs/${jobId}/measurements`),
-    // poll while a report is still being produced (live updates replace this in a later step)
-    refetchInterval: (q) => (q.state.data?.items.some((m) => m.status === "ordered" || m.status === "processing") ? 2000 : false),
+    // The live stream refreshes this when the report lands. This slow poll is only a fallback if the stream is down.
+    refetchInterval: (q) => (q.state.data?.items.some((m) => m.status === "ordered" || m.status === "processing") ? 15000 : false),
   });
   const order = useMutation({
     mutationFn: () => post<MeasurementDTO>(`/jobs/${jobId}/measurements`, { provider: "mock" }, { "Idempotency-Key": crypto.randomUUID() }),

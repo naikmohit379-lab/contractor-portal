@@ -3,6 +3,7 @@ const BASE =
   (process.env.NODE_ENV === "production" ? "/api/v1" : "http://localhost:4000/api/v1");
 
 let accessToken: string | null = null;
+export const getAccessToken = () => accessToken;
 export const setAccessToken = (t: string | null) => {
   accessToken = t;
 };
@@ -59,3 +60,20 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 export const post = <T>(path: string, data?: unknown, headers?: Record<string, string>) =>
   api<T>(path, { method: "POST", body: data === undefined ? undefined : JSON.stringify(data), headers });
 export const patch = <T>(path: string, data: unknown) => api<T>(path, { method: "PATCH", body: JSON.stringify(data) });
+
+/** Downloads an authenticated export as a blob; plain links cannot carry the in-memory access token. */
+export async function downloadFile(path: string, fallbackName: string) {
+  let res = await send(path);
+  if (res.status === 401 && (await refreshSession())) res = await send(path);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, body?.error?.code ?? "error", body?.error?.message ?? "The download failed");
+  }
+  const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? fallbackName;
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}

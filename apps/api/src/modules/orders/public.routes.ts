@@ -2,6 +2,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { supplierConfirmSchema } from "@roofdesk/shared";
 import { hashToken } from "../../core/auth";
+import { notify, touchJob } from "../../core/notify";
 import { AppError, notFound } from "../../core/errors";
 import { asyncHandler, validate } from "../../core/http";
 import { AuditLog } from "../../models/AuditLog";
@@ -24,8 +25,9 @@ publicRouter.get(
   "/orders/:token",
   asyncHandler(async (req, res) => {
     const po = await loadByToken(req.params.token!);
+    const companyId = String((po as any).companyId);
     const [company, supplier, job] = await Promise.all([
-      Company.findById(po.companyId),
+      Company.findById(companyId),
       Supplier.findById(po.supplierId).setOptions({ skipTenant: true }),
       Job.findById(po.jobId).setOptions({ skipTenant: true }),
     ]);
@@ -35,7 +37,7 @@ publicRouter.get(
       company: company?.name,
       supplier: supplier?.name,
       accountNumber: supplier?.accountNumber ?? undefined,
-      deliverTo: job ? `${job.property.line1}, ${job.property.city}, ${job.property.state} ${job.property.zip}` : undefined,
+      deliverTo: job?.property ? `${job.property.line1}, ${job.property.city}, ${job.property.state} ${job.property.zip}` : undefined,
       dropInstructions: po.dropInstructions ?? undefined,
       requestedWindow: po.deliveryWindow?.date ? { date: po.deliveryWindow.date.toISOString(), slot: po.deliveryWindow.slot } : undefined,
       lines: po.lines.map((l) => ({ description: l.description, unit: l.unit, quantity: l.quantity, sku: l.sku ?? undefined })),
@@ -48,6 +50,7 @@ publicRouter.post(
   validate({ body: supplierConfirmSchema }),
   asyncHandler(async (req, res) => {
     const po = await loadByToken(req.params.token!);
+    const companyId = String((po as any).companyId);
     if (po.status !== "sent") throw new AppError(409, "already_responded", "This order has already been answered");
 
     const { action, deliveryWindow, note } = req.body;
@@ -64,7 +67,16 @@ publicRouter.post(
       }
     }
     await po.save();
-    await AuditLog.create({ companyId: po.companyId, action: "order.supplier_responded", entity: "PurchaseOrder", entityId: po._id, meta: { action }, ip: req.ip });
+    await AuditLog.create({ companyId, action: "order.supplier_responded", entity: "PurchaseOrder", entityId: po._id, meta: { action }, ip: req.ip });
+    touchJob(companyId, po.jobId, "orders");
+    const supplier = await Supplier.findById(po.supplierId).setOptions({ skipTenant: true });
+    await notify(companyId, {
+      kind: action === "backorder" ? "order.backordered" : "order.confirmed",
+      title: action === "backorder" ? `${supplier?.name ?? "Supplier"} backordered ${po.poNumber}` : `${supplier?.name ?? "Supplier"} confirmed ${po.poNumber}`,
+      body: po.deliveryWindow?.date ? `Delivery set for ${po.deliveryWindow.date.toDateString()}.` : action === "backorder" ? "Some items are backordered. Check the order." : "The supplier confirmed the order.",
+      href: `/jobs/${po.jobId}?tab=orders`,
+      roles: ["owner", "admin", "pm"],
+    });
     res.json({ status: po.status });
   }),
 );

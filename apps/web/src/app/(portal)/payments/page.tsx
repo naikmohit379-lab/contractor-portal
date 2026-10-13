@@ -34,7 +34,7 @@ function ApproveRefund({ r }: { r: RefundDTO }) {
 
 export default function PaymentsPage() {
   const { can } = useAuth();
-  const q = useQuery({ queryKey: ["payments"], queryFn: () => api<Overview>("/payments"), refetchInterval: 15_000 });
+  const q = useQuery({ queryKey: ["payments"], queryFn: () => api<Overview>("/payments") });
   const recon = useQuery({ queryKey: ["payments", "recon"], queryFn: () => api<{ checkedPayments: number; exceptions: ReconciliationException[] }>("/payments/reconciliation"), enabled: can("payment:approve"), retry: false });
 
   return (

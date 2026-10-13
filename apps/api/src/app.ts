@@ -11,6 +11,9 @@ import { logger } from "./core/logger";
 import { sanitize } from "./core/sanitize";
 import { authRouter } from "./modules/auth/auth.routes";
 import { jobsRouter } from "./modules/jobs/jobs.routes";
+import { eventsRouter } from "./modules/notifications/events.routes";
+import { notificationsRouter } from "./modules/notifications/notifications.routes";
+import { reportsRouter } from "./modules/reports/reports.routes";
 import { claimsRouter } from "./modules/claims/claims.routes";
 import { estimatesRouter } from "./modules/estimates/estimates.routes";
 import { measurementsRouter } from "./modules/measurements/measurements.routes";
@@ -60,6 +63,9 @@ export function createApp() {
   v1.use("/public", publicPaymentsRouter);
   v1.use("/jobs/:jobId/payments", paymentsRouter);
   v1.use("/payments", companyPaymentsRouter);
+  v1.use("/events", eventsRouter);
+  v1.use("/notifications", notificationsRouter);
+  v1.use("/reports", reportsRouter);
   app.use("/api/v1", v1);
 
   app.use((_req, res) => res.status(404).json({ error: { code: "not_found", message: "Route not found" } }));

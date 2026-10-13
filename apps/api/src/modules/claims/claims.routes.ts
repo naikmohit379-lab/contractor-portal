@@ -13,6 +13,7 @@ import {
 } from "@roofdesk/shared";
 import { audit } from "../../core/audit";
 import { requireAuth } from "../../core/auth";
+import { notify, touchJob } from "../../core/notify";
 import { AppError, notFound } from "../../core/errors";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
 import { Claim } from "../../models/Claim";
@@ -89,6 +90,7 @@ claimsRouter.post(
       await est.save();
     }
     await audit(req, "claim.created", "Claim", claim._id, { claimNo: claim.claimNo });
+    touchJob(req.auth!.companyId, job.id, "claim", "estimate");
     res.status(201).json({ claim: toClaimDTO(claim) });
   }),
 );
@@ -106,6 +108,7 @@ claimsRouter.patch(
     if (adjuster) Object.assign(claim.adjuster!, adjuster);
     await claim.save();
     await audit(req, "claim.updated", "Claim", claim._id);
+    touchJob(req.auth!.companyId, claim.jobId, "claim");
     res.json({ claim: toClaimDTO(claim) });
   }),
 );
@@ -144,6 +147,15 @@ claimsRouter.post(
     claim.status = status;
     await claim.save();
     await audit(req, "claim.status_changed", "Claim", claim._id, { to: status });
+    touchJob(req.auth!.companyId, claim.jobId, "claim", "estimate");
+    await notify(req.auth!.companyId, {
+      kind: "claim.status_changed",
+      title: `Claim ${claim.claimNo} is now ${CLAIM_STATUS_LABELS[status as keyof typeof CLAIM_STATUS_LABELS].toLowerCase()}`,
+      body: `${claim.carrier}${note ? `: ${note}` : ""}`,
+      href: `/jobs/${claim.jobId}?tab=claim`,
+      roles: ["owner", "admin", "estimator"],
+      excludeUserId: req.auth!.userId,
+    });
     res.json({ claim: toClaimDTO(claim) });
   }),
 );
@@ -168,6 +180,7 @@ claimsRouter.post(
     const claim = await Claim.findOne({ jobId: req.params.jobId });
     if (!claim) throw notFound("Claim");
     const c = await Communication.create({ ...req.body, claimId: claim._id, createdBy: req.auth!.userId });
+    touchJob(req.auth!.companyId, claim.jobId, "comms");
     res.status(201).json(toCommDTO(c));
   }),
 );

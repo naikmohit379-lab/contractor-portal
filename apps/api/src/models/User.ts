@@ -11,6 +11,8 @@ const userSchema = new Schema(
     role: { type: String, enum: ROLES, default: "estimator" },
     status: { type: String, enum: ["active", "invited", "disabled"], default: "active" },
     lastLoginAt: Date,
+    // Which notification groups also go to email. Empty = defaults from the shared package.
+    prefs: { emailGroups: { type: Schema.Types.Mixed, default: {} } },
   },
   { timestamps: true },
 );

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import mongoose, { isValidObjectId, type ClientSession } from "mongoose";
 import { isMilestonePaid, paymentReceivedLines, refundLines, type LedgerLine } from "@roofdesk/shared";
 import { requestContext } from "../../core/context";
+import { notify, touchJob } from "../../core/notify";
 import { AuditLog } from "../../models/AuditLog";
 import { LedgerEntry } from "../../models/LedgerEntry";
 import { Payment } from "../../models/Payment";
@@ -59,7 +60,10 @@ export async function recomputeMilestone(session: ClientSession, milestoneId: un
   }
 }
 
+const usd = (c: number) => (c / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+
 export type EventOutcome = "applied" | "duplicate" | "unmatched";
+const tenantId = (doc: unknown) => String((doc as { companyId?: unknown } | null)?.companyId ?? "");
 
 /**
  * The single place gateway events change money state. Safe to call twice with the same event:
@@ -72,14 +76,19 @@ export async function applyProviderEvent(evt: NormalizedEvent): Promise<EventOut
   if (!found) return "unmatched";
 
   const ctx = { companyId: String(found.companyId), userId: "system", role: "owner" as const };
+  // Notifications and live updates are queued here and sent only after the transaction commits,
+  // so nobody is told about a payment that was then rolled back.
+  const after: (() => Promise<void>)[] = [];
   try {
-    return await requestContext.run(ctx, () =>
+    const outcome = await requestContext.run(ctx, () =>
       inTransaction(async (session): Promise<EventOutcome> => {
+        after.length = 0; // a retried transaction starts clean
         if (await ProviderEvent.exists({ provider: evt.provider, eventId: evt.eventId }).session(session)) return "duplicate";
         await ProviderEvent.create([{ provider: evt.provider, eventId: evt.eventId, type: evt.type, companyId: found.companyId, paymentId: found._id }], { session });
 
         const p = await Payment.findById(found._id).session(session);
         if (!p) return "unmatched";
+        const companyId = tenantId(p);
         const settled = ["succeeded", "partially_refunded", "refunded"].includes(p.status);
 
         switch (evt.type) {
@@ -89,7 +98,7 @@ export async function applyProviderEvent(evt: NormalizedEvent): Promise<EventOut
             if ((evt.amountCents !== undefined && evt.amountCents !== p.amountCents) || (evt.currency && evt.currency.toUpperCase() !== p.currency)) {
               p.flag = "amount_mismatch";
               await p.save({ session });
-              await audit(p.companyId, "payment.amount_mismatch", p._id, { expected: p.amountCents, got: evt.amountCents }, session);
+              await audit(companyId, "payment.amount_mismatch", p._id, { expected: p.amountCents, got: evt.amountCents }, session);
               break;
             }
             if (p.status === "canceled") p.flag = "paid_after_cancel";
@@ -100,7 +109,11 @@ export async function applyProviderEvent(evt: NormalizedEvent): Promise<EventOut
             await p.save({ session });
             await post(session, p, "payment_received", paymentReceivedLines(p.amountCents), `Payment received: ${p.description}`);
             await recomputeMilestone(session, p.milestoneId);
-            await audit(p.companyId, "payment.succeeded", p._id, { amountCents: p.amountCents }, session);
+            await audit(companyId, "payment.succeeded", p._id, { amountCents: p.amountCents }, session);
+            after.push(async () => {
+              touchJob(companyId, p.jobId, "payments", "milestones");
+              await notify(companyId, { kind: "payment.succeeded", title: `Payment received: ${usd(p.amountCents)}`, body: `${p.payerName} paid for ${p.description}.`, href: `/jobs/${p.jobId}?tab=payments`, roles: ["owner", "admin", "billing"] });
+            });
             break;
           }
           case "payment_processing":
@@ -108,6 +121,7 @@ export async function applyProviderEvent(evt: NormalizedEvent): Promise<EventOut
               p.status = "pending";
               if (evt.paymentIntentId) p.providerPaymentIntentId = evt.paymentIntentId;
               await p.save({ session });
+              after.push(async () => touchJob(companyId, p.jobId, "payments"));
             }
             break;
           case "payment_failed":
@@ -115,7 +129,11 @@ export async function applyProviderEvent(evt: NormalizedEvent): Promise<EventOut
               p.status = "failed";
               p.failureReason = evt.failureReason ?? "The payment did not go through";
               await p.save({ session });
-              await audit(p.companyId, "payment.failed", p._id, { reason: p.failureReason }, session);
+              await audit(companyId, "payment.failed", p._id, { reason: p.failureReason }, session);
+              after.push(async () => {
+                touchJob(companyId, p.jobId, "payments");
+                await notify(companyId, { kind: "payment.failed", title: `Payment failed: ${usd(p.amountCents)}`, body: `${p.payerName}: ${p.failureReason}`, href: `/jobs/${p.jobId}?tab=payments`, roles: ["owner", "admin", "billing"] });
+              });
             }
             break;
           case "refund_total": {
@@ -127,22 +145,29 @@ export async function applyProviderEvent(evt: NormalizedEvent): Promise<EventOut
               p.refundedCents += delta;
               p.status = p.refundedCents >= p.amountCents ? "refunded" : "partially_refunded";
               await p.save({ session });
-              await Refund.create([{ companyId: p.companyId, paymentId: p._id, jobId: p.jobId, amountCents: delta, reason: "Refunded directly at the gateway", status: "processed", processedAt: new Date() }], { session });
+              await Refund.create([{ companyId, paymentId: p._id, jobId: p.jobId, amountCents: delta, reason: "Refunded directly at the gateway", status: "processed", processedAt: new Date() }], { session });
               await post(session, p, "refund", refundLines(delta), "Refund made at the gateway");
               await recomputeMilestone(session, p.milestoneId);
-              await audit(p.companyId, "payment.refunded_externally", p._id, { amountCents: delta }, session);
+              await audit(companyId, "payment.refunded_externally", p._id, { amountCents: delta }, session);
+              after.push(async () => touchJob(companyId, p.jobId, "payments", "milestones"));
             }
             break;
           }
           case "dispute_opened":
             p.disputed = true;
             await p.save({ session });
-            await audit(p.companyId, "payment.dispute_opened", p._id, undefined, session);
+            await audit(companyId, "payment.dispute_opened", p._id, undefined, session);
+            after.push(async () => {
+              touchJob(companyId, p.jobId, "payments");
+              await notify(companyId, { kind: "payment.dispute", title: "A payment is being disputed", body: `${p.payerName} disputed ${usd(p.amountCents)} for ${p.description}. Gather your documents.`, href: `/jobs/${p.jobId}?tab=payments`, roles: ["owner", "admin", "billing"] });
+            });
             break;
         }
         return "applied";
       }),
     );
+    for (const fn of after) await fn().catch(() => undefined);
+    return outcome;
   } catch (err: any) {
     if (err?.code === 11000) return "duplicate"; // two deliveries raced; the other one won
     throw err;
@@ -180,7 +205,7 @@ export async function executeRefund(refundId: string): Promise<{ ok: boolean; er
       await r.save({ session });
       await post(session, p, "refund", refundLines(r.amountCents), `Refund: ${r.reason}`);
       await recomputeMilestone(session, p.milestoneId);
-      await audit(p.companyId, "payment.refunded", p._id, { amountCents: r.amountCents, reason: r.reason }, session);
+       await audit(tenantId(p), "payment.refunded", p._id, { amountCents: r.amountCents, reason: r.reason }, session);
     });
     return { ok: true };
   } catch (err: any) {

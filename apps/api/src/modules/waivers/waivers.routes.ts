@@ -12,6 +12,8 @@ import {
 import { env } from "../../config/env";
 import { audit } from "../../core/audit";
 import { hashToken, newRefreshToken, requireAuth } from "../../core/auth";
+import { sendLinkEmail } from "../../core/mailer";
+import { touchJob } from "../../core/notify";
 import { AppError, notFound } from "../../core/errors";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
 import { Company } from "../../models/Company";
@@ -71,7 +73,18 @@ async function createWaiver(
     requestedBy: req.auth.userId,
   });
   await audit(req, "waiver.requested", "Waiver", waiver._id, { party: ctx.party.name, type: ctx.type, amountCents: ctx.amountCents });
-  return { waiver, token };
+  touchJob(req.auth.companyId, ctx.job._id, "waivers", "milestones");
+
+  // If the party has an email on file, send the signing link to them directly.
+  const emailedTo = ctx.party.email && (await sendLinkEmail({
+    companyId: req.auth.companyId,
+    to: ctx.party.email,
+    kind: "waiver.link",
+    subject: `Lien waiver to sign: ${ctx.job.property.line1}`,
+    intro: `${ctx.companyName} has asked ${ctx.party.name} to sign a waiver for ${usd(ctx.amountCents)} on ${ctx.job.property.line1}. Please read it and sign using the link below.`,
+    url: signUrl(token),
+  })) ? ctx.party.email : undefined;
+  return { waiver, token, emailedTo };
 }
 
 async function loadContext(req: any, milestoneId: string) {
@@ -105,8 +118,8 @@ waiversRouter.post(
     if (!isValidObjectId(req.body.partyId)) throw new AppError(422, "invalid_party", "Choose a party");
     const party = await Party.findOne({ _id: req.body.partyId, jobId: req.params.jobId });
     if (!party) throw notFound("Party");
-    const { waiver, token } = await createWaiver(req, { ...base, party, type: req.body.type, amountCents: req.body.amountCents, throughDate: new Date(req.body.throughDate), expiresInDays: req.body.expiresInDays });
-    res.status(201).json({ waiver: toWaiverDTO(waiver), signUrl: signUrl(token) });
+    const { waiver, token, emailedTo } = await createWaiver(req, { ...base, party, type: req.body.type, amountCents: req.body.amountCents, throughDate: new Date(req.body.throughDate), expiresInDays: req.body.expiresInDays });
+    res.status(201).json({ waiver: toWaiverDTO(waiver), signUrl: signUrl(token), emailedTo });
   }),
 );
 
@@ -128,7 +141,7 @@ waiversRouter.post(
     const totalContract = parties.reduce((n, p) => n + p.contractAmountCents, 0);
     const accept = new Set(acceptableWaiverTypes(base.milestone.type));
 
-    const created: { party: string; signUrl: string; waiver: ReturnType<typeof toWaiverDTO> }[] = [];
+    const created: { party: string; signUrl: string; emailedTo?: string; waiver: ReturnType<typeof toWaiverDTO> }[] = [];
     const skipped: { party: string; reason: string }[] = [];
 
     for (const party of parties) {
@@ -138,8 +151,8 @@ waiversRouter.post(
       if (party.contractAmountCents <= 0 || totalContract <= 0) { skipped.push({ party: party.name, reason: "Add a contract amount first" }); continue; }
 
       const amountCents = Math.round((base.milestone.expectedAmountCents * party.contractAmountCents) / totalContract);
-      const { waiver, token } = await createWaiver(req, { ...base, party, type, amountCents, throughDate: new Date(req.body.throughDate), expiresInDays: req.body.expiresInDays });
-      created.push({ party: party.name, signUrl: signUrl(token), waiver: toWaiverDTO(waiver) });
+      const { waiver, token, emailedTo } = await createWaiver(req, { ...base, party, type, amountCents, throughDate: new Date(req.body.throughDate), expiresInDays: req.body.expiresInDays });
+      created.push({ party: party.name, signUrl: signUrl(token), emailedTo, waiver: toWaiverDTO(waiver) });
     }
     res.status(201).json({ created, skipped });
   }),
@@ -160,7 +173,17 @@ waiversRouter.post(
     w.status = "requested";
     await w.save();
     await audit(req, "waiver.link_reissued", "Waiver", w._id);
-    res.json({ waiver: toWaiverDTO(w), signUrl: signUrl(token) });
+    touchJob(req.auth!.companyId, req.params.jobId, "waivers", "milestones");
+    const [party, company, job] = await Promise.all([Party.findById(w.partyId), Company.findById(req.auth!.companyId), Job.findById(w.jobId)]);
+    const emailedTo = party?.email && (await sendLinkEmail({
+      companyId: req.auth!.companyId,
+      to: party.email,
+      kind: "waiver.link",
+      subject: `Lien waiver to sign: ${job?.property?.line1 ?? "your project"}`,
+      intro: `${company?.name ?? "A contractor"} sent you a new link to sign a waiver for ${usd(w.amountCents)}. The earlier link no longer works.`,
+      url: signUrl(token),
+    })) ? party.email : undefined;
+    res.json({ waiver: toWaiverDTO(w), signUrl: signUrl(token), emailedTo });
   }),
 );
 
@@ -176,6 +199,7 @@ waiversRouter.post(
     w.tokenHash = undefined;
     await w.save();
     await audit(req, "waiver.cancelled", "Waiver", w._id);
+    touchJob(req.auth!.companyId, req.params.jobId, "waivers", "milestones");
     res.json({ waiver: toWaiverDTO(w) });
   }),
 );
