@@ -23,7 +23,7 @@ export function Reveal({
       initial={reduceMotion ? false : { opacity: 0, y: 22 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.18 }}
-      transition={{ duration: reduceMotion ? 0 : 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
+      transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 82, damping: 19, mass: 0.85, delay }}
     >
       {children}
     </motion.div>
@@ -58,7 +58,7 @@ export function InteractiveCard({
       viewport={{ once: true, amount: 0.2 }}
       whileHover={reduceMotion ? undefined : { y: -6, scale: 1.015 }}
       whileTap={reduceMotion ? undefined : { scale: 0.985 }}
-      transition={{ duration: reduceMotion ? 0 : 0.35, delay, ease: [0.22, 1, 0.36, 1] }}
+      transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 280, damping: 22, mass: 0.7, delay }}
     >
       {children}
     </motion.div>
@@ -83,9 +83,34 @@ export function AnimatedListItem({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.25 }}
       whileHover={reduceMotion ? undefined : { x: 4 }}
-      transition={{ duration: reduceMotion ? 0 : 0.4, delay, ease: [0.22, 1, 0.36, 1] }}
+      transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 180, damping: 20, delay }}
     >
       {children}
     </motion.li>
+  );
+}
+
+export function Floating({ children, className }: { children: ReactNode; className?: string }) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      className={className}
+      animate={reduceMotion ? undefined : { y: [0, -7, 0], rotateZ: [0, 0.2, 0] }}
+      transition={reduceMotion ? undefined : { duration: 7, ease: "easeInOut", repeat: Infinity }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+export function AmbientGlow({ className }: { className: string }) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      aria-hidden="true"
+      className={className}
+      animate={reduceMotion ? undefined : { x: [0, 22, 0], y: [0, -12, 0], scale: [1, 1.08, 1], opacity: [0.35, 0.6, 0.35] }}
+      transition={reduceMotion ? undefined : { duration: 12, ease: "easeInOut", repeat: Infinity }}
+    />
   );
 }

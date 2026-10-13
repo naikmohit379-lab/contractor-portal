@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   openGraph: { type: "website", siteName: BRAND.name, title: `${BRAND.name} | ${BRAND.tagline}` },
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#0e131a", viewportFit: "cover" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#0b1d2e", viewportFit: "cover" };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

@@ -11,15 +11,28 @@
 }
 
 @layer components {
-  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 text-sm font-semibold transition-[color,background-color,border-color,transform,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn:hover:not(:disabled) { transform: translateY(-1px); }
-  .btn:active:not(:disabled) { transform: translateY(0) scale(.98); }
-  .btn-primary { @apply bg-ember text-white hover:bg-ember-400 hover:shadow-lg hover:shadow-ember/15; }
+  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition-[color,background-color,border-color,transform,box-shadow] duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn:hover:not(:disabled) { transform: translateY(-2px); }
+  .btn:active:not(:disabled) { transform: translateY(0) scale(.97); }
+  .btn-primary { @apply bg-ember text-white hover:bg-ember-400 hover:shadow-xl hover:shadow-ember/25; }
   .btn-ghost { @apply border border-ink-500 text-white hover:bg-ink-700; }
   .field { @apply min-h-[44px] w-full rounded-md border border-ink-500 bg-ink-800 px-3 text-white placeholder:text-mist/60 transition-[border-color,box-shadow] duration-200 focus:border-ember focus:shadow-[0_0_0_3px_rgba(255,107,53,0.12)]; }
   .label { @apply mb-1.5 block text-sm font-medium text-mist-strong; }
   .field-error { @apply mt-1 text-sm text-bad; }
-  .panel { @apply rounded-xl border border-ink-600 bg-ink-800; }
+  .panel { @apply rounded-2xl border border-white/10 bg-ink-800 shadow-[0_18px_50px_rgba(1,11,20,0.24)]; }
+  a.panel { @apply transition-[transform,border-color,box-shadow] duration-300 ease-out; }
+  a.panel:hover { @apply -translate-y-1 border-ember/50 shadow-xl shadow-ink-950/30; }
+  a.panel:active { @apply translate-y-0 scale-[.99]; }
+}
+
+@layer utilities {
+  .hero-sky {
+    background:
+      radial-gradient(ellipse at 76% 10%, rgba(192, 235, 255, .48), transparent 24%),
+      radial-gradient(ellipse at 18% 28%, rgba(133, 209, 248, .35), transparent 30%),
+      linear-gradient(180deg, #147bb5 0%, #48a9df 34%, #193b56 66%, #07101a 100%);
+  }
+  .text-outline-glow { text-shadow: 0 0 54px rgba(197, 235, 255, .22); }
 }
 
 @media (prefers-reduced-motion: reduce) {

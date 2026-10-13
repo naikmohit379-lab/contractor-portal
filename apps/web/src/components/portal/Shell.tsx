@@ -5,7 +5,7 @@ import { Briefcase, CreditCard, FileSignature, LayoutDashboard, LogOut, Settings
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Logo } from "@/components/Logo";
 import { LiveEvents } from "./LiveEvents";
 import { NotificationBell } from "./NotificationBell";
@@ -62,7 +62,16 @@ export function Shell({ children }: { children: ReactNode }) {
           <Logo href="/dashboard" />
           <div className="flex items-center gap-2"><NotificationBell align="right" /><button onClick={logout} className="btn btn-ghost px-3" aria-label="Sign out"><LogOut size={18} /></button></div>
         </header>
-        <motion.main key={pathname} initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduceMotion ? 0 : 0.24, ease: "easeOut" }} className="mx-auto w-full max-w-6xl flex-1 p-5 lg:p-8">{children}</motion.main>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.main key={pathname}
+            initial={reduceMotion ? false : { opacity: 0, y: 12, filter: "blur(4px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: -8, filter: "blur(3px)" }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            className="mx-auto w-full max-w-6xl flex-1 p-5 lg:p-8">
+            {children}
+          </motion.main>
+        </AnimatePresence>
       </div>
 
       {/* mobile bottom navigation */}

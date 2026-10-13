@@ -1,14 +1,15 @@
 import type { Config } from "tailwindcss";
 
-// Palette taken from the reference UI: deep blue-black surfaces, one burnt-orange accent.
+// Blue-slate surfaces, bright sky blues, and vivid orange inspired by the supplied reference.
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        ink: { 950: "#090d12", 900: "#0e131a", 800: "#141b24", 700: "#1c2531", 600: "#2a3543", 500: "#3a4757" },
-        ember: { DEFAULT: "#e8701a", 300: "#f6a76a", 400: "#f08a3a", 600: "#c95d0f" },
-        mist: { DEFAULT: "#a3adb9", strong: "#c8d0d9" },
+        ink: { 950: "#061321", 900: "#0b1d2e", 800: "#102d43", 700: "#163d59", 600: "#255778", 500: "#3d7395" },
+        sky: { DEFAULT: "#55b9ed", light: "#9bdcff", deep: "#177bb6" },
+        ember: { DEFAULT: "#ff6a00", 300: "#ffb067", 400: "#ff811c", 600: "#e05200" },
+        mist: { DEFAULT: "#a9bed0", strong: "#d8e6f0" },
         ok: "#4cc38a",
         warn: "#f2c14e",
         bad: "#ef6a5b",
