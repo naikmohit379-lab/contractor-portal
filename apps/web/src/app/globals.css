@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 @layer base {
-  html { color-scheme: dark; scroll-padding-top: 5rem; }
+  html { color-scheme: dark; scroll-padding-top: 5rem; scroll-behavior: smooth; }
   body { @apply bg-ink-900 font-sans text-white antialiased; }
   h1, h2, h3 { @apply font-display uppercase tracking-tight; }
   :focus-visible { @apply outline-none ring-2 ring-ember ring-offset-2 ring-offset-ink-900; }
@@ -11,13 +11,19 @@
 }
 
 @layer components {
-  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-primary { @apply bg-ember text-white hover:bg-ember-400; }
+  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 text-sm font-semibold transition-[color,background-color,border-color,transform,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .btn:active:not(:disabled) { transform: translateY(0) scale(.98); }
+  .btn-primary { @apply bg-ember text-white hover:bg-ember-400 hover:shadow-lg hover:shadow-ember/15; }
   .btn-ghost { @apply border border-ink-500 text-white hover:bg-ink-700; }
-  .field { @apply min-h-[44px] w-full rounded-md border border-ink-500 bg-ink-800 px-3 text-white placeholder:text-mist/60 focus:border-ember; }
+  .field { @apply min-h-[44px] w-full rounded-md border border-ink-500 bg-ink-800 px-3 text-white placeholder:text-mist/60 transition-[border-color,box-shadow] duration-200 focus:border-ember focus:shadow-[0_0_0_3px_rgba(255,107,53,0.12)]; }
   .label { @apply mb-1.5 block text-sm font-medium text-mist-strong; }
   .field-error { @apply mt-1 text-sm text-bad; }
   .panel { @apply rounded-xl border border-ink-600 bg-ink-800; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

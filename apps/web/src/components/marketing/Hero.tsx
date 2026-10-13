@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Check, MapPin } from "lucide-react";
 import { RoofPlan } from "./RoofPlan";
+import { InteractiveCard, Reveal } from "@/components/ui/Motion";
 
 const TRUST = ["Role-based access", "Full audit trail", "Hosted-field payments"];
 
@@ -8,7 +9,7 @@ export function Hero() {
   return (
     <section className="relative overflow-hidden bg-[radial-gradient(ellipse_at_80%_20%,#1c2531_0%,#0e131a_60%)]">
       <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 pb-16 pt-14 lg:grid-cols-[1.05fr_1fr] lg:pb-24 lg:pt-20">
-        <div>
+        <Reveal>
           <p className="mb-5 flex items-center gap-2 text-sm font-semibold tracking-wide">
             <span className="h-2.5 w-2.5 rounded-full bg-ember" aria-hidden />
             Built for roofing contractors
@@ -32,11 +33,14 @@ export function Hero() {
               </li>
             ))}
           </ul>
-        </div>
+        </Reveal>
 
+        <Reveal delay={0.12}>
         <div className="relative">
-          <RoofPlan className="w-full" />
-          <aside className="panel absolute -bottom-6 right-0 w-64 bg-ink-800/95 p-4 shadow-2xl backdrop-blur sm:right-4" aria-label="Sample measurement report">
+          <div className="origin-center transition-transform duration-500 hover:scale-[1.015]">
+            <RoofPlan className="w-full" />
+          </div>
+          <InteractiveCard className="panel absolute -bottom-6 right-0 w-64 bg-ink-800/95 p-4 shadow-2xl backdrop-blur sm:right-4" label="Sample measurement report">
             <p className="text-xs text-mist">Sample report, 14 Oak Ridge Ln</p>
             <p className="mt-1 font-display text-3xl font-bold">2,847 sq ft</p>
             <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
@@ -47,8 +51,9 @@ export function Hero() {
                 </div>
               ))}
             </dl>
-          </aside>
+          </InteractiveCard>
         </div>
+        </Reveal>
       </div>
 
       <div className="mx-auto max-w-7xl px-5 pb-8">

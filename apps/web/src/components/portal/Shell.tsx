@@ -5,6 +5,7 @@ import { Briefcase, CreditCard, FileSignature, LayoutDashboard, LogOut, Settings
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { Logo } from "@/components/Logo";
 import { LiveEvents } from "./LiveEvents";
 import { NotificationBell } from "./NotificationBell";
@@ -23,6 +24,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const { user, status, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (status === "anon") router.replace("/login");
@@ -42,8 +44,9 @@ export function Shell({ children }: { children: ReactNode }) {
         <nav className="mt-8 flex-1 space-y-1" aria-label="Portal">
           {NAV.map(({ href, label, icon: Icon }) => (
             <Link key={href} href={href} aria-current={isActive(href) ? "page" : undefined}
-              className={clsx("flex min-h-[44px] items-center gap-3 rounded-md px-3 text-sm font-medium", isActive(href) ? "bg-ember/15 text-ember" : "text-mist-strong hover:bg-ink-700")}>
-              <Icon size={18} aria-hidden /> {label}
+              className={clsx("relative flex min-h-[44px] items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors", isActive(href) ? "text-ember" : "text-mist-strong hover:bg-ink-700")}>
+              {isActive(href) && <motion.span layoutId="portal-desktop-active" className="absolute inset-0 -z-0 rounded-md bg-ember/15" transition={{ type: "spring", stiffness: 420, damping: 35 }} />}
+              <motion.span className="relative z-10 flex items-center gap-3" whileHover={reduceMotion ? undefined : { x: 3 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}><Icon size={18} aria-hidden /> {label}</motion.span>
             </Link>
           ))}
         </nav>
@@ -59,15 +62,16 @@ export function Shell({ children }: { children: ReactNode }) {
           <Logo href="/dashboard" />
           <div className="flex items-center gap-2"><NotificationBell align="right" /><button onClick={logout} className="btn btn-ghost px-3" aria-label="Sign out"><LogOut size={18} /></button></div>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 p-5 lg:p-8">{children}</main>
+        <motion.main key={pathname} initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduceMotion ? 0 : 0.24, ease: "easeOut" }} className="mx-auto w-full max-w-6xl flex-1 p-5 lg:p-8">{children}</motion.main>
       </div>
 
       {/* mobile bottom navigation */}
       <nav className="fixed print:hidden inset-x-0 bottom-0 z-30 flex border-t border-ink-600 bg-ink-950 pb-[env(safe-area-inset-bottom)] lg:hidden" aria-label="Portal">
         {NAV.map(({ href, label, short, icon: Icon }) => (
           <Link key={href} href={href} aria-current={isActive(href) ? "page" : undefined}
-            className={clsx("flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px]", isActive(href) ? "text-ember" : "text-mist-strong")}>
-            <Icon size={20} aria-hidden /> {short ?? label}
+            className={clsx("relative flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px]", isActive(href) ? "text-ember" : "text-mist-strong")}>
+            {isActive(href) && <motion.span layoutId="portal-mobile-active" className="absolute inset-x-1 inset-y-1 -z-0 rounded-lg bg-ember/10" transition={{ type: "spring", stiffness: 420, damping: 35 }} />}
+            <motion.span className="relative z-10 flex flex-col items-center gap-0.5" whileTap={reduceMotion ? undefined : { scale: 0.92 }}><Icon size={20} aria-hidden /> {short ?? label}</motion.span>
           </Link>
         ))}
       </nav>
