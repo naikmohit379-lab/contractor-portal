@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { Router, type Response } from "express";
-import argon2 from "argon2";
 import rateLimit from "express-rate-limit";
 import { loginSchema, registerSchema, type SessionUser } from "@roofdesk/shared";
 import { env } from "../../config/env";
@@ -14,6 +13,7 @@ import {
   signAccessToken,
 } from "../../core/auth";
 import { AppError, unauthenticated } from "../../core/errors";
+import { hashPassword, verifyPassword } from "../../core/password";
 import { asyncHandler, validate } from "../../core/http";
 import { Company } from "../../models/Company";
 import { RefreshToken } from "../../models/RefreshToken";
@@ -65,7 +65,7 @@ authRouter.post(
       name,
       email,
       role: "owner",
-      passwordHash: await argon2.hash(password, { type: argon2.argon2id }),
+      passwordHash: await hashPassword(password),
     });
     const accessToken = await startSession(res, { id: user.id, companyId: company._id, role: user.role });
     res.status(201).json({ accessToken, user: toSessionUser(user, { id: company.id, name: company.name }) });
@@ -80,7 +80,7 @@ authRouter.post(
     const { email, password } = req.body;
     const user = await User.findOne({ email }).select("+passwordHash").setOptions({ skipTenant: true });
     // Same error for unknown email and wrong password: do not reveal which accounts exist.
-    const ok = user && user.status === "active" && (await argon2.verify(user.passwordHash, password));
+    const ok = user && user.status === "active" && (await verifyPassword(user.passwordHash, password));
     if (!user || !ok) throw new AppError(401, "invalid_credentials", "Email or password is incorrect");
 
     const company = await Company.findById(user.companyId);
