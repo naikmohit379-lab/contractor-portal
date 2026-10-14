@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import argon2 from "argon2";
+import { argon2id } from "hash-wasm";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 
 export const STRIPE_SECRET = "whsec_integration_test";
@@ -91,7 +91,16 @@ export async function registerCompany(app: TestApp, name = "Acme Roofing"): Prom
 /** Adds a second person to the same company with a given role, then logs them in. */
 export async function addUser(app: TestApp, companyId: string, role: string): Promise<Session> {
   const email = `${role}-${unique()}@example.com`;
-  const u = await app.models.User.create({ companyId, name: `${role} person`, email, role, passwordHash: await argon2.hash(PASSWORD) });
+  const passwordHash = await argon2id({
+    password: PASSWORD,
+    salt: crypto.randomBytes(16),
+    parallelism: 1,
+    iterations: 1,
+    memorySize: 4096,
+    hashLength: 32,
+    outputType: "encoded",
+  });
+  const u = await app.models.User.create({ companyId, name: `${role} person`, email, role, passwordHash });
   const r = await app.call("POST", "/auth/login", { body: { email, password: PASSWORD } });
   return { token: r.body.accessToken, cookie: refreshCookie(r.headers), userId: u.id, companyId, email };
 }

@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { argon2Verify } from "hash-wasm";
 import { AppError } from "./errors";
 
 const BCRYPT_COST = 12;
@@ -15,12 +16,11 @@ export async function verifyPassword(passwordHash: string, password: string): Pr
     return Buffer.byteLength(password, "utf8") <= 72 && bcrypt.compare(password, passwordHash);
   }
 
-  // Keep local accounts created with the previous Argon2 format usable where
-  // that native package is installed. New Vercel accounts use bundled bcrypt.
+  // Keep accounts created with the previous Argon2 format usable without a
+  // native runtime dependency. New accounts use portable bcrypt hashes.
   if (passwordHash.startsWith("$argon2")) {
     try {
-      const argon2 = await import("argon2");
-      return argon2.default.verify(passwordHash, password);
+      return await argon2Verify({ hash: passwordHash, password });
     } catch {
       return false;
     }

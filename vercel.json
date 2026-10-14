@@ -3,8 +3,7 @@
   "services": {
     "api": {
       "root": "apps/api",
-      "framework": "express",
-      "includeFiles": ["node_modules/argon2/**/*"]
+      "framework": "express"
     },
     "web": {
       "root": "apps/web",
