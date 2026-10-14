@@ -1,8 +1,23 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
-    "dev": { "cache": false, "persistent": true },
-    "build": { "dependsOn": ["^build"], "outputs": [".next/**", "dist/**"] },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".next/**",
+        "dist/**"
+      ],
+      "passThroughEnv": [
+        "MONGODB_URI",
+        "JWT_ACCESS_SECRET"
+      ]
+    },
     "lint": {},
     "typecheck": {},
     "test": {}
