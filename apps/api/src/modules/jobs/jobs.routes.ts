@@ -95,7 +95,7 @@ jobsRouter.patch(
     const job = await Job.findById(req.params.jobId);
     if (!job) throw notFound("Job");
     const { customer, ...rest } = req.body;
-    if (customer) Object.assign(job.customer, customer);
+    if (customer) job.set("customer", { ...(job.customer ?? {}), ...customer });
     Object.assign(job, rest);
     await job.save();
     await audit(req, "job.updated", "Job", job._id);

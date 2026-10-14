@@ -20,7 +20,9 @@ import { Claim } from "../../models/Claim";
 import { Communication } from "../../models/Communication";
 import { Estimate } from "../../models/Estimate";
 import { Job } from "../../models/Job";
+import { Document } from "../../models/Document";
 import { MeasurementReport } from "../../models/MeasurementReport";
+import { toDocumentDTO } from "../documents/documents.routes";
 import { toEstimateDTO } from "../estimates/estimates.routes";
 import { toJobDTO } from "../jobs/jobs.routes";
 import { advanceStage } from "../jobs/stages";
@@ -191,11 +193,12 @@ claimsRouter.get(
   requirePermission("job:read"),
   validate({ params: jobParam }),
   asyncHandler(async (req, res) => {
-    const [job, claim, est, measurement] = await Promise.all([
+    const [job, claim, est, measurement, photos] = await Promise.all([
       Job.findById(req.params.jobId),
       Claim.findOne({ jobId: req.params.jobId }),
       Estimate.findOne({ jobId: req.params.jobId }),
       MeasurementReport.findOne({ jobId: req.params.jobId, status: "delivered" }).sort({ createdAt: -1 }),
+      Document.find({ jobId: req.params.jobId, kind: "photo", includeInPacket: true, contentType: { $in: ["image/jpeg", "image/png", "image/webp"] } }).sort({ createdAt: 1 }),
     ]);
     if (!job || !claim || !est) throw new AppError(422, "packet_incomplete", "Add the claim details and an estimate before building a packet");
     const comms = await Communication.find({ claimId: claim._id }).sort({ createdAt: 1 });
@@ -208,6 +211,7 @@ claimsRouter.get(
         ? { totals: measurement.totals, linear: measurement.linear, facets: measurement.facets, imageryDate: measurement.imageryDate }
         : null,
       communications: comms.map(toCommDTO),
+      photos: photos.map(toDocumentDTO),
     });
   }),
 );

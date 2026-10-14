@@ -4,16 +4,18 @@
   "private": true,
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsup --config tsup.config.ts",
+    "build": "tsup src/server.ts --format cjs --noExternal @roofdesk/shared --noExternal @roofdesk/estimate-engine --clean",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:unit": "vitest run src",
+    "test:integration": "vitest run test"
   },
   "dependencies": {
     "@roofdesk/estimate-engine": "workspace:*",
     "@roofdesk/shared": "workspace:*",
     "argon2": "^0.41.1",
-    "bcryptjs": "3.0.3",
+    "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -27,11 +29,13 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.7",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.7.0",
+    "mongodb-memory-server": "^10.1.2",
     "pino-pretty": "^11.2.2",
     "tsup": "^8.3.0",
     "tsx": "^4.19.1",

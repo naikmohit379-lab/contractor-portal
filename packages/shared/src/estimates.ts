@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-export const UNITS = ["SQ", "LF", "EA", "SF", "BDL", "ROLL", "PC"] as const;
+import { UNITS } from "./units";
+export { UNITS };
 
 export const lineItemSchema = z.object({
   key: z.string().trim().min(1).max(60).regex(/^[a-z0-9_]+$/, "Use lowercase letters, numbers and underscores"),

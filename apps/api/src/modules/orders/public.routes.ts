@@ -25,9 +25,8 @@ publicRouter.get(
   "/orders/:token",
   asyncHandler(async (req, res) => {
     const po = await loadByToken(req.params.token!);
-    const companyId = String((po as any).companyId);
     const [company, supplier, job] = await Promise.all([
-      Company.findById(companyId),
+      Company.findById(po.companyId),
       Supplier.findById(po.supplierId).setOptions({ skipTenant: true }),
       Job.findById(po.jobId).setOptions({ skipTenant: true }),
     ]);
@@ -50,7 +49,6 @@ publicRouter.post(
   validate({ body: supplierConfirmSchema }),
   asyncHandler(async (req, res) => {
     const po = await loadByToken(req.params.token!);
-    const companyId = String((po as any).companyId);
     if (po.status !== "sent") throw new AppError(409, "already_responded", "This order has already been answered");
 
     const { action, deliveryWindow, note } = req.body;
@@ -67,10 +65,10 @@ publicRouter.post(
       }
     }
     await po.save();
-    await AuditLog.create({ companyId, action: "order.supplier_responded", entity: "PurchaseOrder", entityId: po._id, meta: { action }, ip: req.ip });
-    touchJob(companyId, po.jobId, "orders");
+    await AuditLog.create({ companyId: po.companyId, action: "order.supplier_responded", entity: "PurchaseOrder", entityId: po._id, meta: { action }, ip: req.ip });
+    touchJob(po.companyId, po.jobId, "orders");
     const supplier = await Supplier.findById(po.supplierId).setOptions({ skipTenant: true });
-    await notify(companyId, {
+    await notify(po.companyId, {
       kind: action === "backorder" ? "order.backordered" : "order.confirmed",
       title: action === "backorder" ? `${supplier?.name ?? "Supplier"} backordered ${po.poNumber}` : `${supplier?.name ?? "Supplier"} confirmed ${po.poNumber}`,
       body: po.deliveryWindow?.date ? `Delivery set for ${po.deliveryWindow.date.toDateString()}.` : action === "backorder" ? "Some items are backordered. Check the order." : "The supplier confirmed the order.",

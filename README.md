@@ -1,10 +1,10 @@
 # RoofDesk: Roofing Contractor Portal
 
-Build status: steps 0 to 9 of the implementation plan. Foundation (auth, tenancy, jobs, measurements), estimates and claims, supplier orders, lien waivers with e-signature, payments with a ledger, and notifications, live updates and reporting.
+Build status: all ten steps of the implementation plan, plus claim photos, a company price list, an automated test suite, CI/CD and a production deployment setup. Foundation (auth, tenancy, jobs, measurements), estimates and claims, supplier orders, lien waivers with e-signature, payments with a ledger, notifications, live updates and reporting.
 
 ## Stack
 - **Web:** Next.js 14 (App Router), React 18, TypeScript, Tailwind, TanStack Query, React Hook Form + Zod
-- **API:** Node.js, Express 4, MongoDB (Mongoose), Zod, JWT + rotating refresh tokens, bcryptjs for portable password hashes (legacy Argon2 verification where available)
+- **API:** Node.js, Express 4, MongoDB (Mongoose), Zod, JWT + rotating refresh tokens, Argon2
 - **Packages:** `shared` (Zod schemas, types, permissions, claim and order state machines) and `estimate-engine` (pure money math, templates, diffs, material lists), both used by web and API
 - **Local infra:** Docker Compose (MongoDB replica set, Redis, MinIO)
 
@@ -32,6 +32,8 @@ pnpm dev                                    # web :3000, API :4000
 12. Open the app in two browser windows (two users, or one normal and one private window with a second login). Sign a waiver or simulate a payment in one window: the other window's tabs refresh on their own, a toast appears, and the bell shows an unread count. Click the bell to jump to the item.
 13. **Settings**: choose which kinds of notification are also emailed. With `EMAIL_PROVIDER=log` (default) emails are printed in the API console, including the secure links, so you can click them. Add an email to a waiver party, a payer or a supplier and the link is sent automatically.
 14. **Dashboard** (owner, admin or billing): collected by month, owed and overdue amounts, claim approval rate and cycle time, how long waivers have waited, claims by status, and **CSV exports** for jobs, payments, waivers and the ledger.
+15. **Photos** tab on a job: take or upload photos, click a picture to mark hail hits or wind damage, tag the slope, then open the claim packet to see the marked photos printed with it.
+16. **Price list** page: edit your unit prices, or import a CSV from Excel (bad rows are listed by number and nothing is imported). Saving creates a new version. New estimates use it, and the estimate builder can add any item from it.
 
 ## What is built
 | Area | Status |
@@ -65,21 +67,27 @@ pnpm dev                                    # web :3000, API :4000
 | Live updates over Server-Sent Events: data refreshes in other open windows, toasts, notification push | Done; single API instance (see below) |
 | Owner dashboard: collected by month, receivables, overdue, claim approval rate and cycle time, waiver aging, claims by status | Done, report math executed and passing |
 | CSV exports (jobs, payments, waivers, ledger) with spreadsheet-formula protection | Done |
+| Photos and PDFs: upload (camera or files), type read from the file's bytes, 15 MB limit, SHA-256, local disk or S3/MinIO storage | Done |
+| Damage markers on photos (hail, wind, missing shingle, notes), slope tags, include-in-packet switch, photos in the printable claim packet | Done |
+| Company price list: versioned, CSV import with row-by-row error report, CSV export, "add from price list" in the estimate builder, new estimates priced from it | Done |
+| API unit tests, API integration tests against a real MongoDB, browser tests (desktop and phone, accessibility, golden path) | Written; the pure-logic parts were executed, the database and browser suites were not |
+| CI (types, tests, build, dependency audit, browser tests) and a deploy workflow with approval and automatic rollback | Written, not run |
+| Production Docker images, compose file, HTTPS reverse proxy, nightly backups, restore script, deployment guide | Written, not built or run |
 | Marketing page, SEO files, responsive portal | Done |
 
 ## Not built yet
-1. Photo capture, annotation and document storage (S3/MinIO presigned uploads) and server-side PDF packets with photos.
-2. BullMQ workers for measurement and later integrations; real aerial providers.
-3. Company price lists and the full line-item library (the engine uses `DEFAULT_PRICES`).
-4. Delivery verification, invoice upload and price-variance checks on orders.
-5. Waivers: statutory per-state forms (must come from your counsel), automatic reminders and escalation (needs the scheduler and email), SMS/email delivery of links, OTP or notarization, preliminary-notice deadlines, closeout waiver packet export, and a waiver-amount check against real payments.
-6. Payments: matching against the gateway's own balance report, dispute evidence packets, payouts to suppliers and crews, receipts by email, an unapproved-waiver check on payouts, a settings page for gating and the refund threshold (they are fields on the company, with sensible defaults), and a strict Content-Security-Policy on payer pages.
-7. Step 9 gaps: SMS delivery; automatic waiver and payment reminders and escalation (needs a scheduler); Redis-backed live events so several API servers share one stream (today events stay inside one server process); PDF exports and exports as background jobs; QuickBooks or Xero sync; a material-price-variance report (needs supplier invoice upload); per-user report filters and date ranges; a public API and outgoing webhooks.
-8. API integration tests (tenant isolation, state machines, waiver immutability, payment transactions and webhook redelivery against a real MongoDB), CI/CD, deployment.
+1. Real aerial measurement providers, and BullMQ workers (measurement ordering still runs inside the API process, against a mock provider).
+2. Offline photo queue for poor signal, server-side thumbnails, virus scanning of uploads, and reading EXIF (time and GPS) from photos.
+3. Delivery verification, supplier invoice upload and the material price variance report.
+4. Waivers: statutory per-state forms (must come from your counsel), automatic reminders and escalation (needs a scheduler), SMS, OTP or notarization, preliminary-notice deadlines, closeout waiver packet export.
+5. Payments: matching against the gateway's own balance report, dispute evidence packets, payouts to suppliers and crews, receipts by email, a settings page for waiver gating and the refund limit (they are company fields with defaults), a strict Content-Security-Policy on payer pages.
+6. Several API servers sharing live events (needs Redis), PDF exports and exports as background jobs, QuickBooks or Xero sync, a public API with outgoing webhooks.
+7. Monitoring and alerting in production, and a committed `pnpm-lock.yaml` (generate it with `pnpm install`, commit it, then switch CI and the Dockerfiles to `--frozen-lockfile`).
 
 ## Verification status
-- The estimate engine, waiver readiness rules, ledger and reconciliation rules, report math and CSV writer, notification preferences, the Stripe webhook signature check and event mapping, and the real email and live-event modules (with their database and logger stubbed) were compiled and executed in the build sandbox, and their assertions pass.
-- Everything else was written without installing dependencies (no network there) and has only had a syntax-level TypeScript check. Run `pnpm install && pnpm typecheck && pnpm test` first and expect to fix small issues.
+**Run and passing in the build sandbox** (compiled and executed with Node, no installs needed): the estimate engine; waiver readiness rules; ledger, refund-approval and reconciliation rules; report math, CSV writer and notification preferences; CSV reader and price list import; the Stripe webhook signature check and event mapping; AWS Signature V4 signing (matches the two examples in AWS's documentation), file type detection and storage drivers; the real email and live-event modules with their database and logger stubbed.
+
+**Written but never run** (the build sandbox had no network, no MongoDB and no Docker): everything that needs installed packages or a database or a browser. That is the Express routes and MongoDB models, the web app, the 8 API test files in `apps/api/test` and the unit tests next to the code, the Playwright tests in `apps/web/e2e`, the Dockerfiles, `docker-compose.prod.yml`, the CI and deploy workflows, and the Stripe and Resend connections. Only a syntax-level TypeScript check was done on these. **Expect the first `pnpm install && pnpm typecheck && pnpm test` to turn up small problems.** Fix those before trusting any of it.
 
 ## Design notes
 - Visual language follows the reference: near-black blue surfaces, one burnt-orange accent, Barlow Condensed display type with Barlow for text.
@@ -104,3 +112,19 @@ pnpm dev                                    # web :3000, API :4000
 - The browser holds one stream to `GET /api/v1/events`. It is read with `fetch` (so the access token can be sent), reconnects with backoff, and the server ends it every 10 minutes so a revoked session cannot listen for long. If the stream is down, screens still refresh when you return to the tab.
 - Live events are in memory (`core/realtime.ts`). To run more than one API server, replace the body of `publish` and `subscribe` with Redis pub/sub; nothing else changes.
 - Emails never store secure links: signing, payment and confirmation links are replaced with `[secure link]` in the outbox record, and in production logs.
+
+## Testing
+```bash
+pnpm install
+pnpm typecheck
+pnpm test                                         # shared rules, estimate engine, API unit tests, API integration tests
+pnpm --filter @roofdesk/api test:unit             # fast, no database
+pnpm --filter @roofdesk/api test:integration      # starts a real in-memory MongoDB replica set (downloads a binary the first time)
+docker compose up -d                              # MongoDB (replica set), MinIO bucket
+pnpm --filter @roofdesk/web e2e:install           # once: the test browser
+pnpm --filter @roofdesk/web e2e                   # starts the API and web app, tests desktop and phone sizes
+```
+The integration tests cover tenant isolation, login and refresh-token theft detection, roles, the claim state machine and estimate locking, price-list versioning, waiver signing, immutability and tamper detection, payment gating, the payment and refund flows with ledger checks, webhook redelivery and bad signatures, upload safety, live updates and report permissions.
+
+## Deploying
+See `docs/DEPLOYMENT.md`: one server, automatic HTTPS (Caddy), nightly database backups, GitHub Actions that build the images and deploy after you approve, and an automatic rollback if the new version does not become ready. `.env.production.example` lists every setting. The API refuses to start in production with a placeholder secret, a non-https address, or a payment or email provider chosen without its keys.

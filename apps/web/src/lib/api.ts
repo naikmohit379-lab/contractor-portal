@@ -1,6 +1,4 @@
-const BASE =
-  process.env.NEXT_PUBLIC_API_URL ??
-  (process.env.NODE_ENV === "production" ? "/api/v1" : "http://localhost:4000/api/v1");
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
 let accessToken: string | null = null;
 export const getAccessToken = () => accessToken;
@@ -61,7 +59,7 @@ export const post = <T>(path: string, data?: unknown, headers?: Record<string, s
   api<T>(path, { method: "POST", body: data === undefined ? undefined : JSON.stringify(data), headers });
 export const patch = <T>(path: string, data: unknown) => api<T>(path, { method: "PATCH", body: JSON.stringify(data) });
 
-/** Downloads an authenticated export as a blob; plain links cannot carry the in-memory access token. */
+/** Downloads a file from an authenticated endpoint (CSV exports). The token cannot ride on a plain link, so fetch it as a blob. */
 export async function downloadFile(path: string, fallbackName: string) {
   let res = await send(path);
   if (res.status === 401 && (await refreshSession())) res = await send(path);
@@ -76,4 +74,22 @@ export async function downloadFile(path: string, fallbackName: string) {
   a.download = name;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/** Fetches a protected file as a Blob (photos). Images cannot carry an Authorization header, so they are loaded this way. */
+export async function fetchBlob(path: string): Promise<Blob> {
+  let res = await send(path);
+  if (res.status === 401 && (await refreshSession())) res = await send(path);
+  if (!res.ok) throw new ApiError(res.status, "error", "The file could not be loaded");
+  return res.blob();
+}
+
+/** Uploads one file as the raw request body (not multipart). The server identifies the real type from the bytes. */
+export async function uploadFile<T>(path: string, file: File): Promise<T> {
+  const init: RequestInit = { method: "POST", body: file, headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name) } };
+  let res = await send(path, init);
+  if (res.status === 401 && (await refreshSession())) res = await send(path, init);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(res.status, body?.error?.code ?? "error", body?.error?.message ?? "The upload failed");
+  return body as T;
 }

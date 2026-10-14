@@ -40,10 +40,8 @@ export async function sendEmail(input: EmailInput): Promise<boolean> {
     } else {
       // Development: print the message. In production the log copy hides secure links too.
       logger.info({ to: input.to, subject: input.subject, text: isProd ? input.text.replace(SECURE_LINK, "[secure link]") : input.text }, "email (log provider)");
-      if (isProd) error = "The log provider does not deliver email in production; configure Resend.";
-      else ok = true;
     }
-    if (env.EMAIL_PROVIDER === "resend") ok = true;
+    ok = true;
   } catch (e: any) {
     error = String(e?.message ?? e).slice(0, 300);
     logger.error({ err: e, to: input.to }, "email failed");

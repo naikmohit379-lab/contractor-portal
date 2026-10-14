@@ -12,6 +12,7 @@ import { EstimateTab } from "@/components/portal/job/EstimateTab";
 import { MeasurementsTab } from "@/components/portal/job/MeasurementsTab";
 import { OrdersTab } from "@/components/portal/job/OrdersTab";
 import { PaymentsTab } from "@/components/portal/job/PaymentsTab";
+import { PhotosTab } from "@/components/portal/job/PhotosTab";
 import { WaiversTab } from "@/components/portal/job/WaiversTab";
 import { StageBadge } from "@/components/portal/StageBadge";
 import { api, patch } from "@/lib/api";
@@ -19,6 +20,7 @@ import { useAuth } from "@/lib/auth";
 
 const TABS = [
   { id: "measurements", label: "Measurements" },
+  { id: "photos", label: "Photos" },
   { id: "estimate", label: "Estimate" },
   { id: "claim", label: "Claim" },
   { id: "orders", label: "Orders" },
@@ -74,6 +76,7 @@ function JobDetail() {
       </nav>
 
       {tab === "measurements" && <MeasurementsTab jobId={jobId} />}
+      {tab === "photos" && <PhotosTab jobId={jobId} />}
       {tab === "estimate" && <EstimateTab jobId={jobId} />}
       {tab === "claim" && <ClaimTab jobId={jobId} />}
       {tab === "orders" && <OrdersTab jobId={jobId} />}

@@ -49,9 +49,8 @@ async function processReport(reportId: string, address: string) {
     // First delivered report moves a fresh lead to "measured".
     await Job.updateOne({ _id: report.jobId, stage: "lead" }, { stage: "measured" });
 
-    const companyId = String((report as any).companyId);
-    touchJob(companyId, report.jobId, "measurements");
-    await notify(companyId, {
+    touchJob(report.companyId, report.jobId, "measurements");
+    await notify(report.companyId, {
       kind: "measurement.delivered",
       title: "Aerial report is ready",
       body: `The measurement report for ${address} has arrived.`,
@@ -63,9 +62,8 @@ async function processReport(reportId: string, address: string) {
     await MeasurementReport.updateOne({ _id: reportId }, { status: "failed", error: "The provider could not return this report. Try again." });
     const failed = await MeasurementReport.findById(reportId);
     if (failed) {
-      const companyId = String((failed as any).companyId);
-      touchJob(companyId, failed.jobId, "measurements");
-      await notify(companyId, {
+      touchJob(failed.companyId, failed.jobId, "measurements");
+      await notify(failed.companyId, {
         kind: "measurement.failed",
         title: "Aerial report failed",
         body: `The report for ${address} could not be produced. You can order it again.`,
@@ -101,8 +99,9 @@ measurementsRouter.post(
       if (existing) return res.status(200).json(toDTO(existing));
     }
 
-    if (!job.property) throw new AppError(409, "property_missing", "Add a property address before ordering a measurement report");
-    const address = `${job.property.line1}, ${job.property.city}, ${job.property.state} ${job.property.zip}`;
+    const property = job.property;
+    if (!property) throw new AppError(409, "property_missing", "Add a property address before ordering a measurement report");
+    const address = `${property.line1}, ${property.city}, ${property.state} ${property.zip}`;
     const provider = getProvider(req.body.provider);
     const { providerOrderId } = await provider.orderReport({ address, idempotencyKey: idempotencyKey ?? `${job.id}-${Date.now()}` });
 

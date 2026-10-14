@@ -1,0 +1,81 @@
+# Production stack for one server:  docker compose -f docker-compose.prod.yml up -d
+# Copy .env.production.example to .env first. See docs/DEPLOYMENT.md.
+name: roofdesk
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web, api]
+
+  web:
+    image: ${IMAGE_PREFIX:?Set IMAGE_PREFIX in .env}/web:${TAG:-latest}
+    restart: unless-stopped
+    depends_on: [api]
+
+  api:
+    image: ${IMAGE_PREFIX}/api:${TAG:-latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      WEB_ORIGIN: https://${DOMAIN}
+      MONGODB_URI: mongodb://roofdesk:${MONGO_PASSWORD:?Set MONGO_PASSWORD in .env}@mongo:27017/roofdesk?replicaSet=rs0&authSource=admin
+      STORAGE_DIR: /app/storage
+    volumes:
+      - uploads:/app/storage
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: roofdesk
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    # A replica set is required (payments use transactions) and, with login switched on, needs a key file.
+    command: >
+      bash -c "cp /run/mongo-keyfile /data/keyfile && chmod 400 /data/keyfile && chown mongodb:mongodb /data/keyfile
+      && exec docker-entrypoint.sh mongod --replSet rs0 --keyFile /data/keyfile --bind_ip_all"
+    volumes:
+      - mongo_data:/data/db
+      - ./deploy/mongo-keyfile:/run/mongo-keyfile:ro
+    # Not published to the internet: only the api container can reach it. The check also starts the replica set the first time.
+    healthcheck:
+      test: >
+        mongosh -u roofdesk -p "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --quiet --eval
+        "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }"
+      interval: 10s
+      timeout: 15s
+      retries: 12
+      start_period: 20s
+
+  # A compressed copy of the database every 24 hours, kept for BACKUP_KEEP_DAYS. Copy ./backups somewhere else too.
+  backup:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: mongodb://roofdesk:${MONGO_PASSWORD}@mongo:27017/roofdesk?replicaSet=rs0&authSource=admin
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./deploy/backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    entrypoint: ["sh", "/backup.sh"]
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+volumes:
+  mongo_data:
+  uploads:
+  caddy_data:
+  caddy_config:

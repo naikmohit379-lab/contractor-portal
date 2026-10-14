@@ -3,8 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import type { ClaimDTO, CommunicationDTO, EstimateVersionDTO, JobDTO } from "@roofdesk/shared";
-import { CLAIM_STATUS_LABELS } from "@roofdesk/shared";
+import type { ClaimDTO, CommunicationDTO, DocumentDTO, EstimateVersionDTO, JobDTO } from "@roofdesk/shared";
+import { AuthImage } from "@/components/AuthImage";
+import { CLAIM_STATUS_LABELS, MARKER_LABELS } from "@roofdesk/shared";
 import { api } from "@/lib/api";
 import { fmtDate, fmtDateTime, usd } from "@/lib/format";
 
@@ -14,6 +15,7 @@ interface Packet {
   estimate: EstimateVersionDTO;
   measurement: { totals: { areaSqFt: number; squares: number; wastePct: number }; linear: Record<string, number>; facets: { id: string; areaSqFt: number; pitch: string }[]; imageryDate?: string } | null;
   communications: CommunicationDTO[];
+  photos: DocumentDTO[];
 }
 
 /**
@@ -31,7 +33,7 @@ export default function PacketPage() {
       <Link href={`/jobs/${jobId}?tab=claim`} className="btn btn-ghost">Back to claim</Link>
     </div>
   );
-  const { job, claim, estimate: e, measurement: m, communications } = q.data;
+  const { job, claim, estimate: e, measurement: m, communications, photos } = q.data;
 
   return (
     <div className="space-y-4">
@@ -79,13 +81,29 @@ export default function PacketPage() {
           </dl>
         </section>
 
+        {photos.length > 0 && (
+          <section>
+            <h2 className="mb-2 text-2xl font-bold">Photo evidence</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {photos.map((p, n) => (
+                <figure key={p.id} className="break-inside-avoid">
+                  <AuthImage doc={p} markers className="w-full rounded border border-ink-500/30" />
+                  <figcaption className="mt-1 text-sm">
+                    <span className="font-medium">Photo {n + 1}{p.slope ? `, ${p.slope} slope` : ""}</span>{p.caption && `: ${p.caption}`}
+                    {p.annotations.length > 0 && <ol className="mt-1 list-inside list-decimal text-xs">{p.annotations.map((a) => <li key={a.id}>{MARKER_LABELS[a.kind]}{a.note && `: ${a.note}`}</li>)}</ol>}
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </section>
+        )}
+
         {communications.length > 0 && (
           <section>
             <h2 className="mb-2 text-2xl font-bold">Adjuster communication</h2>
             <ul className="space-y-2 text-sm">{communications.map((c) => <li key={c.id}><span className="text-xs text-ink-500">{fmtDateTime(c.createdAt)} | {c.channel} | {c.direction === "inbound" ? "From adjuster" : "To adjuster"}</span><br />{c.body}</li>)}</ul>
           </section>
         )}
-        <p className="text-xs text-ink-500">Photo evidence will be added to this packet when document uploads are built.</p>
       </article>
     </div>
   );

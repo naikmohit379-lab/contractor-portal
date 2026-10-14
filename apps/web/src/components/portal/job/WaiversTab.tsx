@@ -31,7 +31,7 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 /** The waiver that best represents a party for one payment: signed beats open beats closed, newest first. */
-function bestWaiver(waivers: WaiverDTO[], partyId: string, milestone: MilestoneDTO) {
+function bestWaiver(waivers: WaiverDTO[], partyId: string, milestone: MilestoneDTO): WaiverDTO | undefined {
   const ok = new Set(acceptableWaiverTypes(milestone.type));
   const rank = (s: string) => (s === "signed" ? 0 : s === "viewed" || s === "requested" ? 1 : 2);
   return waivers
@@ -131,7 +131,7 @@ function MilestoneCard({ jobId, m, parties, waivers, gating }: { jobId: string; 
             <tbody>
               {parties.filter((p) => p.requiresWaiver).map((p) => {
                 const w = bestWaiver(waivers, p.id, m);
-                const status: string = w ? w.status : "none";
+                const status = w?.status ?? "none";
                 return (
                   <tr key={p.id} className="border-t border-ink-600 align-top">
                     <td className="py-3 pr-3 font-medium">{p.name}</td>

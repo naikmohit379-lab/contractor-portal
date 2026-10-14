@@ -32,15 +32,14 @@ signRouter.get(
   "/waivers/:token",
   asyncHandler(async (req, res) => {
     const w = await byToken(req.params.token!);
-    const companyId = String((w as any).companyId);
     if (w.status === "requested" && effectiveStatus(w) === "requested") {
       w.status = "viewed";
       w.viewedAt = new Date();
       await w.save();
       await log(w, "waiver.viewed", req.ip);
-      touchJob(companyId, w.jobId, "waivers", "milestones");
+      touchJob(w.companyId, w.jobId, "waivers", "milestones");
     }
-    const [company, party] = await Promise.all([Company.findById(companyId), Party.findById(w.partyId).setOptions({ skipTenant: true })]);
+    const [company, party] = await Promise.all([Company.findById(w.companyId), Party.findById(w.partyId).setOptions({ skipTenant: true })]);
     const dto: PublicWaiverDTO = {
       title: waiverTitle(w.type as any),
       status: effectiveStatus(w),
@@ -68,7 +67,6 @@ signRouter.post(
   validate({ body: signSchema }),
   asyncHandler(async (req, res) => {
     const w = await byToken(req.params.token!);
-    const companyId = String((w as any).companyId);
     await assertOpen(w);
     const party = await Party.findById(w.partyId).setOptions({ skipTenant: true });
 
@@ -88,8 +86,8 @@ signRouter.post(
     w.lockedAt = new Date(); // from here the record is immutable (see the Waiver model)
     await w.save();
     await log(w, "waiver.signed", req.ip, { signer: w.signerName, needsReview });
-    touchJob(companyId, w.jobId, "waivers", "milestones");
-    await notify(companyId, {
+    touchJob(w.companyId, w.jobId, "waivers", "milestones");
+    await notify(w.companyId, {
       kind: "waiver.signed",
       title: `${party?.name ?? "A party"} signed a waiver`,
       body: needsReview.length ? `Signed by ${w.signerName}. Needs a quick review: ${needsReview[0]}.` : `Signed by ${w.signerName}.`,
@@ -105,15 +103,14 @@ signRouter.post(
   validate({ body: declineSchema }),
   asyncHandler(async (req, res) => {
     const w = await byToken(req.params.token!);
-    const companyId = String((w as any).companyId);
     await assertOpen(w);
     w.status = "declined";
     w.declineReason = req.body.reason;
     await w.save();
     await log(w, "waiver.declined", req.ip, { reason: req.body.reason });
-    touchJob(companyId, w.jobId, "waivers", "milestones");
+    touchJob(w.companyId, w.jobId, "waivers", "milestones");
     const party = await Party.findById(w.partyId).setOptions({ skipTenant: true });
-    await notify(companyId, {
+    await notify(w.companyId, {
       kind: "waiver.declined",
       title: `${party?.name ?? "A party"} declined to sign a waiver`,
       body: `Reason: ${req.body.reason}`,

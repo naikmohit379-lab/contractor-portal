@@ -1,0 +1,24 @@
+# One address serves everything: /api goes to the API, the rest to the website. Caddy gets and renews the HTTPS certificate itself.
+{$DOMAIN} {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	# The API. No compression here: the live event stream must not be buffered. flush_interval -1 sends each event at once.
+	handle /api/* {
+		reverse_proxy api:4000 {
+			flush_interval -1
+		}
+	}
+	handle /ready {
+		reverse_proxy api:4000
+	}
+
+	handle {
+		encode zstd gzip
+		reverse_proxy web:3000
+	}
+}

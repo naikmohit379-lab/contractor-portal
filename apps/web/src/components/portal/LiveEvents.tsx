@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import type { LiveEvent, NotificationDTO } from "@roofdesk/shared";
 import { getAccessToken, refreshSession } from "@/lib/api";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "/api/v1" : "http://localhost:4000/api/v1");
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
 /**
  * Keeps one live connection to the API (Server-Sent Events read with fetch, so the Authorization header can be sent).

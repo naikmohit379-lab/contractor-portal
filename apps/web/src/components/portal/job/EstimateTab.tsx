@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Lock, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { computeTotals, diffVersions } from "@roofdesk/estimate-engine";
-import type { EstimateDTO, EstimateSettingsInput, EstimateVersionDTO, LineItemInput, MeasurementDTO } from "@roofdesk/shared";
+import type { EstimateDTO, EstimateSettingsInput, EstimateVersionDTO, LineItemInput, MeasurementDTO, PriceListDTO } from "@roofdesk/shared";
 import { UNITS } from "@roofdesk/shared";
 import { NumInput } from "@/components/NumInput";
 import { api, post } from "@/lib/api";
@@ -14,7 +14,7 @@ import { centsToDollars, dollarsToCents, usd } from "@/lib/format";
 
 const KIND_LABEL = { original: "Original", approved: "Carrier approved", supplement: "Supplement" } as const;
 
-function VersionEditor({ version, onSave, saving, canEdit }: { version: EstimateVersionDTO; onSave: (items: LineItemInput[], s: EstimateSettingsInput) => void; saving: boolean; canEdit: boolean }) {
+function VersionEditor({ version, onSave, saving, canEdit, priceItems }: { version: EstimateVersionDTO; onSave: (items: LineItemInput[], s: EstimateSettingsInput) => void; saving: boolean; canEdit: boolean; priceItems: PriceListDTO["items"] }) {
   const [items, setItems] = useState<LineItemInput[]>(version.lineItems);
   const [settings, setSettings] = useState<EstimateSettingsInput>(version.settings);
   const locked = !!version.lockedAt;
@@ -89,7 +89,19 @@ function VersionEditor({ version, onSave, saving, canEdit }: { version: Estimate
             </li>
           ))}
         </ul>
-        {editable && <button className="btn btn-ghost mt-3" onClick={addLine}><Plus size={16} aria-hidden /> Add line</button>}
+        {editable && (
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button className="btn btn-ghost" onClick={addLine}><Plus size={16} aria-hidden /> Add blank line</button>
+            <label className="sr-only" htmlFor="from-list">Add an item from your price list</label>
+            <select id="from-list" className="field w-auto max-w-full" value="" onChange={(e) => {
+              const p = priceItems.find((x) => x.key === e.target.value);
+              if (p) setItems((arr) => [...arr, { key: p.key, description: p.description, category: p.category, unit: p.unit, quantity: 1, unitPriceCents: p.unitPriceCents, taxable: p.taxable, depreciationPct: 0 }]);
+            }}>
+              <option value="">Add from price list...</option>
+              {priceItems.filter((p) => !items.some((i) => i.key === p.key)).map((p) => <option key={p.key} value={p.key}>{p.description} ({p.unit})</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -154,6 +166,7 @@ export function EstimateTab({ jobId }: { jobId: string }) {
   const [measurementId, setMeasurementId] = useState("");
 
   const estimate = useQuery({ queryKey: ["jobs", jobId, "estimate"], queryFn: () => api<{ estimate: EstimateDTO | null }>(`/jobs/${jobId}/estimate`) });
+  const priceList = useQuery({ queryKey: ["price-list"], queryFn: () => api<PriceListDTO>("/price-lists/active") });
   const measurements = useQuery({ queryKey: ["jobs", jobId, "measurements"], queryFn: () => api<{ items: MeasurementDTO[] }>(`/jobs/${jobId}/measurements`) });
 
   const done = (e: { estimate: EstimateDTO }) => {
@@ -227,7 +240,7 @@ export function EstimateTab({ jobId }: { jobId: string }) {
       {version.note && <p className="text-sm text-mist">{version.note}</p>}
       {(save.isError || newVersion.isError) && <p role="alert" className="text-bad">{((save.error || newVersion.error) as Error).message}</p>}
 
-      <VersionEditor key={`${version.versionNo}-${version.createdAt}-${version.lockedAt ?? ""}-${JSON.stringify(version.settings)}`} version={version} canEdit={can("estimate:write")} saving={save.isPending}
+      <VersionEditor key={`${version.versionNo}-${version.createdAt}-${version.lockedAt ?? ""}-${JSON.stringify(version.settings)}`} version={version} canEdit={can("estimate:write")} saving={save.isPending} priceItems={priceList.data?.items ?? []}
         onSave={(items, s) => save.mutate({ no: version.versionNo, items, s })} />
 
       {previous && <VersionDiff from={previous} to={version} />}

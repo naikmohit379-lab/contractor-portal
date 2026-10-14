@@ -13,6 +13,7 @@ import { Estimate } from "../../models/Estimate";
 import { Job } from "../../models/Job";
 import { MeasurementReport } from "../../models/MeasurementReport";
 import { advanceStage } from "../jobs/stages";
+import { getActivePriceList, pricesForEstimates } from "../pricing/pricing";
 
 export const estimatesRouter = Router({ mergeParams: true });
 estimatesRouter.use(requireAuth);
@@ -102,11 +103,14 @@ estimatesRouter.post(
     if (!m || m.status !== "delivered" || !m.totals?.areaSqFt) {
       throw new AppError(422, "measurement_not_ready", "Use a delivered measurement report to start an estimate");
     }
+    const prices = await pricesForEstimates();
+    const priceVersion = (await getActivePriceList()).doc.version;
+    const linear = m.linear ?? { ridge: 0, hip: 0, valley: 0, eave: 0, rake: 0 };
     const lineItems = buildRoofReplacementItems({
       totals: { areaSqFt: m.totals.areaSqFt, squares: m.totals.squares ?? 0, wastePct: m.totals.wastePct ?? 0 },
-      linear: { ridge: m.linear.ridge, hip: m.linear.hip, valley: m.linear.valley, eave: m.linear.eave, rake: m.linear.rake },
+      linear: { ridge: linear.ridge ?? 0, hip: linear.hip ?? 0, valley: linear.valley ?? 0, eave: linear.eave ?? 0, rake: linear.rake ?? 0 },
       facets: m.facets.map((f) => ({ id: f.id!, areaSqFt: f.areaSqFt!, pitch: f.pitch! })),
-    });
+    }, prices);
     const claim = await Claim.findOne({ jobId: job._id });
     const est = await Estimate.create({
       jobId: job._id,
@@ -117,7 +121,7 @@ estimatesRouter.post(
           kind: "original",
           lineItems,
           settings: { ...DEFAULT_SETTINGS, deductibleCents: claim?.deductibleCents ?? 0 },
-          note: "Generated from the aerial measurement report",
+          note: `Generated from the aerial measurement report, using price list version ${priceVersion}`,
           createdBy: req.auth!.userId,
         },
       ],

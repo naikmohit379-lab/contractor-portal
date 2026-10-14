@@ -1,4 +1,5 @@
 import cookieParser from "cookie-parser";
+import mongoose from "mongoose";
 import cors from "cors";
 import express, { type ErrorRequestHandler } from "express";
 import rateLimit from "express-rate-limit";
@@ -11,6 +12,8 @@ import { logger } from "./core/logger";
 import { sanitize } from "./core/sanitize";
 import { authRouter } from "./modules/auth/auth.routes";
 import { jobsRouter } from "./modules/jobs/jobs.routes";
+import { documentsRouter } from "./modules/documents/documents.routes";
+import { pricingRouter } from "./modules/pricing/pricing.routes";
 import { eventsRouter } from "./modules/notifications/events.routes";
 import { notificationsRouter } from "./modules/notifications/notifications.routes";
 import { reportsRouter } from "./modules/reports/reports.routes";
@@ -44,7 +47,9 @@ export function createApp() {
   app.use(sanitize);
   app.use(rateLimit({ windowMs: 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false }));
 
-  app.get(["/health", "/api/health", "/api/v1/health"], (_req, res) => res.json({ ok: true }));
+  // "health": the process is up. "ready": it can also reach the database (what a load balancer should check).
+  app.get("/health", (_req, res) => res.json({ ok: true }));
+  app.get("/ready", (_req, res) => (mongoose.connection.readyState === 1 ? res.json({ ok: true }) : res.status(503).json({ ok: false })));
 
   const v1 = express.Router();
   v1.use("/auth", authRouter);
@@ -66,6 +71,8 @@ export function createApp() {
   v1.use("/events", eventsRouter);
   v1.use("/notifications", notificationsRouter);
   v1.use("/reports", reportsRouter);
+  v1.use("/jobs/:jobId/documents", documentsRouter);
+  v1.use("/price-lists", pricingRouter);
   app.use("/api/v1", v1);
 
   app.use((_req, res) => res.status(404).json({ error: { code: "not_found", message: "Route not found" } }));
@@ -78,6 +85,12 @@ export function createApp() {
     }
     if (err instanceof AppError) {
       return res.status(err.status).json({ error: { code: err.code, message: err.message, details: err.details } });
+    }
+    if (err?.type === "entity.too.large") {
+      return res.status(413).json({ error: { code: "too_large", message: "That file is too large. The limit is 15 MB." } });
+    }
+    if (err?.type === "entity.parse.failed") {
+      return res.status(400).json({ error: { code: "bad_json", message: "The request could not be read" } });
     }
     if (err?.code === 11000) {
       return res.status(409).json({ error: { code: "duplicate", message: "This record already exists" } });

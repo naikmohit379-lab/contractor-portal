@@ -22,6 +22,13 @@ services:
       MINIO_ROOT_PASSWORD: roofdesk-secret
     ports: ["9000:9000", "9001:9001"]
     volumes: ["minio_data:/data"]
+  # Creates the storage bucket once, so STORAGE_DRIVER=s3 works against MinIO straight away.
+  minio-setup:
+    image: minio/mc
+    depends_on: [minio]
+    entrypoint: >
+      sh -c "until mc alias set local http://minio:9000 roofdesk roofdesk-secret; do sleep 2; done && mc mb -p local/roofdesk && echo bucket ready"
+    restart: "no"
 volumes:
   mongo_data:
   minio_data:

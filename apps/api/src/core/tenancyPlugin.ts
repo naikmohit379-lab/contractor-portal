@@ -1,6 +1,14 @@
 import { Schema, Types } from "mongoose";
 import { getContext } from "./context";
 
+// Mongoose cannot infer fields added by schema plugins, so expose the tenant field
+// on hydrated documents as well as adding it to the runtime schema below.
+declare module "mongoose" {
+  interface Document<T = Types.ObjectId, TQueryHelpers = any, DocType = any, TVirtuals = Record<string, any>, TSchemaOptions = {}> {
+    companyId: Types.ObjectId;
+  }
+}
+
 const QUERY_OPS = [
   "find",
   "findOne",
