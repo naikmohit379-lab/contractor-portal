@@ -1,5 +1,5 @@
-import { randomBytes } from "node:crypto";
-import { Router } from "express";
+import { createHash, randomBytes } from "node:crypto";
+import express, { Router } from "express";
 import { isValidObjectId } from "mongoose";
 import { z } from "zod";
 import { buildMaterialList } from "@roofdesk/estimate-engine";
@@ -9,6 +9,7 @@ import {
   poCreateSchema,
   poStatusSchema,
   poUpdateSchema,
+  MAX_UPLOAD_BYTES,
   type PurchaseOrderDTO,
 } from "@roofdesk/shared";
 import { audit } from "../../core/audit";
@@ -22,6 +23,10 @@ import { Estimate } from "../../models/Estimate";
 import { Job } from "../../models/Job";
 import { PurchaseOrder } from "../../models/PurchaseOrder";
 import { Supplier } from "../../models/Supplier";
+import { Document } from "../../models/Document";
+import { cleanFilename, detectFileType } from "../documents/fileType";
+import { newStorageKey } from "../documents/storage";
+import { getStorage } from "../documents/storageFactory";
 import { toVersionDTO } from "../estimates/estimates.routes";
 import { advanceStage } from "../jobs/stages";
 
@@ -40,6 +45,16 @@ export function toPODTO(po: any, supplierName: string): PurchaseOrderDTO {
     sku: l.sku ?? undefined,
     unitPriceCents: l.unitPriceCents ?? undefined,
   }));
+  const expectedTotalCents = lines.reduce((n: number, l: any) => n + l.quantity * (l.unitPriceCents ?? 0), 0);
+  const supplierInvoice = po.supplierInvoice?.documentId ? {
+    invoiceNumber: po.supplierInvoice.invoiceNumber,
+    totalCents: po.supplierInvoice.totalCents,
+    documentId: String(po.supplierInvoice.documentId),
+    receivedAt: po.supplierInvoice.receivedAt.toISOString(),
+    expectedTotalCents,
+    varianceCents: expectedTotalCents > 0 ? po.supplierInvoice.totalCents - expectedTotalCents : null,
+    variancePct: expectedTotalCents > 0 ? Math.round(((po.supplierInvoice.totalCents - expectedTotalCents) / expectedTotalCents) * 10000) / 100 : null,
+  } : undefined;
   return {
     id: po.id,
     poNumber: po.poNumber,
@@ -50,8 +65,9 @@ export function toPODTO(po: any, supplierName: string): PurchaseOrderDTO {
     lines,
     deliveryWindow: po.deliveryWindow?.date ? { date: po.deliveryWindow.date.toISOString(), slot: po.deliveryWindow.slot } : undefined,
     dropInstructions: po.dropInstructions ?? undefined,
+    supplierInvoice,
     statusHistory: po.statusHistory.map((h: any) => ({ from: h.from, to: h.to, at: h.at.toISOString(), note: h.note, by: h.by })),
-    totalCents: lines.reduce((n: number, l: any) => n + l.quantity * (l.unitPriceCents ?? 0), 0),
+    totalCents: expectedTotalCents,
     createdAt: po.createdAt.toISOString(),
   };
 }
@@ -141,6 +157,54 @@ ordersRouter.patch(
     await po.save();
     const names = await supplierNames([po.supplierId]);
     res.json(toPODTO(po, names.get(String(po.supplierId)) ?? "Unknown supplier"));
+  }),
+);
+
+ordersRouter.post(
+  "/:orderId/invoice",
+  requirePermission("order:send"),
+  express.raw({ type: () => true, limit: MAX_UPLOAD_BYTES }),
+  validate({ params: orderParam }),
+  asyncHandler(async (req, res) => {
+    const po = await PurchaseOrder.findOne({ _id: req.params.orderId, jobId: req.params.jobId });
+    if (!po) throw notFound("Order");
+    if (po.supplierInvoice?.documentId) throw new AppError(409, "invoice_exists", "An invoice is already recorded for this purchase order");
+    let rawInvoiceNumber = req.header("x-invoice-number") ?? "";
+    try { rawInvoiceNumber = decodeURIComponent(rawInvoiceNumber); } catch { /* validation below rejects malformed input */ }
+    const invoiceNumber = z.string().trim().min(1).max(80).safeParse(rawInvoiceNumber);
+    const totalCents = z.coerce.number().int().positive().max(100_000_000).safeParse(req.header("x-invoice-total-cents"));
+    if (!invoiceNumber.success || !totalCents.success) throw new AppError(422, "invalid_invoice", "Enter an invoice number and a positive invoice total");
+    const body = req.body;
+    if (!Buffer.isBuffer(body) || body.length === 0) throw new AppError(422, "empty_file", "Choose a PDF invoice to upload");
+    const type = detectFileType(body);
+    if (!type || type.contentType !== "application/pdf") throw new AppError(415, "unsupported_type", "Supplier invoices must be PDF files");
+
+    const key = newStorageKey(req.auth!.companyId, String(po.jobId), type.ext);
+    await getStorage().put(key, body, type.contentType);
+    let doc: any;
+    try {
+      doc = await Document.create({
+        jobId: po.jobId,
+        kind: "document",
+        filename: cleanFilename(req.header("x-file-name")),
+        contentType: type.contentType,
+        sizeBytes: body.length,
+        sha256: createHash("sha256").update(body).digest("hex"),
+        storageKey: key,
+        includeInPacket: false,
+        uploadedBy: req.auth!.userId,
+      });
+      po.set("supplierInvoice", { invoiceNumber: invoiceNumber.data, totalCents: totalCents.data, documentId: doc._id, receivedAt: new Date(), uploadedBy: req.auth!.userId });
+      await po.save();
+    } catch (err) {
+      if (doc) await Document.deleteOne({ _id: doc._id }).catch(() => undefined);
+      await getStorage().delete(key).catch(() => undefined);
+      throw err;
+    }
+    await audit(req, "order.invoice_uploaded", "PurchaseOrder", po._id, { invoiceNumber: invoiceNumber.data, totalCents: totalCents.data, documentId: String(doc._id) });
+    touchJob(req.auth!.companyId, po.jobId, "orders");
+    const names = await supplierNames([po.supplierId]);
+    res.status(201).json(toPODTO(po, names.get(String(po.supplierId)) ?? "Unknown supplier"));
   }),
 );
 

@@ -105,6 +105,7 @@ export interface PurchaseOrderDTO {
   lines: { key: string; description: string; unit: string; quantity: number; sku?: string; unitPriceCents?: number }[];
   deliveryWindow?: { date: string; slot: string };
   dropInstructions?: string;
+  supplierInvoice?: { invoiceNumber: string; totalCents: number; documentId: string; receivedAt: string; expectedTotalCents: number; varianceCents: number | null; variancePct: number | null };
   statusHistory: { from?: POStatus; to: POStatus; at: string; note?: string; by?: string }[];
   totalCents: number;
   createdAt: string;

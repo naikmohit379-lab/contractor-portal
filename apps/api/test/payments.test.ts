@@ -88,7 +88,8 @@ describe("gateway webhooks", () => {
   });
   it("rejects a bad or stale signature", async () => {
     const evt = stripeEvent("evt_bad_1", "checkout.session.completed", { metadata: { paymentId: p2 } });
-    const bad = await send(evt.body, evt.signature.replace(/v1=./, "v1=0"));
+    const badSignature = evt.signature.replace(/v1=([0-9a-f])/, (_match, first: string) => `v1=${first === "0" ? "1" : "0"}`);
+    const bad = await send(evt.body, badSignature);
     expect(bad.status).toBe(400);
     expect(bad.body.error.code).toBe("bad_signature");
     expect((await send(evt.body, "t=1,v1=abc")).status).toBe(400);

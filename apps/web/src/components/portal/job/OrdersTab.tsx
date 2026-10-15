@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { PO_STATUS_LABELS, PO_TRANSITIONS, type POStatus, type PurchaseOrderDTO, type SupplierDTO } from "@roofdesk/shared";
-import { api, post } from "@/lib/api";
+import { api, fetchBlob, post, uploadFile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { fmtDate, usd } from "@/lib/format";
 
@@ -89,6 +89,10 @@ function OrderCard({ jobId, order, supplier }: { jobId: string; order: PurchaseO
   const [link, setLink] = useState<string | null>(null);
   const [emailedTo, setEmailedTo] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [invoiceTotal, setInvoiceTotal] = useState("");
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const [invoiceFileError, setInvoiceFileError] = useState<string | null>(null);
   const refresh = () => { qc.invalidateQueries({ queryKey: ["jobs", jobId] }); qc.invalidateQueries({ queryKey: ["jobs", "summary"] }); };
 
   const send = useMutation({
@@ -96,6 +100,17 @@ function OrderCard({ jobId, order, supplier }: { jobId: string; order: PurchaseO
     onSuccess: (r) => { setLink(r.confirmUrl); setEmailedTo(r.emailedTo ?? null); refresh(); },
   });
   const move = useMutation({ mutationFn: (status: POStatus) => post(`/jobs/${jobId}/orders/${order.id}/status`, { status }), onSuccess: refresh });
+  const invoice = useMutation({
+    mutationFn: () => {
+      if (!invoiceFile) throw new Error("Choose a PDF invoice.");
+      const cents = Math.round(Number(invoiceTotal) * 100);
+      return uploadFile<PurchaseOrderDTO>(`/jobs/${jobId}/orders/${order.id}/invoice`, invoiceFile, {
+        "X-Invoice-Number": encodeURIComponent(invoiceNumber.trim()),
+        "X-Invoice-Total-Cents": String(cents),
+      });
+    },
+    onSuccess: () => { setInvoiceFile(null); setInvoiceNumber(""); setInvoiceTotal(""); refresh(); },
+  });
   const next = PO_TRANSITIONS[order.status].filter((s) => s !== "sent");
 
   const mailto = link && supplier?.contactEmail
@@ -121,6 +136,32 @@ function OrderCard({ jobId, order, supplier }: { jobId: string; order: PurchaseO
         ))}
       </ul>
       {order.dropInstructions && <p className="mt-3 text-sm text-mist">Drop: {order.dropInstructions}</p>}
+
+      {order.supplierInvoice ? (
+        <div className="mt-4 rounded-md border border-ink-600 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold">Invoice {order.supplierInvoice.invoiceNumber}</p>
+              <p className="text-sm text-mist">Actual {usd(order.supplierInvoice.totalCents)} · PO {usd(order.supplierInvoice.expectedTotalCents)} · Variance {order.supplierInvoice.varianceCents === null ? "unavailable (no priced lines)" : `${usd(order.supplierInvoice.varianceCents)}${order.supplierInvoice.variancePct !== null ? ` (${order.supplierInvoice.variancePct}%)` : ""}`}</p>
+            </div>
+            <button className="btn btn-ghost" onClick={async () => {
+              try {
+                const blob = await fetchBlob(`/jobs/${jobId}/documents/${order.supplierInvoice!.documentId}/file`);
+                const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `invoice-${order.supplierInvoice!.invoiceNumber}.pdf`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); setInvoiceFileError(null);
+              } catch (e) { setInvoiceFileError((e as Error).message); }
+            }}>Download invoice PDF</button>
+          </div>
+          {invoiceFileError && <p role="alert" className="mt-2 text-sm text-bad">{invoiceFileError}</p>}
+        </div>
+      ) : can("order:send") ? (
+        <div className="mt-4 grid gap-3 rounded-md border border-ink-600 p-4 sm:grid-cols-3">
+          <div><label className="label" htmlFor={`invoice-number-${order.id}`}>Invoice number</label><input id={`invoice-number-${order.id}`} className="field" maxLength={80} value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} /></div>
+          <div><label className="label" htmlFor={`invoice-total-${order.id}`}>Invoice total (USD)</label><input id={`invoice-total-${order.id}`} type="number" min="0.01" step="0.01" className="field" value={invoiceTotal} onChange={(e) => setInvoiceTotal(e.target.value)} /></div>
+          <div><label className="label" htmlFor={`invoice-file-${order.id}`}>Invoice PDF</label><input id={`invoice-file-${order.id}`} type="file" accept="application/pdf,.pdf" className="field" onChange={(e) => setInvoiceFile(e.target.files?.[0] ?? null)} /></div>
+          {invoice.isError && <p role="alert" className="text-sm text-bad sm:col-span-3">{(invoice.error as Error).message}</p>}
+          <div className="sm:col-span-3"><button className="btn btn-ghost" disabled={invoice.isPending || !invoiceFile || !invoiceNumber.trim() || Number(invoiceTotal) <= 0} onClick={() => invoice.mutate()}>{invoice.isPending ? "Uploading invoice" : "Upload invoice and record total"}</button></div>
+        </div>
+      ) : null}
 
       {can("order:send") && (
         <div className="mt-4 flex flex-wrap gap-2">

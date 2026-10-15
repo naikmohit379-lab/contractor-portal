@@ -11,6 +11,7 @@ import { touchJob } from "../../core/notify";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
 import { Document } from "../../models/Document";
 import { Job } from "../../models/Job";
+import { PurchaseOrder } from "../../models/PurchaseOrder";
 import { cleanFilename, detectFileType } from "./fileType";
 import { newStorageKey } from "./storage";
 import { getStorage } from "./storageFactory";
@@ -134,6 +135,9 @@ documentsRouter.delete(
   asyncHandler(async (req, res) => {
     const d = await Document.findOne({ _id: req.params.docId, jobId: req.params.jobId });
     if (!d) throw notFound("Document");
+    if (await PurchaseOrder.exists({ "supplierInvoice.documentId": d._id })) {
+      throw new AppError(409, "invoice_linked", "This PDF is attached to a supplier invoice and cannot be deleted from the document library.");
+    }
     await d.deleteOne();
     // The record goes first. If removing the file fails, a stray file is harmless; a record pointing at nothing is not.
     await getStorage().delete(d.storageKey).catch((err) => logger.error({ err, key: d.storageKey }, "could not delete stored file"));

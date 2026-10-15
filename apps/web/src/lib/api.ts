@@ -85,8 +85,8 @@ export async function fetchBlob(path: string): Promise<Blob> {
 }
 
 /** Uploads one file as the raw request body (not multipart). The server identifies the real type from the bytes. */
-export async function uploadFile<T>(path: string, file: File): Promise<T> {
-  const init: RequestInit = { method: "POST", body: file, headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name) } };
+export async function uploadFile<T>(path: string, file: File, extraHeaders: Record<string, string> = {}): Promise<T> {
+  const init: RequestInit = { method: "POST", body: file, headers: { "Content-Type": file.type || "application/octet-stream", "X-File-Name": encodeURIComponent(file.name), ...extraHeaders } };
   let res = await send(path, init);
   if (res.status === 401 && (await refreshSession())) res = await send(path, init);
   const body = await res.json().catch(() => ({}));
