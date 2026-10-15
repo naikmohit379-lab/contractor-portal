@@ -93,7 +93,7 @@ function Detail({ jobId, doc, onClose }: { jobId: string; doc: DocumentDTO; onCl
 }
 
 export function PhotosTab({ jobId }: { jobId: string }) {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const qc = useQueryClient();
   const [queue, setQueue] = useState<UploadItem[]>([]);
   const [online, setOnline] = useState(true);
@@ -104,16 +104,17 @@ export function PhotosTab({ jobId }: { jobId: string }) {
   const q = useQuery({ queryKey: ["jobs", jobId, "documents"], queryFn: () => api<{ items: DocumentDTO[] }>(`/jobs/${jobId}/documents`) });
 
   async function refreshQueue() {
-    const items = await listOfflineUploads(jobId);
+    if (!user?.id) { setQueue([]); return; }
+    const items = await listOfflineUploads(jobId, user.id);
     setQueue(items.map((item) => ({ ...item, state: "queued" })));
   }
 
   async function syncQueue() {
-    if (syncing.current || !navigator.onLine) return;
+    if (syncing.current || !navigator.onLine || !user?.id) return;
     syncing.current = true;
     setOnline(true);
     try {
-      for (const item of await listOfflineUploads(jobId)) {
+      for (const item of await listOfflineUploads(jobId, user.id)) {
         setQueue((items) => items.map((entry) => entry.id === item.id ? { ...entry, state: "uploading", message: undefined } : entry));
         try {
           const file = new File([item.blob], item.fileName, { type: item.fileType, lastModified: item.lastModified });
@@ -138,11 +139,12 @@ export function PhotosTab({ jobId }: { jobId: string }) {
     const onlineNow = () => setOnline(true);
     const offlineNow = () => setOnline(false);
     setOnline(navigator.onLine);
+    setQueue([]);
     void refreshQueue().catch(() => {});
     window.addEventListener("online", onlineNow);
     window.addEventListener("offline", offlineNow);
     return () => { window.removeEventListener("online", onlineNow); window.removeEventListener("offline", offlineNow); };
-  }, [jobId]);
+  }, [jobId, user?.id]);
 
   useEffect(() => {
     if (online && queue.length) void syncQueue();
@@ -154,7 +156,8 @@ export function PhotosTab({ jobId }: { jobId: string }) {
     for (const file of list) {
       if (file.size > MAX_UPLOAD_BYTES) { window.alert(`${file.name}: ${mb(file.size)} is over the ${mb(MAX_UPLOAD_BYTES)} limit.`); continue; }
       try {
-        const saved = await saveOfflineUpload(jobId, file);
+        if (!user?.id) throw new Error("Sign in again before saving uploads.");
+        const saved = await saveOfflineUpload(jobId, user.id, file);
         setQueue((items) => [...items, { ...saved, state: "queued" }]);
       } catch (error) {
         window.alert(`${file.name}: ${(error as Error).message}`);

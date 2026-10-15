@@ -1,6 +1,7 @@
 export type OfflineUpload = {
   id: string;
   jobId: string;
+  ownerUserId: string;
   fileName: string;
   fileType: string;
   fileSize: number;
@@ -37,18 +38,19 @@ async function withStore<T>(mode: IDBTransactionMode, run: (store: IDBObjectStor
   }
 }
 
-export async function listOfflineUploads(jobId?: string): Promise<OfflineUpload[]> {
+export async function listOfflineUploads(jobId?: string, ownerUserId?: string): Promise<OfflineUpload[]> {
   const all = await withStore("readonly", (store) => store.getAll());
-  return (jobId ? all.filter((item) => item.jobId === jobId) : all).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return all.filter((item) => (!jobId || item.jobId === jobId) && (!ownerUserId || item.ownerUserId === ownerUserId))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
-export async function saveOfflineUpload(jobId: string, file: File): Promise<OfflineUpload> {
+export async function saveOfflineUpload(jobId: string, ownerUserId: string, file: File): Promise<OfflineUpload> {
   const existing = await listOfflineUploads();
   if (existing.reduce((sum, item) => sum + item.fileSize, 0) + file.size > MAX_OFFLINE_QUEUE_BYTES) {
     throw new Error("Offline photo storage is full (100 MB). Sync or remove queued files before adding more.");
   }
   const item: OfflineUpload = {
-    id: crypto.randomUUID(), jobId, fileName: file.name, fileType: file.type,
+    id: crypto.randomUUID(), jobId, ownerUserId, fileName: file.name, fileType: file.type,
     fileSize: file.size, lastModified: file.lastModified, createdAt: new Date().toISOString(), blob: file,
   };
   await withStore("readwrite", (store) => store.add(item));
