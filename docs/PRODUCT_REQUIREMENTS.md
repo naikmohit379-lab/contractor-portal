@@ -491,7 +491,7 @@ The items below reflect the current code and the agreed first-release decisions 
 - Upload antivirus scanning and server-generated image thumbnails.
 - Redis/BullMQ background workers, transactional outbox processing, retries/dead-letter handling, and shared live events for multiple API instances.
 - Automated browser/accessibility runs and real-device checks for the release; sustained performance and uptime targets have not been measured.
-- Production monitoring/alerting and a verified backup restore/disaster-recovery exercise. The Vercel deployment is live, but these operational checks remain.
+- Vercel production availability checks and Atlas backup/restore scripts are implemented. Still enable GitHub failed-run notifications, confirm the first production monitor run, create and store an off-device backup, and rehearse an isolated restore before relying on the process.
 
 ### Explicitly accepted MVP constraints
 

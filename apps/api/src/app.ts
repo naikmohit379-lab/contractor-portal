@@ -60,6 +60,9 @@ export function createApp() {
   app.get("/ready", (_req, res) => (mongoose.connection.readyState === 1 ? res.json({ ok: true }) : res.status(503).json({ ok: false })));
 
   const v1 = express.Router();
+  // Public probes for Vercel/GitHub monitoring; readiness confirms the database connection.
+  v1.get("/health", (_req, res) => res.json({ ok: true }));
+  v1.get("/ready", (_req, res) => (mongoose.connection.readyState === 1 ? res.json({ ok: true }) : res.status(503).json({ ok: false })));
   v1.use("/auth", authRouter);
   // Operations Interns can read only jobs explicitly assigned to them, including nested job resources.
   v1.use("/jobs/:jobId", requireAuth, asyncHandler(async (req, _res, next) => {
