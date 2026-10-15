@@ -5,7 +5,7 @@ const userInviteSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, lowercase: true, trim: true },
-    role: { type: String, enum: ["operations"], default: "operations" },
+    role: { type: String, enum: ["operations", "pm"], default: "operations" },
     tokenHash: { type: String, required: true, unique: true },
     expiresAt: { type: Date, required: true },
     acceptedAt: Date,

@@ -98,7 +98,7 @@ authRouter.post(
           companyId: invite.companyId,
           name: invite.name,
           email: invite.email,
-          role: "operations",
+          role: invite.role,
           passwordHash: await hashPassword(password),
           status: "active",
         });

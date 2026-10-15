@@ -34,6 +34,7 @@ import { templatesRouter } from "./modules/waivers/templates.routes";
 import { waiversRouter } from "./modules/waivers/waivers.routes";
 import { operationsRouter } from "./modules/operations/operations.routes";
 import { teamRouter } from "./modules/team/team.routes";
+import { adminRouter } from "./modules/admin/admin.routes";
 import { Job } from "./models/Job";
 import { requireAuth } from "./core/auth";
 import { asyncHandler } from "./core/http";
@@ -86,6 +87,7 @@ export function createApp() {
   v1.use("/reports", reportsRouter);
   v1.use("/operations", operationsRouter);
   v1.use("/team", teamRouter);
+  v1.use("/admin", adminRouter);
   v1.use("/jobs/:jobId/documents", documentsRouter);
   v1.use("/price-lists", pricingRouter);
   app.use("/api/v1", v1);
