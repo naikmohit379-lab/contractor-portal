@@ -12,6 +12,8 @@ import { PurchaseOrder } from "../../models/PurchaseOrder";
 import { User } from "../../models/User";
 import { Waiver } from "../../models/Waiver";
 import { Company } from "../../models/Company";
+import { jobStageLabelsSchema } from "@roofdesk/shared";
+import { normalizeStageLabels } from "../jobs/stages";
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requirePermission("user:manage"));
@@ -24,6 +26,7 @@ adminRouter.get(
     res.json({ settings: {
       paymentGating: company.settings?.paymentGating ?? "warn",
       refundApprovalThresholdCents: company.settings?.refundApprovalThresholdCents ?? 100000,
+      stageLabels: normalizeStageLabels(company.settings?.stageLabels),
     } });
   }),
 );
@@ -31,6 +34,7 @@ adminRouter.get(
 const companySettingsSchema = z.object({
   paymentGating: z.enum(["warn", "block"]),
   refundApprovalThresholdCents: z.number().int().min(0).max(100_000_000),
+  stageLabels: jobStageLabelsSchema,
 });
 
 adminRouter.put(
@@ -42,13 +46,16 @@ adminRouter.put(
     const before = {
       paymentGating: company.settings?.paymentGating ?? "warn",
       refundApprovalThresholdCents: company.settings?.refundApprovalThresholdCents ?? 100000,
+      stageLabels: normalizeStageLabels(company.settings?.stageLabels),
     };
     company.set("settings.paymentGating", req.body.paymentGating);
     company.set("settings.refundApprovalThresholdCents", req.body.refundApprovalThresholdCents);
+    company.set("settings.stageLabels", req.body.stageLabels);
     await company.save();
     const after = {
       paymentGating: req.body.paymentGating as "warn" | "block",
       refundApprovalThresholdCents: req.body.refundApprovalThresholdCents as number,
+      stageLabels: req.body.stageLabels,
     };
     await AuditLog.create({
       actorId: req.auth!.userId,

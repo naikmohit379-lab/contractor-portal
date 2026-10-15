@@ -1,9 +1,9 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, FileText, Trash2, Upload } from "lucide-react";
+import { Camera, FilePlus2, FileText, History, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { DOC_SLOPES, MARKER_KINDS, MARKER_LABELS, MAX_UPLOAD_BYTES, type DocumentDTO, type Marker } from "@roofdesk/shared";
+import { DOC_SLOPES, MARKER_KINDS, MARKER_LABELS, MAX_UPLOAD_BYTES, type DocumentDTO, type DocumentVersionDTO, type Marker } from "@roofdesk/shared";
 import { AuthImage } from "@/components/AuthImage";
 import { api, downloadFile, uploadFile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -20,14 +20,27 @@ function Detail({ jobId, doc, onClose }: { jobId: string; doc: DocumentDTO; onCl
   const [slope, setSlope] = useState(doc.slope ?? "");
   const [include, setInclude] = useState(doc.includeInPacket);
   const [markers, setMarkers] = useState<Marker[]>(doc.annotations);
+  const [tags, setTags] = useState((doc.tags ?? []).join(", "));
   const [kind, setKind] = useState<Marker["kind"]>("hail");
+  const versionFileRef = useRef<HTMLInputElement>(null);
   const editable = can("job:write");
   const isImage = doc.contentType.startsWith("image/");
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["jobs", jobId, "documents"] });
+  const versions = useQuery({
+    queryKey: ["jobs", jobId, "documents", doc.id, "versions"],
+    queryFn: () => api<{ items: DocumentVersionDTO[] }>(`/jobs/${jobId}/documents/${doc.id}/versions`),
+  });
   const save = useMutation({
-    mutationFn: () => api(`/jobs/${jobId}/documents/${doc.id}`, { method: "PATCH", body: JSON.stringify({ caption, slope: slope || undefined, includeInPacket: include, annotations: markers }) }),
+    mutationFn: () => api(`/jobs/${jobId}/documents/${doc.id}`, { method: "PATCH", body: JSON.stringify({ caption, slope: slope || undefined, includeInPacket: include, annotations: markers, tags: [...new Set(tags.split(",").map((tag) => tag.trim()).filter(Boolean))] }) }),
     onSuccess: refresh,
+  });
+  const uploadVersion = useMutation({
+    mutationFn: (file: File) => uploadFile<DocumentDTO>(`/jobs/${jobId}/documents/${doc.id}/versions`, file),
+    onSuccess: () => {
+      refresh();
+      qc.invalidateQueries({ queryKey: ["jobs", jobId, "documents", doc.id, "versions"] });
+    },
   });
   const del = useMutation({ mutationFn: () => api(`/jobs/${jobId}/documents/${doc.id}`, { method: "DELETE" }), onSuccess: () => { refresh(); onClose(); } });
 
@@ -79,12 +92,24 @@ function Detail({ jobId, doc, onClose }: { jobId: string; doc: DocumentDTO; onCl
           </select>
         </div>
       </div>
+      <div><label className="label" htmlFor="doc-tags">Tags (comma separated)</label><input id="doc-tags" className="field" disabled={!editable} value={tags} onChange={(e) => setTags(e.target.value)} placeholder="invoice, roof, inspection" /></div>
       {isImage && <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="h-5 w-5 accent-ember" disabled={!editable} checked={include} onChange={(e) => setInclude(e.target.checked)} /> Include in the claim packet</label>}
 
-      {(save.isError || del.isError) && <p role="alert" className="text-sm text-bad">{((save.error || del.error) as Error).message}</p>}
+      <details className="rounded-md border border-ink-600 p-3">
+        <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold"><History size={17} aria-hidden /> Version history {versions.data && `(${versions.data.items.length})`}</summary>
+        {versions.isLoading ? <p className="mt-3 text-sm text-mist">Loading versions…</p> : versions.isError ? <p role="alert" className="mt-3 text-sm text-bad">Could not load version history.</p> : <ol className="mt-3 space-y-2 text-sm">
+          {versions.data?.items.map((version) => <li key={version.version} className="flex flex-wrap items-center justify-between gap-2 border-t border-ink-600 pt-2">
+            <span>Version {version.version}{version.current ? " (current)" : ""} · {version.filename} · {fmtDate(version.createdAt)}</span>
+            {!version.current && <button className="text-ember-300 underline" onClick={() => downloadFile(`/jobs/${jobId}/documents/${doc.id}/file?version=${version.version}`, version.filename)}>Download</button>}
+          </li>)}
+        </ol>}
+      </details>
+
+      {(save.isError || del.isError || uploadVersion.isError) && <p role="alert" className="text-sm text-bad">{((save.error || del.error || uploadVersion.error) as Error).message}</p>}
       <div className="flex flex-wrap gap-3">
         {editable && <button className="btn btn-primary" disabled={save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Saving" : "Save details"}</button>}
         <button className="btn btn-ghost" onClick={() => downloadFile(`/jobs/${jobId}/documents/${doc.id}/file`, doc.filename)}>Download original</button>
+        {editable && <><input ref={versionFileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,application/pdf" className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadVersion.mutate(file); e.target.value = ""; }} /><button className="btn btn-ghost" disabled={uploadVersion.isPending} onClick={() => versionFileRef.current?.click()}><FilePlus2 size={17} aria-hidden /> {uploadVersion.isPending ? "Uploading version…" : "Upload new version"}</button></>}
         {editable && <button className="btn btn-ghost" disabled={del.isPending} onClick={() => confirm("Delete this file permanently?") && del.mutate()}>Delete</button>}
       </div>
       <p className="break-all text-xs text-mist">{mb(doc.sizeBytes)} | uploaded {fmtDate(doc.createdAt)} | SHA-256 {doc.sha256.slice(0, 16)}</p>
@@ -211,7 +236,7 @@ export function PhotosTab({ jobId }: { jobId: string }) {
                 : <span className="grid aspect-square place-items-center bg-ink-700 text-mist"><FileText size={36} aria-hidden /></span>}
               <span className="block space-y-0.5 p-2 text-xs">
                 <span className="block truncate font-medium">{d.caption || d.filename}</span>
-                <span className="block text-mist">{d.slope ?? "No slope"}{d.annotations.length > 0 && ` | ${d.annotations.length} marked`}{d.kind === "photo" && !d.includeInPacket && " | not in packet"}</span>
+                <span className="block text-mist">v{d.version} · {d.tags?.join(", ") || "No tags"}{d.slope && ` · ${d.slope}`}{d.annotations.length > 0 && ` · ${d.annotations.length} marked`}{d.kind === "photo" && !d.includeInPacket && " · not in packet"}</span>
               </span>
             </button>
           </li>

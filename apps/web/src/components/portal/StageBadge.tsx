@@ -1,5 +1,6 @@
 import clsx from "clsx";
-import { STAGE_LABELS, type JobStage } from "@roofdesk/shared";
+import type { JobStage } from "@roofdesk/shared";
+import { useJobStageLabels } from "@/lib/jobStages";
 
 const TONE: Partial<Record<JobStage, string>> = {
   lead: "bg-ink-600 text-mist-strong",
@@ -14,5 +15,6 @@ const TONE: Partial<Record<JobStage, string>> = {
 };
 
 export function StageBadge({ stage }: { stage: JobStage }) {
-  return <span className={clsx("inline-block whitespace-nowrap rounded px-2 py-1 text-xs font-semibold", TONE[stage])}>{STAGE_LABELS[stage]}</span>;
+  const labels = useJobStageLabels();
+  return <span className={clsx("inline-block whitespace-nowrap rounded px-2 py-1 text-xs font-semibold", TONE[stage])}>{labels[stage]}</span>;
 }

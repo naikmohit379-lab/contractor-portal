@@ -10,6 +10,8 @@ import { AppError, notFound } from "../../core/errors";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
 import { Job } from "../../models/Job";
 import { User } from "../../models/User";
+import { Company } from "../../models/Company";
+import { normalizeStageLabels } from "./stages";
 
 export const jobsRouter = Router();
 jobsRouter.use(requireAuth);
@@ -17,6 +19,16 @@ jobsRouter.use(requireAuth);
 const idParam = z.object({ jobId: z.string().refine(isValidObjectId, "Invalid job id") });
 const assigneesSchema = z.object({ jobId: z.string().refine(isValidObjectId), userIds: z.array(z.string().refine(isValidObjectId)).max(50) });
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+jobsRouter.get(
+  "/stage-labels",
+  requirePermission("job:read"),
+  asyncHandler(async (req, res) => {
+    const company = await Company.findById(req.auth!.companyId).select("settings.stageLabels");
+    if (!company) throw notFound("Company");
+    res.json({ stageLabels: normalizeStageLabels(company.settings?.stageLabels) });
+  }),
+);
 
 export const toJobDTO = (j: any): JobDTO => ({
   id: j.id,

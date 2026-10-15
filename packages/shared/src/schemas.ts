@@ -25,6 +25,19 @@ export const STAGE_LABELS: Record<JobStage, string> = {
   paid: "Paid",
 };
 
+export const jobStageLabelsSchema = z.object({
+  lead: z.string().trim().min(1).max(40),
+  measured: z.string().trim().min(1).max(40),
+  estimated: z.string().trim().min(1).max(40),
+  claim_filed: z.string().trim().min(1).max(40),
+  approved: z.string().trim().min(1).max(40),
+  materials_ordered: z.string().trim().min(1).max(40),
+  in_progress: z.string().trim().min(1).max(40),
+  complete: z.string().trim().min(1).max(40),
+  paid: z.string().trim().min(1).max(40),
+});
+export type JobStageLabels = z.infer<typeof jobStageLabelsSchema>;
+
 export const JOB_TYPES = ["insurance", "retail", "commercial"] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 

@@ -2,15 +2,17 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { JOB_STAGES, STAGE_LABELS, type JobDTO } from "@roofdesk/shared";
+import { JOB_STAGES, type JobDTO } from "@roofdesk/shared";
 import { ReportsPanel } from "@/components/portal/ReportsPanel";
 import { OperationsDashboard } from "@/components/portal/OperationsDashboard";
 import { StageBadge } from "@/components/portal/StageBadge";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useJobStageLabels } from "@/lib/jobStages";
 
 export default function DashboardPage() {
   const { user, can } = useAuth();
+  const stageLabels = useJobStageLabels();
   const summary = useQuery({ queryKey: ["jobs", "summary"], queryFn: () => api<{ total: number; byStage: Record<string, number> }>("/jobs/summary") });
   const recent = useQuery({ queryKey: ["jobs", "recent"], queryFn: () => api<{ items: JobDTO[] }>("/jobs?limit=6") });
 
@@ -32,7 +34,7 @@ export default function DashboardPage() {
           {JOB_STAGES.map((s) => (
             <Link key={s} href={`/jobs?stage=${s}`} className="panel p-4 hover:border-ember">
               <p className="font-display text-3xl font-bold">{summary.data?.byStage[s] ?? "-"}</p>
-              <p className="text-sm text-mist">{STAGE_LABELS[s]}</p>
+              <p className="text-sm text-mist">{stageLabels[s]}</p>
             </Link>
           ))}
         </div>

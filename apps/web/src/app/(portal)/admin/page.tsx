@@ -3,10 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Activity, AlertTriangle, BriefcaseBusiness, FileSignature, FileWarning, Settings2, ShieldAlert, Truck, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { STAGE_LABELS, type JobStage } from "@roofdesk/shared";
+import type { JobStage } from "@roofdesk/shared";
 import { api } from "@/lib/api";
 import { fmtDate } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
+import { useJobStageLabels } from "@/lib/jobStages";
 
 type AdminOverview = {
   generatedAt: string;
@@ -26,6 +27,7 @@ const readable = (value: string) => value.replace(/[._]/g, " ").replace(/\b\w/g,
 
 export default function AdminPage() {
   const { user, can } = useAuth();
+  const stageLabels = useJobStageLabels();
   const overview = useQuery({ queryKey: ["admin", "overview"], queryFn: () => api<AdminOverview>("/admin/overview"), enabled: can("user:manage"), staleTime: 20_000 });
 
   if (!can("user:manage")) return <section className="panel mx-auto max-w-xl p-6"><h1 className="text-2xl font-bold">Admin access required</h1><p className="mt-2 text-mist">This company overview is available to owners and admins.</p><Link href="/dashboard" className="mt-4 inline-flex text-ember underline">Return to dashboard</Link></section>;
@@ -65,7 +67,7 @@ export default function AdminPage() {
     <div className="grid gap-5 lg:grid-cols-2">
       <section aria-labelledby="admin-recent-jobs" className="panel p-5">
         <div className="mb-3 flex items-center justify-between"><h2 id="admin-recent-jobs" className="text-xl font-bold">Recently updated jobs</h2><Link className="text-sm text-ember hover:underline" href="/jobs">All jobs</Link></div>
-        {recentJobs.length ? <ul className="divide-y divide-ink-600">{recentJobs.map((job) => <li key={job.id}><Link href={`/jobs/${job.id}`} className="flex min-h-16 items-center justify-between gap-3 py-3 hover:text-ember"><span className="min-w-0"><strong className="block truncate">{job.jobNumber} · {job.customerName}</strong><span className="block truncate text-xs text-mist">{job.address} · {STAGE_LABELS[job.stage]}</span></span><span className="shrink-0 text-xs text-mist">{fmtDate(job.updatedAt)}</span></Link></li>)}</ul> : <p className="text-sm text-mist">No jobs have been created yet.</p>}
+        {recentJobs.length ? <ul className="divide-y divide-ink-600">{recentJobs.map((job) => <li key={job.id}><Link href={`/jobs/${job.id}`} className="flex min-h-16 items-center justify-between gap-3 py-3 hover:text-ember"><span className="min-w-0"><strong className="block truncate">{job.jobNumber} · {job.customerName}</strong><span className="block truncate text-xs text-mist">{job.address} · {stageLabels[job.stage]}</span></span><span className="shrink-0 text-xs text-mist">{fmtDate(job.updatedAt)}</span></Link></li>)}</ul> : <p className="text-sm text-mist">No jobs have been created yet.</p>}
       </section>
 
       <section aria-labelledby="admin-activity" className="panel p-5">

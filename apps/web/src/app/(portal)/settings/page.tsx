@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { GROUP_LABELS, NOTIFICATION_GROUPS, type NotificationGroup } from "@roofdesk/shared";
+import { GROUP_LABELS, JOB_STAGES, NOTIFICATION_GROUPS, STAGE_LABELS, type JobStageLabels, type NotificationGroup } from "@roofdesk/shared";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -16,7 +16,7 @@ export default function SettingsPage() {
     mutationFn: (emailGroups: Partial<Record<NotificationGroup, boolean>>) => api("/notifications/preferences", { method: "PUT", body: JSON.stringify({ emailGroups }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notification-prefs"] }),
   });
-  type CompanySettings = { paymentGating: "warn" | "block"; refundApprovalThresholdCents: number };
+  type CompanySettings = { paymentGating: "warn" | "block"; refundApprovalThresholdCents: number; stageLabels: JobStageLabels };
   const companySettings = useQuery({
     queryKey: ["company-settings"],
     queryFn: () => api<{ settings: CompanySettings }>("/admin/settings"),
@@ -25,7 +25,7 @@ export default function SettingsPage() {
   const [companyNotice, setCompanyNotice] = useState<string | null>(null);
   const saveCompany = useMutation({
     mutationFn: (settings: CompanySettings) => api<{ settings: CompanySettings }>("/admin/settings", { method: "PUT", body: JSON.stringify(settings) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["company-settings"] }); setCompanyNotice("Company controls saved."); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["company-settings"] }); qc.invalidateQueries({ queryKey: ["job-stage-labels"] }); setCompanyNotice("Company controls saved."); },
   });
 
   return (
@@ -56,7 +56,8 @@ export default function SettingsPage() {
         {companySettings.isLoading ? <p className="text-sm text-mist">Loading company controls…</p> : companySettings.isError || !companySettings.data ? <p role="alert" className="text-sm text-bad">Company controls could not be loaded. {(companySettings.error as Error | undefined)?.message}</p> : <form className="space-y-4" onSubmit={(event) => {
           event.preventDefault();
           const values = new FormData(event.currentTarget);
-          saveCompany.mutate({ paymentGating: values.get("paymentGating") as CompanySettings["paymentGating"], refundApprovalThresholdCents: Math.round(Number(values.get("refundApprovalThresholdDollars")) * 100) });
+          const stageLabels = Object.fromEntries(JOB_STAGES.map((stage) => [stage, String(values.get(`stageLabel_${stage}`) ?? STAGE_LABELS[stage])])) as JobStageLabels;
+          saveCompany.mutate({ paymentGating: values.get("paymentGating") as CompanySettings["paymentGating"], refundApprovalThresholdCents: Math.round(Number(values.get("refundApprovalThresholdDollars")) * 100), stageLabels });
         }}>
           <div>
             <label className="label" htmlFor="payment-gating">When a payment is marked ready with unsigned waivers</label>
@@ -70,6 +71,18 @@ export default function SettingsPage() {
             <input id="refund-threshold" name="refundApprovalThresholdDollars" className="field" type="number" min="0" max="1000000" step="0.01" defaultValue={(companySettings.data.settings.refundApprovalThresholdCents / 100).toFixed(2)} />
             <p className="mt-1 text-xs text-mist">Enter 0 to turn off the second-approval threshold. Owners and admins cannot approve their own large refund.</p>
           </div>
+          <fieldset className="space-y-3 border-t border-ink-600 pt-4">
+            <legend className="text-lg font-bold">Job pipeline labels</legend>
+            <p className="text-sm text-mist">Rename the standard stages shown across the job list and dashboard. This changes display names only; workflow order and stage behavior stay the same.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {JOB_STAGES.map((stage) => (
+                <div key={stage}>
+                  <label className="label" htmlFor={`stageLabel_${stage}`}>{STAGE_LABELS[stage]}</label>
+                  <input id={`stageLabel_${stage}`} name={`stageLabel_${stage}`} className="field" maxLength={40} required defaultValue={companySettings.data!.settings.stageLabels[stage]} />
+                </div>
+              ))}
+            </div>
+          </fieldset>
           <button className="btn btn-primary" type="submit" disabled={saveCompany.isPending}>{saveCompany.isPending ? "Saving…" : "Save company controls"}</button>
           {companyNotice && <p role="status" className="text-sm text-ok">{companyNotice}</p>}
           {saveCompany.isError && <p role="alert" className="text-sm text-bad">{(saveCompany.error as Error).message}</p>}

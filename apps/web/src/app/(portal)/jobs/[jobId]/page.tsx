@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { JOB_STAGES, STAGE_LABELS, type JobDTO, type JobStage } from "@roofdesk/shared";
+import { JOB_STAGES, type JobDTO, type JobStage } from "@roofdesk/shared";
 import { ClaimTab } from "@/components/portal/job/ClaimTab";
 import { EstimateTab } from "@/components/portal/job/EstimateTab";
 import { MeasurementsTab } from "@/components/portal/job/MeasurementsTab";
@@ -17,6 +17,7 @@ import { WaiversTab } from "@/components/portal/job/WaiversTab";
 import { StageBadge } from "@/components/portal/StageBadge";
 import { api, patch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useJobStageLabels } from "@/lib/jobStages";
 
 const NO_ASSIGNEES: string[] = [];
 
@@ -54,6 +55,7 @@ function JobDetail() {
   const params = useSearchParams();
   const router = useRouter();
   const { can } = useAuth();
+  const stageLabels = useJobStageLabels();
   const qc = useQueryClient();
   const tab = TABS.find((t) => t.id === params.get("tab"))?.id ?? "measurements";
 
@@ -81,7 +83,7 @@ function JobDetail() {
           <StageBadge stage={j.stage} />
           {can("job:write") && (
             <select className="field w-52" aria-label="Move job to stage" value={j.stage} disabled={setStage.isPending} onChange={(e) => setStage.mutate(e.target.value as JobStage)}>
-              {JOB_STAGES.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
+              {JOB_STAGES.map((s) => <option key={s} value={s}>{stageLabels[s]}</option>)}
             </select>
           )}
         </div>
