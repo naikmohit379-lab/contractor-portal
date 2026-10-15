@@ -12,7 +12,7 @@
 
 @layer components {
   .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md px-5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-primary { @apply bg-ember text-white hover:bg-ember-400; }
+  .btn-primary { @apply bg-ember text-ink-950 hover:bg-ember-400; }
   .btn-ghost { @apply border border-ink-500 text-white hover:bg-ink-700; }
   .field { @apply min-h-[44px] w-full rounded-md border border-ink-500 bg-ink-800 px-3 text-white placeholder:text-mist/60 focus:border-ember; }
   .label { @apply mb-1.5 block text-sm font-medium text-mist-strong; }
