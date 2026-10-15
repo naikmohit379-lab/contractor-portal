@@ -26,6 +26,7 @@ export async function startTestApp() {
     WEB_ORIGIN: "http://localhost:3000",
     PAYMENT_PROVIDER: "mock",
     STRIPE_WEBHOOK_SECRET: STRIPE_SECRET,
+    CRON_SECRET: "integration-cron-secret-for-reminders",
     STORAGE_DRIVER: "local",
     STORAGE_DIR: storageDir,
     EMAIL_PROVIDER: "log",
