@@ -5,3 +5,5 @@ allowBuilds:
   argon2: false
   esbuild: true
   mongodb-memory-server: true
+overrides:
+  postcss: 8.5.18
