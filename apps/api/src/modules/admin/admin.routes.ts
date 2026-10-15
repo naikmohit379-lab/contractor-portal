@@ -1,6 +1,7 @@
 import { Router } from "express";
+import { z } from "zod";
 import { requireAuth } from "../../core/auth";
-import { asyncHandler, requirePermission } from "../../core/http";
+import { asyncHandler, requirePermission, validate } from "../../core/http";
 import { AuditLog } from "../../models/AuditLog";
 import { Claim } from "../../models/Claim";
 import { Document } from "../../models/Document";
@@ -10,9 +11,55 @@ import { Payment } from "../../models/Payment";
 import { PurchaseOrder } from "../../models/PurchaseOrder";
 import { User } from "../../models/User";
 import { Waiver } from "../../models/Waiver";
+import { Company } from "../../models/Company";
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requirePermission("user:manage"));
+
+adminRouter.get(
+  "/settings",
+  asyncHandler(async (req, res) => {
+    const company = await Company.findById(req.auth!.companyId).select("settings");
+    if (!company) return res.status(404).json({ error: { code: "not_found", message: "Company not found" } });
+    res.json({ settings: {
+      paymentGating: company.settings?.paymentGating ?? "warn",
+      refundApprovalThresholdCents: company.settings?.refundApprovalThresholdCents ?? 100000,
+    } });
+  }),
+);
+
+const companySettingsSchema = z.object({
+  paymentGating: z.enum(["warn", "block"]),
+  refundApprovalThresholdCents: z.number().int().min(0).max(100_000_000),
+});
+
+adminRouter.put(
+  "/settings",
+  validate({ body: companySettingsSchema }),
+  asyncHandler(async (req, res) => {
+    const company = await Company.findById(req.auth!.companyId);
+    if (!company) return res.status(404).json({ error: { code: "not_found", message: "Company not found" } });
+    const before = {
+      paymentGating: company.settings?.paymentGating ?? "warn",
+      refundApprovalThresholdCents: company.settings?.refundApprovalThresholdCents ?? 100000,
+    };
+    company.set("settings.paymentGating", req.body.paymentGating);
+    company.set("settings.refundApprovalThresholdCents", req.body.refundApprovalThresholdCents);
+    await company.save();
+    const after = {
+      paymentGating: req.body.paymentGating as "warn" | "block",
+      refundApprovalThresholdCents: req.body.refundApprovalThresholdCents as number,
+    };
+    await AuditLog.create({
+      actorId: req.auth!.userId,
+      action: "company.settings_updated",
+      entity: "Company",
+      entityId: company._id,
+      meta: { before, after },
+    });
+    res.json({ settings: after });
+  }),
+);
 
 /** Company-wide operational snapshot for owners and admins; excludes payment details and audit metadata. */
 adminRouter.get(

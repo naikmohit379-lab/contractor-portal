@@ -87,7 +87,7 @@ The agreed first-release scope is Texas insurance restoration, retail replacemen
 2. Offline photo queue for poor signal, server-side thumbnails, virus scanning of uploads, and reading EXIF (time and GPS) from photos.
 3. Xactimate-compatible estimate export. Confirm the target interchange format with the intended recipient before calling an export compatible.
 4. Texas statutory waiver form wording and approval (all four types; counsel must provide/review the content), automatic reminders and escalation (needs a scheduler), SMS, OTP or notarization, preliminary-notice deadlines, and a closeout waiver packet export.
-5. Payments: matching against the gateway's own balance report, dispute evidence packets, payouts to suppliers and crews, receipts by email, a settings page for waiver gating and the refund limit (they are company fields with defaults), a strict Content-Security-Policy on payer pages.
+5. Payments: matching against the gateway's own balance report, dispute evidence packets, payouts to suppliers and crews, receipts by email, and a strict Content-Security-Policy on payer pages.
 6. Several API servers sharing live events (needs Redis), PDF exports and exports as background jobs, QuickBooks or Xero sync, a public API with outgoing webhooks.
 7. Monitoring and alerting in production. Production Docker workflows still need a real server/environment and a rehearsed backup restore.
 

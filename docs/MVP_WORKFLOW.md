@@ -41,4 +41,4 @@
 
 ## Current limits
 
-The Admin Panel is a read-only triage overview; full company policy settings and general role editing are not implemented. The missing-upload queue only detects jobs with zero uploaded files. Invoice variance compares invoice total with saved PO line prices and does not parse invoice lines. EagleView and Xactimate integrations are not live until their prerequisites are complete.
+The Admin Panel is a read-only triage overview. Owners and admins can configure payment waiver gating and the second-approver refund threshold from **Settings**; general role editing is not implemented. The missing-upload queue only detects jobs with zero uploaded files. Invoice variance compares invoice total with saved PO line prices and does not parse invoice lines. EagleView and Xactimate integrations are not live until their prerequisites are complete.
