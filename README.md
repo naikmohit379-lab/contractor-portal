@@ -84,9 +84,9 @@ The agreed first-release scope is Texas insurance restoration, retail replacemen
 
 ## Not built or not ready for live use
 1. Real EagleView aerial measurement orders and report ingestion, plus background processing (measurement ordering currently runs in-process against the mock provider).
-2. Offline photo queue for poor signal, server-side thumbnails, virus scanning of uploads, and reading EXIF (time and GPS) from photos.
+2. Server-side thumbnails, virus scanning of uploads, and reading EXIF (time and GPS) from photos. The browser now keeps unsent photo files in a local IndexedDB queue (100 MB cap) and syncs when online while the user is signed in.
 3. Xactimate-compatible estimate export. Confirm the target interchange format with the intended recipient before calling an export compatible.
-4. Texas statutory waiver form wording and approval (all four types; counsel must provide/review the content), automatic reminders and escalation (needs a scheduler), SMS, OTP or notarization, preliminary-notice deadlines, and a closeout waiver packet export.
+4. Texas statutory waiver form wording and approval (all four types; counsel must provide/review the content), reminders for unsigned waivers, email/SMS reminders, escalation, SMS OTP or notarization, preliminary-notice deadlines, and a closeout waiver packet export. Vercel Cron now creates daily in-app reminders for overdue Operations follow-up tasks; it needs `CRON_SECRET` on the production deployment.
 5. Payments: matching against the gateway's own balance report, dispute evidence packets, payouts to suppliers and crews, receipts by email, and a strict Content-Security-Policy on payer pages.
 6. Several API servers sharing live events (needs Redis), PDF exports and exports as background jobs, QuickBooks or Xero sync, a public API with outgoing webhooks.
 7. Monitoring and alerting in production. Production Docker workflows still need a real server/environment and a rehearsed backup restore.

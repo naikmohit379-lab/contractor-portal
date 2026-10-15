@@ -17,6 +17,8 @@ const schema = z.object({
   EMAIL_PROVIDER: z.enum(["log", "resend"]).default("log"),
   EMAIL_FROM: z.string().default("RoofDesk <no-reply@example.com>"),
   RESEND_API_KEY: z.string().optional(),
+  // Vercel Cron uses this bearer secret to authenticate scheduled reminder runs.
+  CRON_SECRET: z.string().min(16).optional(),
   // File storage for photos and documents. "local" writes to STORAGE_DIR; "s3" works with AWS S3 or MinIO.
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   STORAGE_DIR: z.string().default("./storage"),

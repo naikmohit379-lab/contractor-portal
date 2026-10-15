@@ -17,6 +17,7 @@ import { documentsRouter } from "./modules/documents/documents.routes";
 import { pricingRouter } from "./modules/pricing/pricing.routes";
 import { eventsRouter } from "./modules/notifications/events.routes";
 import { notificationsRouter } from "./modules/notifications/notifications.routes";
+import { cronRouter } from "./modules/notifications/cron.routes";
 import { reportsRouter } from "./modules/reports/reports.routes";
 import { claimsRouter } from "./modules/claims/claims.routes";
 import { estimatesRouter } from "./modules/estimates/estimates.routes";
@@ -84,6 +85,7 @@ export function createApp() {
   v1.use("/payments", companyPaymentsRouter);
   v1.use("/events", eventsRouter);
   v1.use("/notifications", notificationsRouter);
+  v1.use("/cron", cronRouter);
   v1.use("/reports", reportsRouter);
   v1.use("/operations", operationsRouter);
   v1.use("/team", teamRouter);

@@ -12,7 +12,7 @@ The Operations Intern workspace is the authenticated `/dashboard` view for users
 
 ## Intern permissions
 
-Operations Interns can view assigned job records and queues, create internal follow-up tasks for assigned jobs, and update tasks attached to those assigned jobs. They cannot edit job or claim details, create estimates or orders, request waivers, request or refund payments, view company reports, invite users, or change company settings. The existing app has no dedicated field-staff task scheduler; these tasks are internal follow-up records, not automated reminders.
+Operations Interns can view assigned job records and queues, create internal follow-up tasks for assigned jobs, and update tasks attached to those assigned jobs. They cannot edit job or claim details, create estimates or orders, request waivers, request or refund payments, view company reports, invite users, or change company settings. A daily in-app reminder is created for active job assignees and the task creator when an open or blocked task is overdue. Email reminders and escalation are not included.
 
 Owners and admins can invite a Project Manager from **Team access**. An existing Owner can also invite another Owner; admins cannot grant Owner access. Project Managers can manage jobs and operational follow-ups and assign Operations Interns to jobs; they do not receive owner/admin permissions such as user management or company reports.
 

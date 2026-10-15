@@ -2,14 +2,15 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, FileText, Trash2, Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DOC_SLOPES, MARKER_KINDS, MARKER_LABELS, MAX_UPLOAD_BYTES, type DocumentDTO, type Marker } from "@roofdesk/shared";
 import { AuthImage } from "@/components/AuthImage";
 import { api, downloadFile, uploadFile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { fmtDate } from "@/lib/format";
+import { listOfflineUploads, MAX_OFFLINE_QUEUE_BYTES, removeOfflineUpload, saveOfflineUpload, type OfflineUpload } from "@/lib/offline-uploads";
 
-type UploadItem = { name: string; state: "uploading" | "done" | "error"; message?: string };
+type UploadItem = OfflineUpload & { state: "queued" | "uploading"; message?: string };
 const mb = (n: number) => `${(n / 1024 / 1024).toFixed(1)} MB`;
 
 function Detail({ jobId, doc, onClose }: { jobId: string; doc: DocumentDTO; onClose: () => void }) {
@@ -95,22 +96,76 @@ export function PhotosTab({ jobId }: { jobId: string }) {
   const { can } = useAuth();
   const qc = useQueryClient();
   const [queue, setQueue] = useState<UploadItem[]>([]);
+  const [online, setOnline] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const camRef = useRef<HTMLInputElement>(null);
+  const syncing = useRef(false);
   const q = useQuery({ queryKey: ["jobs", jobId, "documents"], queryFn: () => api<{ items: DocumentDTO[] }>(`/jobs/${jobId}/documents`) });
+
+  async function refreshQueue() {
+    const items = await listOfflineUploads(jobId);
+    setQueue(items.map((item) => ({ ...item, state: "queued" })));
+  }
+
+  async function syncQueue() {
+    if (syncing.current || !navigator.onLine) return;
+    syncing.current = true;
+    setOnline(true);
+    try {
+      for (const item of await listOfflineUploads(jobId)) {
+        setQueue((items) => items.map((entry) => entry.id === item.id ? { ...entry, state: "uploading", message: undefined } : entry));
+        try {
+          const file = new File([item.blob], item.fileName, { type: item.fileType, lastModified: item.lastModified });
+          await uploadFile(`/jobs/${jobId}/documents`, file);
+          await removeOfflineUpload(item.id);
+        } catch (error) {
+          const message = !navigator.onLine || error instanceof TypeError ? "Waiting for a connection. This file is saved on this device." : (error as Error).message;
+          setQueue((items) => items.map((entry) => entry.id === item.id ? { ...entry, state: "queued", message } : entry));
+          if (!navigator.onLine || error instanceof TypeError) break;
+        }
+      }
+      await refreshQueue();
+      qc.invalidateQueries({ queryKey: ["jobs", jobId, "documents"] });
+    } catch (error) {
+      setQueue((items) => items.map((entry) => ({ ...entry, state: "queued", message: (error as Error).message })));
+    } finally {
+      syncing.current = false;
+    }
+  }
+
+  useEffect(() => {
+    const onlineNow = () => setOnline(true);
+    const offlineNow = () => setOnline(false);
+    setOnline(navigator.onLine);
+    void refreshQueue().catch(() => {});
+    window.addEventListener("online", onlineNow);
+    window.addEventListener("offline", offlineNow);
+    return () => { window.removeEventListener("online", onlineNow); window.removeEventListener("offline", offlineNow); };
+  }, [jobId]);
+
+  useEffect(() => {
+    if (online && queue.length) void syncQueue();
+  }, [online, queue.length, jobId]);
 
   async function upload(files: FileList | null) {
     if (!files?.length) return;
     const list = Array.from(files);
-    setQueue(list.map((f) => ({ name: f.name, state: "uploading" })));
-    // One at a time: phones on weak signal fail less, and the order stays the order you picked.
-    for (const [i, f] of list.entries()) {
-      const set = (p: Partial<UploadItem>) => setQueue((arr) => arr.map((x, idx) => (idx === i ? { ...x, ...p } : x)));
-      if (f.size > MAX_UPLOAD_BYTES) { set({ state: "error", message: `${mb(f.size)} is over the ${mb(MAX_UPLOAD_BYTES)} limit` }); continue; }
-      try { await uploadFile(`/jobs/${jobId}/documents`, f); set({ state: "done" }); } catch (e) { set({ state: "error", message: (e as Error).message }); }
+    for (const file of list) {
+      if (file.size > MAX_UPLOAD_BYTES) { window.alert(`${file.name}: ${mb(file.size)} is over the ${mb(MAX_UPLOAD_BYTES)} limit.`); continue; }
+      try {
+        const saved = await saveOfflineUpload(jobId, file);
+        setQueue((items) => [...items, { ...saved, state: "queued" }]);
+      } catch (error) {
+        window.alert(`${file.name}: ${(error as Error).message}`);
+      }
     }
-    qc.invalidateQueries({ queryKey: ["jobs", jobId, "documents"] });
+    if (navigator.onLine) void syncQueue();
+  }
+
+  async function discardQueued(id: string) {
+    await removeOfflineUpload(id);
+    setQueue((items) => items.filter((item) => item.id !== id));
   }
 
   const open = q.data?.items.find((d) => d.id === openId);
@@ -128,16 +183,18 @@ export function PhotosTab({ jobId }: { jobId: string }) {
         )}
       </div>
 
-      {queue.length > 0 && (
-        <ul className="panel divide-y divide-ink-600 text-sm" aria-live="polite">
-          {queue.map((u, i) => (
-            <li key={i} className="flex items-center justify-between gap-3 p-3">
-              <span className="truncate">{u.name}</span>
-              <span className={u.state === "error" ? "text-bad" : u.state === "done" ? "text-ok" : "text-mist"}>{u.state === "uploading" ? "Uploading" : u.state === "done" ? "Uploaded" : u.message}</span>
-            </li>
-          ))}
+      {queue.length > 0 && <section className="panel p-4" aria-label="Offline photo upload queue">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div><h3 className="font-bold">Pending uploads ({queue.length})</h3><p className="text-xs text-mist">Saved in this browser on this device (up to {mb(MAX_OFFLINE_QUEUE_BYTES)}). Keep RoofDesk open or return while online to sync.</p></div>
+          <button className="btn btn-ghost" disabled={!online || syncing.current} onClick={() => void syncQueue()}>{online ? "Sync now" : "Waiting for connection"}</button>
+        </div>
+        <ul className="divide-y divide-ink-600 text-sm" aria-live="polite">
+          {queue.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-3">
+            <span className="min-w-0"><span className="block truncate">{item.fileName}</span><span className="text-xs text-mist">{mb(item.fileSize)}</span></span>
+            <span className="flex shrink-0 items-center gap-3"><span className="text-mist">{item.state === "uploading" ? "Uploading…" : item.message ?? (online ? "Queued" : "Saved offline")}</span><button className="text-xs text-mist underline" onClick={() => void discardQueued(item.id)}>Remove</button></span>
+          </li>)}
         </ul>
-      )}
+      </section>}
 
       {open && <Detail key={open.id + open.createdAt + JSON.stringify(open.annotations)} jobId={jobId} doc={open} onClose={() => setOpenId(null)} />}
 

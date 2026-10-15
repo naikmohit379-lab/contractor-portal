@@ -29,6 +29,7 @@
 - Owners/admins use **Admin Panel** to triage company-wide queues and **Team access** to invite Project Managers or Operations Interns. Only an existing Owner can invite another Owner. Project Managers can assign eligible interns from job details.
 - Interns accept a single-use invitation and set their own password. Never share an existing user's password.
 - Interns can read assigned jobs and manage internal follow-up tasks, but cannot edit claim/legal/financial records, invite users, or change company settings.
+- Overdue open or blocked Operations follow-up tasks get a daily in-app reminder for the task creator and the job's active assignees. This is not an email/SMS reminder and does not change the task status.
 - Escalate payments/refunds to the authorized billing/owner process. Escalate waiver form content and legal questions to counsel.
 
 ## Staging and release gate
@@ -41,4 +42,4 @@
 
 ## Current limits
 
-The Admin Panel is a read-only triage overview. Owners and admins can configure payment waiver gating and the second-approver refund threshold from **Settings**; general role editing is not implemented. The missing-upload queue only detects jobs with zero uploaded files. Invoice variance compares invoice total with saved PO line prices and does not parse invoice lines. EagleView and Xactimate integrations are not live until their prerequisites are complete.
+The Admin Panel is a read-only triage overview. Owners and admins can configure payment waiver gating and the second-approver refund threshold from **Settings**; general role editing is not implemented. The missing-upload queue only detects jobs with zero uploaded files. Invoice variance compares invoice total with saved PO line prices and does not parse invoice lines. Offline photo files remain in browser storage on the device until uploaded, so keep the device and browser profile; they are not part of the server backup until sync completes. Vercel Cron runs only for production deployments, so overdue reminders won't run on staging Preview; configure `CRON_SECRET` in Vercel before promoting the scheduled route to production. EagleView and Xactimate integrations are not live until their prerequisites are complete.

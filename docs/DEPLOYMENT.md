@@ -10,6 +10,12 @@ None of this has been run end to end yet. Do the first deployment on a throwaway
 - This code in a GitHub repository.
 - For real use: a Resend account (email) and a Stripe account (payments). You can rehearse everything first with `PAYMENT_PROVIDER=mock` and `EMAIL_PROVIDER=log`.
 
+## Vercel scheduled reminders
+
+`vercel.json` schedules `/api/v1/cron/reminders` daily at 09:00 UTC. Vercel Cron invokes scheduled routes only on Production deployments, not Preview deployments. Before promoting this schedule to production, add a `CRON_SECRET` environment variable to the Vercel Production environment (at least 32 random characters; for example, generate with `openssl rand -hex 32`) and redeploy. The endpoint fails closed if the secret is missing or invalid. Each run creates at most one in-app reminder per overdue open/blocked Operations task, recipient, and UTC day. It does not send email or SMS. See [Vercel Cron Jobs](https://vercel.com/docs/cron-jobs) and [securing Cron Jobs](https://vercel.com/docs/cron-jobs/manage-cron-jobs).
+
+The photo upload queue stores pending files in IndexedDB in the current browser profile (up to 100 MB) and retries when connectivity returns while the user is signed in. Files are not backed up remotely until the upload completes. Clearing site data or losing the device can remove pending files.
+
 ## 1. Prepare the server (once)
 ```bash
 sudo mkdir -p /opt/roofdesk && sudo chown $USER /opt/roofdesk && cd /opt/roofdesk
