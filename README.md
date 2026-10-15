@@ -34,7 +34,7 @@ pnpm dev                                    # web :3000, API :4000
 14. **Business overview** (owner, admin or billing): collected by month, owed and overdue amounts, claim approval rate and cycle time, waiver aging, claims by status, supplier invoice variance, and **CSV exports** for jobs, payments, waivers and the ledger.
 15. **Photos** tab on a job: take or upload photos, click a picture to mark hail hits or wind damage, tag the slope, then open the claim packet to see the marked photos printed with it.
 16. **Price list** page: edit your unit prices, or import a CSV from Excel (bad rows are listed by number and nothing is imported). Saving creates a new version. New estimates use it, and the estimate builder can add any item from it.
-17. **Admin Panel** (owner or admin): review company-wide job, claim, waiver, payment exception, late order, overdue task, missing-upload, and account counts; jump to recent jobs and inspect recent audit activity. Use **Team access** to invite Project Managers or Operations Interns, and the job's **Operations assignment** control to assign work. See `docs/OPERATIONS_WORKSPACE.md` for the admin and intern workflow.
+17. **Admin Panel** (owner or admin): review company-wide job, claim, waiver, payment exception, late order, overdue task, missing-upload, and account counts; jump to recent jobs and inspect recent audit activity. Use **Team access** to invite Project Managers or Operations Interns. An existing Owner can also invite another Owner; admins cannot grant Owner access. Use the job's **Operations assignment** control to assign work. See `docs/OPERATIONS_WORKSPACE.md` for the admin and intern workflow.
 
 ## What is built
 | Area | Status |

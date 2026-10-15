@@ -14,7 +14,7 @@ The Operations Intern workspace is the authenticated `/dashboard` view for users
 
 Operations Interns can view assigned job records and queues, create internal follow-up tasks for assigned jobs, and update tasks attached to those assigned jobs. They cannot edit job or claim details, create estimates or orders, request waivers, request or refund payments, view company reports, invite users, or change company settings. The existing app has no dedicated field-staff task scheduler; these tasks are internal follow-up records, not automated reminders.
 
-Owners and admins can also invite a Project Manager from **Team access**. Project Managers can manage jobs and operational follow-ups and assign Operations Interns to jobs; they do not receive owner/admin permissions such as user management or company reports.
+Owners and admins can invite a Project Manager from **Team access**. An existing Owner can also invite another Owner; admins cannot grant Owner access. Project Managers can manage jobs and operational follow-ups and assign Operations Interns to jobs; they do not receive owner/admin permissions such as user management or company reports.
 
 Owners, admins, and project managers see the company-wide operations queues and can create or update tasks. Job assignment changes are recorded in the audit log.
 
@@ -25,7 +25,7 @@ Owners and admins can open **Admin Panel** from the portal navigation. It is a r
 Use the Admin Panel as a triage entry point:
 
 1. Review flagged and overdue queues, then open the linked work area and confirm the underlying record.
-2. Open **Team access** to invite a Project Manager or Operations Intern. Each invitee sets their own password using the single-use link.
+2. Open **Team access** to invite a Project Manager or Operations Intern. An existing Owner can choose the Owner role to invite another owner. Each invitee sets their own password using the single-use link.
 3. Assign approved jobs from the job workspace. The intern can then work assigned queues and create/update follow-up tasks.
 4. Use **Settings** for personal notification email preferences and **Business overview** for the company reports the current role is allowed to access. Company policy controls and general user-role editing are not part of this panel yet.
 5. Escalate payment decisions and legal waiver wording to an authorized owner/admin and counsel. The Admin Panel summarizes payment exceptions; it does not initiate or approve payments/refunds.

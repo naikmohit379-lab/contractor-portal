@@ -26,7 +26,7 @@
 
 ## Admin and intern handoff
 
-- Owners/admins use **Admin Panel** to triage company-wide queues and **Team access** to invite Project Managers or Operations Interns. Project Managers can assign eligible interns from job details.
+- Owners/admins use **Admin Panel** to triage company-wide queues and **Team access** to invite Project Managers or Operations Interns. Only an existing Owner can invite another Owner. Project Managers can assign eligible interns from job details.
 - Interns accept a single-use invitation and set their own password. Never share an existing user's password.
 - Interns can read assigned jobs and manage internal follow-up tasks, but cannot edit claim/legal/financial records, invite users, or change company settings.
 - Escalate payments/refunds to the authorized billing/owner process. Escalate waiver form content and legal questions to counsel.
