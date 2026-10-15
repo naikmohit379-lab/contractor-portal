@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { JOB_STAGES, STAGE_LABELS, type JobDTO, type JobStage } from "@roofdesk/shared";
 import { ClaimTab } from "@/components/portal/job/ClaimTab";
 import { EstimateTab } from "@/components/portal/job/EstimateTab";
@@ -17,6 +17,27 @@ import { WaiversTab } from "@/components/portal/job/WaiversTab";
 import { StageBadge } from "@/components/portal/StageBadge";
 import { api, patch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+
+const NO_ASSIGNEES: string[] = [];
+
+function OperationsAssignees({ jobId, assignedIds = NO_ASSIGNEES }: { jobId: string; assignedIds?: string[] }) {
+  const qc = useQueryClient();
+  const users = useQuery({ queryKey: ["operations", "assignees"], queryFn: () => api<{ items: { id: string; name: string; email: string }[] }>("/jobs/assignees") });
+  const [selected, setSelected] = useState<string[]>(assignedIds);
+  useEffect(() => setSelected(assignedIds), [assignedIds]);
+  const save = useMutation({
+    mutationFn: () => patch(`/jobs/${jobId}/assignees`, { userIds: selected }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["jobs", jobId] }); qc.invalidateQueries({ queryKey: ["operations", "overview"] }); },
+  });
+  return <section className="panel space-y-3 p-4" aria-labelledby="operations-assignees">
+    <div><h2 id="operations-assignees" className="font-bold">Operations assignment</h2><p className="text-sm text-mist">Only assigned interns can open this job in their operations workspace.</p></div>
+    {users.isLoading ? <p className="text-sm text-mist">Loading team members…</p> : users.isError ? <p role="alert" className="text-sm text-bad">Operations team could not be loaded.</p> : users.data?.items.length ? <>
+      <div className="flex flex-wrap gap-3">{users.data.items.map((user) => <label key={user.id} className="flex min-h-[44px] items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-ember" checked={selected.includes(user.id)} onChange={(event) => setSelected((ids) => event.target.checked ? [...ids, user.id] : ids.filter((id) => id !== user.id))} />{user.name}</label>)}</div>
+      <button className="btn btn-ghost h-10 min-h-0 px-3" disabled={save.isPending || selected.join(",") === assignedIds.join(",")} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : "Save assignments"}</button>
+    </> : <p className="text-sm text-mist">No active Operations Intern accounts yet. Ask an owner or admin to invite the intern from the Operations Interns page.</p>}
+    {save.isError && <p role="alert" className="text-sm text-bad">{(save.error as Error).message}</p>}
+  </section>;
+}
 
 const TABS = [
   { id: "measurements", label: "Measurements" },
@@ -65,6 +86,8 @@ function JobDetail() {
           )}
         </div>
       </header>
+
+      {can("job:assign") && <OperationsAssignees jobId={jobId} assignedIds={j.assigneeIds} />}
 
       <nav className="-mx-5 flex overflow-x-auto border-b border-ink-600 px-5" aria-label="Job sections">
         {TABS.map((t) => (

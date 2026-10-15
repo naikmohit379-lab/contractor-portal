@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { JOB_STAGES, STAGE_LABELS, type JobDTO } from "@roofdesk/shared";
 import { ReportsPanel } from "@/components/portal/ReportsPanel";
+import { OperationsDashboard } from "@/components/portal/OperationsDashboard";
 import { StageBadge } from "@/components/portal/StageBadge";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -13,6 +14,8 @@ export default function DashboardPage() {
   const summary = useQuery({ queryKey: ["jobs", "summary"], queryFn: () => api<{ total: number; byStage: Record<string, number> }>("/jobs/summary") });
   const recent = useQuery({ queryKey: ["jobs", "recent"], queryFn: () => api<{ items: JobDTO[] }>("/jobs?limit=6") });
 
+  if (user?.role === "operations") return <OperationsDashboard />;
+
   return (
     <div className="space-y-8">
       <div>
@@ -21,6 +24,7 @@ export default function DashboardPage() {
       </div>
 
       {can("report:view") && <ReportsPanel />}
+      {can("ops:dashboard:view") && <OperationsDashboard managerView />}
 
       <section aria-labelledby="pipeline">
         <h2 id="pipeline" className="mb-3 text-xl font-bold">Pipeline</h2>

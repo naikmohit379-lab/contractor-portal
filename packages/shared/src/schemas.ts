@@ -102,6 +102,7 @@ export interface JobDTO {
   property: { line1: string; city: string; state: string; zip: string };
   type: JobType;
   stage: JobStage;
+  assigneeIds?: string[];
   notes?: string;
   createdAt: string;
   updatedAt: string;

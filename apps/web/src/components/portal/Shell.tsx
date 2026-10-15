@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Briefcase, CreditCard, FileSignature, LayoutDashboard, LogOut, MoreHorizontal, Settings, Store, Tags } from "lucide-react";
+import { Briefcase, CreditCard, FileSignature, LayoutDashboard, LogOut, MoreHorizontal, Settings, Store, Tags, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -9,20 +9,22 @@ import { Logo } from "@/components/Logo";
 import { LiveEvents } from "./LiveEvents";
 import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "@/lib/auth";
+import type { Permission } from "@roofdesk/shared";
 
 // `primary` items sit in the phone's bottom bar; the rest live under "More" so nothing is squeezed.
-const NAV = [
+const NAV: { href: string; label: string; short?: string; icon: LucideIcon; primary?: boolean; permission?: Permission }[] = [
   { href: "/dashboard", label: "Dashboard", short: "Home", icon: LayoutDashboard, primary: true },
   { href: "/jobs", label: "Jobs", icon: Briefcase, primary: true },
-  { href: "/payments", label: "Payments", icon: CreditCard, primary: true },
-  { href: "/suppliers", label: "Suppliers", icon: Store },
-  { href: "/prices", label: "Price list", icon: Tags },
-  { href: "/waivers", label: "Waiver forms", icon: FileSignature },
+  { href: "/payments", label: "Payments", icon: CreditCard, primary: true, permission: "payment:request" },
+  { href: "/suppliers", label: "Suppliers", icon: Store, permission: "order:send" },
+  { href: "/prices", label: "Price list", icon: Tags, permission: "estimate:write" },
+  { href: "/waivers", label: "Waiver forms", icon: FileSignature, permission: "user:manage" },
   { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/team", label: "Operations Interns", icon: Users, permission: "user:manage" },
 ];
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { user, status, logout } = useAuth();
+  const { user, status, logout, can } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [more, setMore] = useState(false);
@@ -37,8 +39,9 @@ export function Shell({ children }: { children: ReactNode }) {
   }
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-  const primary = NAV.filter((n) => n.primary);
-  const secondary = NAV.filter((n) => !n.primary);
+  const availableNav = NAV.filter((n) => !n.permission || can(n.permission));
+  const primary = availableNav.filter((n) => n.primary);
+  const secondary = availableNav.filter((n) => !n.primary);
   const moreActive = secondary.some((n) => isActive(n.href));
 
   return (
@@ -47,10 +50,10 @@ export function Shell({ children }: { children: ReactNode }) {
       <aside className="hidden border-r border-ink-600 bg-ink-950 p-5 print:hidden lg:flex lg:flex-col">
         <div className="flex items-center justify-between"><Logo href="/dashboard" /><NotificationBell /></div>
         <nav className="mt-8 flex-1 space-y-1" aria-label="Portal">
-          {NAV.map(({ href, label, icon: Icon }) => (
+          {availableNav.map(({ href, label, icon: Icon }) => (
             <Link key={href} href={href} aria-current={isActive(href) ? "page" : undefined}
               className={clsx("flex min-h-[44px] items-center gap-3 rounded-md px-3 text-sm font-medium", isActive(href) ? "bg-ember/15 text-ember" : "text-mist-strong hover:bg-ink-700")}>
-              <Icon size={18} aria-hidden /> {label}
+              <Icon size={18} aria-hidden /> {user.role === "operations" && href === "/dashboard" ? "My work" : label}
             </Link>
           ))}
         </nav>

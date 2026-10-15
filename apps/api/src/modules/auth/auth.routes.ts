@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Router, type Response } from "express";
 import rateLimit from "express-rate-limit";
+import { z } from "zod";
 import { loginSchema, registerSchema, type SessionUser } from "@roofdesk/shared";
 import { env } from "../../config/env";
 import {
@@ -18,10 +19,13 @@ import { asyncHandler, validate } from "../../core/http";
 import { Company } from "../../models/Company";
 import { RefreshToken } from "../../models/RefreshToken";
 import { User } from "../../models/User";
+import { UserInvite } from "../../models/UserInvite";
+import { requestContext } from "../../core/context";
 
 export const authRouter = Router();
 
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false });
+const acceptInviteSchema = z.object({ token: z.string().min(20).max(200), password: z.string().min(10).max(128) });
 
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "company";
@@ -69,6 +73,43 @@ authRouter.post(
     });
     const accessToken = await startSession(res, { id: user.id, companyId: company._id, role: user.role });
     res.status(201).json({ accessToken, user: toSessionUser(user, { id: company.id, name: company.name }) });
+  }),
+);
+
+authRouter.post(
+  "/accept-invite",
+  authLimiter,
+  validate({ body: acceptInviteSchema }),
+  asyncHandler(async (req, res) => {
+    const { token, password } = req.body;
+    const invite = await UserInvite.findOneAndUpdate(
+      { tokenHash: hashToken(token), acceptedAt: null, expiresAt: { $gt: new Date() } },
+      { $set: { acceptedAt: new Date() } },
+      { new: true },
+    ).setOptions({ skipTenant: true });
+    if (!invite) throw new AppError(400, "invite_invalid", "This invitation is invalid, expired, or already used");
+
+    try {
+      await requestContext.run({ companyId: String(invite.companyId), userId: String(invite.createdBy), role: "admin" }, async () => {
+        if (await User.exists({ email: invite.email }).setOptions({ skipTenant: true })) {
+          throw new AppError(409, "email_taken", "An account already uses this email address");
+        }
+        await User.create({
+          companyId: invite.companyId,
+          name: invite.name,
+          email: invite.email,
+          role: "operations",
+          passwordHash: await hashPassword(password),
+          status: "active",
+        });
+      });
+    } catch (error) {
+      await requestContext.run({ companyId: String(invite.companyId), userId: String(invite.createdBy), role: "admin" }, () =>
+        UserInvite.updateOne({ _id: invite._id }, { $set: { acceptedAt: null } }),
+      );
+      throw error;
+    }
+    res.status(204).end();
   }),
 );
 

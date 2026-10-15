@@ -1,4 +1,4 @@
-export const ROLES = ["owner", "admin", "estimator", "pm", "billing", "readonly"] as const;
+export const ROLES = ["owner", "admin", "estimator", "pm", "billing", "operations", "readonly"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const PERMISSIONS = [
@@ -14,6 +14,10 @@ export const PERMISSIONS = [
   "payment:approve",
   "report:view",
   "user:manage",
+  "ops:dashboard:view",
+  "ops:task:create",
+  "ops:task:update",
+  "job:assign",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -24,8 +28,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   owner: ALL,
   admin: ALL.filter((p) => p !== "payment:refund"), // admins approve large refunds but cannot start one
   estimator: ["job:read", "job:write", "measurement:order", "estimate:write", "claim:write"],
-  pm: ["job:read", "job:write", "measurement:order", "order:send", "waiver:request"],
+  pm: ["job:read", "job:write", "measurement:order", "order:send", "waiver:request", "ops:dashboard:view", "ops:task:create", "ops:task:update", "job:assign"],
   billing: ["job:read", "claim:write", "waiver:request", "payment:request", "report:view"],
+  operations: ["job:read", "ops:dashboard:view", "ops:task:create", "ops:task:update"],
   readonly: ["job:read"],
 };
 

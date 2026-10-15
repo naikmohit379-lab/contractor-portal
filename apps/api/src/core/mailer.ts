@@ -2,7 +2,7 @@ import { env, isProd } from "../config/env";
 import { EmailOutbox } from "../models/EmailOutbox";
 import { logger } from "./logger";
 
-const SECURE_LINK = /https?:\/\/[^\s]*\/(?:sign|pay|confirm)\/[A-Za-z0-9_\-]+[^\s]*/g;
+const SECURE_LINK = /https?:\/\/[^\s]*\/(?:sign|pay|confirm|invite)\/[A-Za-z0-9_\-]+[^\s]*/g;
 const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
 /** Plain text to simple HTML: paragraphs, and links become clickable. All other text is escaped. */

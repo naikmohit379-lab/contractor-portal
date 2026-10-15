@@ -2,12 +2,13 @@ import cookieParser from "cookie-parser";
 import mongoose from "mongoose";
 import cors from "cors";
 import express, { type ErrorRequestHandler } from "express";
+import { isValidObjectId } from "mongoose";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
 import { ZodError } from "zod";
 import { env } from "./config/env";
-import { AppError } from "./core/errors";
+import { AppError, notFound } from "./core/errors";
 import { logger } from "./core/logger";
 import { sanitize } from "./core/sanitize";
 import { authRouter } from "./modules/auth/auth.routes";
@@ -31,6 +32,11 @@ import { partiesRouter } from "./modules/waivers/parties.routes";
 import { signRouter } from "./modules/waivers/sign.routes";
 import { templatesRouter } from "./modules/waivers/templates.routes";
 import { waiversRouter } from "./modules/waivers/waivers.routes";
+import { operationsRouter } from "./modules/operations/operations.routes";
+import { teamRouter } from "./modules/team/team.routes";
+import { Job } from "./models/Job";
+import { requireAuth } from "./core/auth";
+import { asyncHandler } from "./core/http";
 
 export function createApp() {
   const app = express();
@@ -53,6 +59,13 @@ export function createApp() {
 
   const v1 = express.Router();
   v1.use("/auth", authRouter);
+  // Operations Interns can read only jobs explicitly assigned to them, including nested job resources.
+  v1.use("/jobs/:jobId", requireAuth, asyncHandler(async (req, _res, next) => {
+    if (req.auth?.role !== "operations" || !isValidObjectId(req.params.jobId)) return next();
+    const job = await Job.findOne({ _id: req.params.jobId, assigneeIds: req.auth.userId }).select("_id");
+    if (!job) throw notFound("Assigned job");
+    next();
+  }));
   v1.use("/jobs", jobsRouter);
   v1.use("/jobs/:jobId/measurements", measurementsRouter);
   v1.use("/jobs/:jobId/estimate", estimatesRouter);
@@ -71,6 +84,8 @@ export function createApp() {
   v1.use("/events", eventsRouter);
   v1.use("/notifications", notificationsRouter);
   v1.use("/reports", reportsRouter);
+  v1.use("/operations", operationsRouter);
+  v1.use("/team", teamRouter);
   v1.use("/jobs/:jobId/documents", documentsRouter);
   v1.use("/price-lists", pricingRouter);
   app.use("/api/v1", v1);
