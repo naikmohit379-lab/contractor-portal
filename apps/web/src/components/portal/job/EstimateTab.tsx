@@ -2,13 +2,13 @@
 
 import clsx from "clsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Lock, Plus, Trash2 } from "lucide-react";
+import { Download, Lock, Plus, Printer, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { computeTotals, diffVersions } from "@roofdesk/estimate-engine";
-import type { EstimateDTO, EstimateSettingsInput, EstimateVersionDTO, LineItemInput, MeasurementDTO, PriceListDTO } from "@roofdesk/shared";
+import type { EstimateDTO, EstimateSettingsInput, EstimateVersionDTO, JobDTO, LineItemInput, MeasurementDTO, PriceListDTO } from "@roofdesk/shared";
 import { UNITS } from "@roofdesk/shared";
 import { NumInput } from "@/components/NumInput";
-import { api, post } from "@/lib/api";
+import { api, downloadFile, post } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { centsToDollars, dollarsToCents, usd } from "@/lib/format";
 
@@ -164,8 +164,10 @@ export function EstimateTab({ jobId }: { jobId: string }) {
   const qc = useQueryClient();
   const [selected, setSelected] = useState<number | null>(null);
   const [measurementId, setMeasurementId] = useState("");
+  const [exportError, setExportError] = useState("");
 
   const estimate = useQuery({ queryKey: ["jobs", jobId, "estimate"], queryFn: () => api<{ estimate: EstimateDTO | null }>(`/jobs/${jobId}/estimate`) });
+  const job = useQuery({ queryKey: ["jobs", jobId], queryFn: () => api<JobDTO>(`/jobs/${jobId}`) });
   const priceList = useQuery({ queryKey: ["price-list"], queryFn: () => api<PriceListDTO>("/price-lists/active") });
   const measurements = useQuery({ queryKey: ["jobs", jobId, "measurements"], queryFn: () => api<{ items: MeasurementDTO[] }>(`/jobs/${jobId}/measurements`) });
 
@@ -215,19 +217,27 @@ export function EstimateTab({ jobId }: { jobId: string }) {
 
   const versionNo = selected ?? est.currentVersion;
   const version = est.versions.find((v) => v.versionNo === versionNo)!;
+  const totals = computeTotals(version.lineItems, version.settings);
   const previous = est.versions.find((v) => v.versionNo === versionNo - 1);
 
   return (
+    <>
     <section aria-label="Estimate" className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-2xl font-bold">Estimate</h2>
-        {can("estimate:write") && (
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button className="btn btn-ghost" onClick={() => { setExportError(""); void downloadFile(`/jobs/${jobId}/estimate/export.csv?versionNo=${version.versionNo}`, `roofdesk-estimate-v${version.versionNo}.csv`).catch((e) => setExportError((e as Error).message)); }}>
+            <Download size={16} aria-hidden /> Download handoff CSV
+          </button>
+          <button className="btn btn-ghost" onClick={() => window.print()}><Printer size={16} aria-hidden /> Print / Save PDF</button>
+          {can("estimate:write") && <>
             <button className="btn btn-ghost" disabled={newVersion.isPending} onClick={() => newVersion.mutate("approved")}>Record carrier-approved version</button>
             <button className="btn btn-ghost" disabled={newVersion.isPending} onClick={() => newVersion.mutate("supplement")}>New supplement version</button>
-          </div>
-        )}
+          </>}
+        </div>
       </div>
+      <p className="text-sm text-mist">The CSV is a line-item handoff for manual entry. It is not a native Xactimate .ESX project file.</p>
+      {exportError && <p role="alert" className="text-bad">{exportError}</p>}
 
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Estimate versions">
         {est.versions.map((v) => (
@@ -245,5 +255,29 @@ export function EstimateTab({ jobId }: { jobId: string }) {
 
       {previous && <VersionDiff from={previous} to={version} />}
     </section>
+    <article className="estimate-print" aria-label="Printable estimate">
+      <header className="mb-6 border-b border-gray-300 pb-4">
+        <p className="text-sm uppercase tracking-wide">RoofDesk estimate handoff</p>
+        <h1 className="my-2 text-3xl font-bold">{KIND_LABEL[version.kind]} · Version {version.versionNo}</h1>
+        <p>Job {job.data?.jobNumber ?? jobId} · Prepared {new Date(version.createdAt).toLocaleDateString()}</p>
+        {job.data && <p>{job.data.customer.name} · {job.data.property.line1}, {job.data.property.city}, {job.data.property.state} {job.data.property.zip}</p>}
+        {version.note && <p className="mt-2">{version.note}</p>}
+      </header>
+      <table className="w-full border-collapse text-sm">
+        <thead><tr><th>Description</th><th>Category</th><th>Qty</th><th>Unit</th><th>Unit price</th><th>Taxable</th><th>Deprec.</th><th>Line total</th></tr></thead>
+        <tbody>{version.lineItems.map((item) => <tr key={item.key}>
+          <td>{item.description}</td><td>{item.category}</td><td>{item.quantity}</td><td>{item.unit}</td>
+          <td>{usd(item.unitPriceCents)}</td><td>{item.taxable ? "Yes" : "No"}</td><td>{item.depreciationPct}%</td>
+          <td>{usd(totals.lineTotals[item.key] ?? 0)}</td>
+        </tr>)}</tbody>
+      </table>
+      <dl className="ml-auto mt-6 max-w-sm space-y-1">
+        {[["Line subtotal", totals.subtotalCents], ["Overhead", totals.overheadCents], ["Profit", totals.profitCents], ["Tax", totals.taxCents], ["Replacement cost (RCV)", totals.rcvCents], ["Depreciation", -totals.depreciationCents], ["Actual cash value (ACV)", totals.acvCents], ["Deductible", -totals.deductibleCents], ["Net claim", totals.netClaimCents]].map(([label, amount]) =>
+          <div key={label as string} className="flex justify-between gap-6"><dt>{label}</dt><dd>{usd(amount as number)}</dd></div>
+        )}
+      </dl>
+      <p className="mt-8 border-t border-gray-300 pt-3 text-xs">RoofDesk estimate handoff. Verify quantities, prices, depreciation, and applicable local requirements before submission. This document and its CSV are not Xactimate-native .ESX files.</p>
+    </article>
+    </>
   );
 }

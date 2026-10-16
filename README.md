@@ -44,6 +44,7 @@ pnpm dev                                    # web :3000, API :4000
 | Measurements (provider adapter, mock provider, idempotent ordering) | Done (in-process, not queued) |
 | Estimate engine: line math, O&P, tax, per-line depreciation, ACV/RCV, net claim | Done, 5 assertions run and passing |
 | Estimate versions (original, carrier approved, supplement), locking, diff view | Done |
+| Estimate handoff CSV and printable PDF | Done; suitable for review/manual entry, not native Xactimate `.ESX` |
 | Claim record, status machine, communication log, deductible sync | Done |
 | Printable claim packet (browser print to PDF) | Done, includes selected annotated photos |
 | Suppliers with SKU/price catalog | Done (catalog embedded in supplier) |
@@ -73,28 +74,32 @@ pnpm dev                                    # web :3000, API :4000
 | Damage markers on photos (hail, wind, missing shingle, notes), slope tags, include-in-packet switch, photos in the printable claim packet | Done |
 | Company price list: versioned, CSV import with row-by-row error report, CSV export, "add from price list" in the estimate builder, new estimates priced from it | Done |
 | Supplier invoice PDF capture and price variance report against saved PO line prices | Done; totals must be reviewed against the uploaded invoice because invoice line OCR/reconciliation is not included |
-| API unit and integration tests, shared and estimate rules | 82 API, 28 shared, and 5 estimate tests passed locally |
-| Browser tests (desktop and phone, accessibility, golden path) | Written; not run in this verification pass |
-| CI (types, tests, build, dependency audit, browser tests) and a deploy workflow with approval and automatic rollback | Written; production server deployment workflow not run |
+| API unit and integration tests, shared and estimate rules | Previously verified: 82 API, 28 shared, and 5 estimate tests passed locally |
+| Browser tests (desktop and phone, accessibility, golden path) | Passed in GitHub Actions on 16 October 2026 (31 passed, 3 skipped) |
+| CI (types, tests, build, dependency audit, browser tests) and a deploy workflow with approval and automatic rollback | GitHub CI passed and Vercel production deployed. The separate Docker workflow built the API image but its web image failed because the GitHub Actions `DOMAIN` variable is unset; self-hosted deployment did not run. |
 | Production Docker images, compose file, HTTPS reverse proxy, nightly backups, restore script, deployment guide | Written, not built or run |
 | Marketing page, SEO files, responsive portal | Done |
 
 ## First-release decisions and remaining work
-The agreed first-release scope is Texas insurance restoration, retail replacement and repair jobs. Payments remain in mock mode; the Operations Intern workspace is included in the MVP. EagleView is the selected first aerial measurement provider, but a real connection depends on obtaining vendor API access. Xactimate-compatible estimate export is required at launch. All four Texas waiver types need wording supplied and approved by counsel before use.
+The agreed first-release scope is Texas insurance restoration, retail replacement and repair jobs. Payments remain in mock mode; the Operations Intern workspace is included in the MVP. EagleView is the selected first aerial measurement provider, but a real connection depends on obtaining vendor API access. Estimate handoff is required at launch as a line-item CSV and printable PDF for manual entry; native Xactimate `.ESX` export is deferred unless the recipient requires it. All four Texas waiver types need wording supplied and approved by counsel before use.
 
 ## Not built or not ready for live use
 1. Real EagleView aerial measurement orders and report ingestion, plus background processing (measurement ordering currently runs in-process against the mock provider).
 2. Server-side thumbnails, virus scanning of uploads, and reading EXIF (time and GPS) from photos. The browser now keeps unsent photo files in a local IndexedDB queue (100 MB cap) and syncs when online while the user is signed in.
-3. Xactimate-compatible estimate export. Confirm the target interchange format with the intended recipient before calling an export compatible.
+3. Native Xactimate-compatible estimate export (`.ESX`). The app now offers a line-item handoff CSV and a printable/save-as-PDF estimate, but these are not native Xactimate project files. Confirm the accepted interchange format with the intended recipient and obtain any required vendor specification before claiming import compatibility.
 4. Texas statutory waiver form wording and approval (all four types; counsel must provide/review the content), reminders for unsigned waivers, email/SMS reminders, escalation, SMS OTP or notarization, preliminary-notice deadlines, and a closeout waiver packet export. Vercel Cron now creates daily in-app reminders for overdue Operations follow-up tasks; it needs `CRON_SECRET` on the production deployment.
 5. Payments: matching against the gateway's own balance report, dispute evidence packets, payouts to suppliers and crews, receipts by email, and a strict Content-Security-Policy on payer pages.
-6. Several API servers sharing live events (needs Redis), PDF exports and exports as background jobs, QuickBooks or Xero sync, a public API with outgoing webhooks.
+6. Several API servers sharing live events (needs Redis), server-generated PDFs and background export jobs, QuickBooks or Xero sync, a public API with outgoing webhooks.
 7. Production-readiness follow-through: enable GitHub monitor failure notifications, verify production probes, create an off-device Atlas backup, and complete an isolated restore drill. See `docs/PRODUCTION_READINESS.md`. The separate Docker deployment workflow still needs a real server/environment.
 
 ## Verification status
 **Run and passing in the build sandbox** (compiled and executed with Node, no installs needed): the estimate engine; waiver readiness rules; ledger, refund-approval and reconciliation rules; report math, CSV writer and notification preferences; CSV reader and price list import; the Stripe webhook signature check and event mapping; AWS Signature V4 signing (matches the two examples in AWS's documentation), file type detection and storage drivers; the real email and live-event modules with their database and logger stubbed.
 
-**Verified locally on 15 October 2026:** all three package typechecks passed; the API test suite passed 82 tests, shared rules passed 28 tests, and estimate engine passed 5 tests. The Next.js application compiled and generated pages, but Windows blocked its final standalone packaging step when creating dependency symlinks. Vercel's Preview deployment built successfully. Browser E2E, production Docker deployment, backup restore, and vendor integrations still need separate verification. Stripe and Resend are not part of the first-release live workflow; payments remain mocked.
+**Verified locally on 15 October 2026:** all three package typechecks passed; the API test suite passed 82 tests, shared rules passed 28 tests, and estimate engine passed 5 tests. The Next.js application compiled and generated pages, but Windows blocked its final standalone packaging step when creating dependency symlinks. Vercel's Preview deployment built successfully.
+
+**Verified in CI and production on 16 October 2026:** the staging and main GitHub Actions checks passed, including typecheck, API/shared tests, build, dependency audit, and browser E2E (31 passed, 3 skipped). The production release was merged at `128bfa3`; this section records the subsequent verification. `/api/v1/health` and `/api/v1/ready` both returned `{"ok":true}`, and the manual production-monitor run passed all probes. The production monitoring workflow and daily in-app reminder cron are now on the default branch. The separate Docker workflow built the API image but could not build the web image because the GitHub Actions `DOMAIN` variable is unset; the self-hosted deployment step was skipped. Backup restore, hands-on validation with real users, and vendor integrations still need separate verification. Stripe and Resend are not part of the first-release live workflow; payments remain mocked.
+
+**Estimate handoff changes, 16 October 2026:** shared tests (29), API unit tests (24), and estimate-engine tests (5) passed; API and web typechecks and the API production build passed. The estimate API integration test could not start because the local in-memory MongoDB process exited with an `fassert` error. Next.js 15.5.24 compiled and generated pages, but Windows blocked standalone output packaging when it tried to create dependency symlinks. Vercel deployment has not been run for these changes.
 
 ## Design notes
 - Visual language follows the reference: near-black blue surfaces, one burnt-orange accent, Barlow Condensed display type with Barlow for text.

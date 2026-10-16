@@ -66,3 +66,46 @@ export interface EstimateDTO {
   currentVersion: number;
   versions: EstimateVersionDTO[];
 }
+
+export interface EstimateExportJob {
+  jobNumber: string;
+  customerName: string;
+  address: string;
+}
+
+export interface EstimateExportTotals {
+  lineTotals: Record<string, number>;
+  subtotalCents: number;
+  overheadCents: number;
+  profitCents: number;
+  taxCents: number;
+  rcvCents: number;
+  depreciationCents: number;
+  acvCents: number;
+  deductibleCents: number;
+  netClaimCents: number;
+}
+
+const csvCell = (value: string | number | boolean) => {
+  let text = String(value);
+  // Prevent spreadsheet formula execution for user-controlled text fields.
+  if (typeof value === "string" && /^[\u0000-\u0020]*[=+@\-]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+};
+
+/** A line-item handoff CSV; this is not an Xactimate-native ESX project file. */
+export function estimateHandoffCsv(job: EstimateExportJob, version: EstimateVersionDTO, totals: EstimateExportTotals): string {
+  const headers = ["record_type", "job_number", "customer", "property_address", "estimate_version", "version_type", "line_key", "category", "description", "quantity", "unit", "unit_price_usd", "taxable", "depreciation_percent", "line_total_usd", "overhead_usd", "profit_usd", "tax_usd", "replacement_cost_usd", "depreciation_usd", "actual_cash_value_usd", "deductible_usd", "net_claim_usd"];
+  const money = (cents: number) => (cents / 100).toFixed(2);
+  const context = [job.jobNumber, job.customerName, job.address, version.versionNo, version.kind];
+  const lines = version.lineItems.map((item) => [
+    "LINE", ...context, item.key, item.category, item.description, item.quantity, item.unit,
+    money(item.unitPriceCents), item.taxable, item.depreciationPct, money(totals.lineTotals[item.key] ?? 0),
+    "", "", "", "", "", "", "", "",
+  ]);
+  const summary = ["TOTAL", ...context, "", "", "", "", "", "", "", "", money(totals.subtotalCents), ...[
+    totals.overheadCents, totals.profitCents, totals.taxCents, totals.rcvCents,
+    totals.depreciationCents, totals.acvCents, version.settings.deductibleCents, totals.netClaimCents,
+  ].map(money)];
+  return [headers, ...lines, summary].map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
+}

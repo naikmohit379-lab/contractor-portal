@@ -23,3 +23,17 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+.estimate-print { display: none; }
+@media print {
+  @page { size: letter; margin: 0.6in; }
+  body * { visibility: hidden !important; }
+  .estimate-print, .estimate-print * { visibility: visible !important; }
+  .estimate-print { display: block !important; position: absolute; inset: 0; width: 100%; padding: 0; color: #111 !important; background: #fff !important; font: 10pt Arial, sans-serif; }
+  .estimate-print h1 { font-size: 20pt; }
+  .estimate-print table { margin-top: 1rem; }
+  .estimate-print th, .estimate-print td { border: 1px solid #aaa; padding: 5px; text-align: left; }
+  .estimate-print thead { display: table-header-group; }
+  .estimate-print tr { break-inside: avoid; }
+  .estimate-print dl > div { display: flex; justify-content: space-between; }
+}

@@ -27,6 +27,19 @@ describe("estimates", () => {
     expect((await app.call("GET", `/jobs/${job}`, { token: s.token })).body.stage).toBe("estimated");
     expect((await buildEstimate(app, s, job)).status).toBe(409); // one estimate per job
   });
+  it("exports the selected estimate version as a private CSV handoff", async () => {
+    const job = await createJob(app, s);
+    await buildEstimate(app, s, job);
+    const response = await app.call("GET", `/jobs/${job}/estimate/export.csv?versionNo=1`, { token: s.token });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/csv");
+    expect(response.headers.get("content-disposition")).toContain("estimate-v1.csv");
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(response.body).toContain("record_type");
+    expect(response.body).toContain("Roofing");
+    expect(response.body).toContain("TOTAL");
+    expect((await app.call("GET", `/jobs/${job}/estimate/export.csv`, {})).status).toBe(401);
+  });
   it("uses the company's price list, as a new version, for new estimates", async () => {
     const before = await app.call("GET", "/price-lists/active", { token: s.token });
     const items = before.body.items.map((i: any) => (i.key === "shingles" ? { ...i, unitPriceCents: 99900 } : i));

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { isValidObjectId } from "mongoose";
 import { z } from "zod";
 import { buildRoofReplacementItems, computeTotals, DEFAULT_SETTINGS, diffVersions } from "@roofdesk/estimate-engine";
-import { estimateGenerateSchema, estimateSaveSchema, newVersionSchema, type EstimateDTO, type EstimateVersionDTO } from "@roofdesk/shared";
+import { estimateGenerateSchema, estimateHandoffCsv, estimateSaveSchema, newVersionSchema, type EstimateDTO, type EstimateVersionDTO } from "@roofdesk/shared";
 import { audit } from "../../core/audit";
 import { requireAuth } from "../../core/auth";
 import { touchJob } from "../../core/notify";
@@ -87,6 +87,36 @@ estimatesRouter.get(
   asyncHandler(async (req, res) => {
     const est = await Estimate.findOne({ jobId: req.params.jobId });
     res.json({ estimate: est ? toEstimateDTO(est) : null });
+  }),
+);
+
+estimatesRouter.get(
+  "/export.csv",
+  requirePermission("job:read"),
+  validate({ params: jobParam, query: z.object({ versionNo: z.coerce.number().int().min(1).optional() }) }),
+  asyncHandler(async (req, res) => {
+    const job = await Job.findById(req.params.jobId);
+    if (!job || (req.auth!.role === "operations" && !job.assigneeIds.some((id: unknown) => String(id) === req.auth!.userId))) throw notFound("Job");
+    const estimate = await Estimate.findOne({ jobId: req.params.jobId });
+    if (!estimate) throw notFound("Estimate");
+    const versionNo = (req.query as { versionNo?: number }).versionNo ?? estimate.currentVersion;
+    const version = estimate.versions.find((entry) => entry.versionNo === versionNo);
+    if (!version) throw notFound("Estimate version");
+
+    const lineItems = plainItems(version.lineItems as any);
+    const settings = plainSettings(version.settings);
+    const totals = computeTotals(lineItems, settings);
+    const address = [job.property?.line1, job.property?.city, job.property?.state, job.property?.zip].filter(Boolean).join(", ");
+    const csv = estimateHandoffCsv(
+      { jobNumber: job.jobNumber, customerName: job.customer?.name ?? "", address },
+      toVersionDTO(version),
+      totals,
+    );
+    const filename = `roofdesk-${job.jobNumber}-estimate-v${versionNo}.csv`.replace(/[^a-zA-Z0-9._-]/g, "_");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.send(`\uFEFF${csv}`);
   }),
 );
 
