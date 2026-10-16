@@ -30,6 +30,36 @@ test.describe("signed-in app", () => {
 });
 
 test.describe("golden path: job to claim", () => {
+  test("keeps a photo on device while offline and syncs it after reconnecting", async ({ page, context, isMobile }) => {
+    test.skip(isMobile, "the offline upload flow is run on desktop; the phone project covers layout above");
+    await registerViaUi(page);
+    await page.goto("/jobs");
+    await page.getByRole("button", { name: "New job" }).click();
+    await page.getByLabel("Customer name").fill("Offline Photo Customer");
+    await page.getByLabel("Street address").fill("14 Oak Ridge Ln");
+    await page.getByLabel("City").fill("Austin");
+    await page.getByLabel("State").fill("TX");
+    await page.getByLabel("ZIP").fill("78701");
+    await page.getByRole("button", { name: "Create job" }).click();
+    await page.getByRole("link", { name: /Offline Photo Customer/ }).click();
+    await page.getByRole("button", { name: "Photos", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Photos and documents" })).toBeVisible();
+
+    await context.setOffline(true);
+    await page.getByRole("button", { name: "Upload files" }).click();
+    await page.locator('input[type="file"]').nth(1).setInputFiles({
+      name: "offline-roof.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46, 0, 1]),
+    });
+    await expect(page.getByRole("region", { name: "Offline photo upload queue" })).toContainText("offline-roof.jpg");
+    await expect(page.getByRole("region", { name: "Offline photo upload queue" })).toContainText("Saved offline");
+
+    await context.setOffline(false);
+    await expect(page.getByRole("button", { name: "Open offline-roof.jpg" })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("region", { name: "Offline photo upload queue" })).toHaveCount(0);
+  });
+
   test("measure, estimate and file a claim", async ({ page, isMobile }) => {
     test.skip(isMobile, "the long flow is run on desktop; the phone project covers layout above");
     await registerViaUi(page);

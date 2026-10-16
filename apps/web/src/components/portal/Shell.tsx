@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Briefcase, CreditCard, FileSignature, LayoutDashboard, LogOut, MoreHorizontal, Settings, Store, Tags, Users, type LucideIcon } from "lucide-react";
+import { Briefcase, CreditCard, FileSignature, LayoutDashboard, LogOut, MoreHorizontal, Settings, Shield, Store, Tags, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -20,7 +20,8 @@ const NAV: { href: string; label: string; short?: string; icon: LucideIcon; prim
   { href: "/prices", label: "Price list", icon: Tags, permission: "estimate:write" },
   { href: "/waivers", label: "Waiver forms", icon: FileSignature, permission: "user:manage" },
   { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/team", label: "Operations Interns", icon: Users, permission: "user:manage" },
+  { href: "/admin", label: "Admin Panel", icon: Shield, permission: "user:manage" },
+  { href: "/team", label: "Team access", icon: Users, permission: "user:manage" },
 ];
 
 export function Shell({ children }: { children: ReactNode }) {

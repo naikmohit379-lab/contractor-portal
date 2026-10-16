@@ -17,6 +17,7 @@ import { documentsRouter } from "./modules/documents/documents.routes";
 import { pricingRouter } from "./modules/pricing/pricing.routes";
 import { eventsRouter } from "./modules/notifications/events.routes";
 import { notificationsRouter } from "./modules/notifications/notifications.routes";
+import { cronRouter } from "./modules/notifications/cron.routes";
 import { reportsRouter } from "./modules/reports/reports.routes";
 import { claimsRouter } from "./modules/claims/claims.routes";
 import { estimatesRouter } from "./modules/estimates/estimates.routes";
@@ -34,6 +35,7 @@ import { templatesRouter } from "./modules/waivers/templates.routes";
 import { waiversRouter } from "./modules/waivers/waivers.routes";
 import { operationsRouter } from "./modules/operations/operations.routes";
 import { teamRouter } from "./modules/team/team.routes";
+import { adminRouter } from "./modules/admin/admin.routes";
 import { Job } from "./models/Job";
 import { requireAuth } from "./core/auth";
 import { asyncHandler } from "./core/http";
@@ -58,6 +60,9 @@ export function createApp() {
   app.get("/ready", (_req, res) => (mongoose.connection.readyState === 1 ? res.json({ ok: true }) : res.status(503).json({ ok: false })));
 
   const v1 = express.Router();
+  // Public probes for Vercel/GitHub monitoring; readiness confirms the database connection.
+  v1.get("/health", (_req, res) => res.json({ ok: true }));
+  v1.get("/ready", (_req, res) => (mongoose.connection.readyState === 1 ? res.json({ ok: true }) : res.status(503).json({ ok: false })));
   v1.use("/auth", authRouter);
   // Operations Interns can read only jobs explicitly assigned to them, including nested job resources.
   v1.use("/jobs/:jobId", requireAuth, asyncHandler(async (req, _res, next) => {
@@ -83,9 +88,11 @@ export function createApp() {
   v1.use("/payments", companyPaymentsRouter);
   v1.use("/events", eventsRouter);
   v1.use("/notifications", notificationsRouter);
+  v1.use("/cron", cronRouter);
   v1.use("/reports", reportsRouter);
   v1.use("/operations", operationsRouter);
   v1.use("/team", teamRouter);
+  v1.use("/admin", adminRouter);
   v1.use("/jobs/:jobId/documents", documentsRouter);
   v1.use("/price-lists", pricingRouter);
   app.use("/api/v1", v1);

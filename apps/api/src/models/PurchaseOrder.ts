@@ -20,6 +20,13 @@ const purchaseOrderSchema = new Schema(
       },
     ],
     deliveryWindow: { date: Date, slot: String },
+    supplierInvoice: {
+      invoiceNumber: String,
+      totalCents: Number,
+      documentId: { type: Schema.Types.ObjectId, ref: "Document" },
+      receivedAt: Date,
+      uploadedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    },
     dropInstructions: String,
     // The raw token is shown once to the sender; only its hash is stored.
     confirmTokenHash: { type: String, index: true, sparse: true },

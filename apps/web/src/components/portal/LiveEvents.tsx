@@ -16,7 +16,7 @@ const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 export function LiveEvents() {
   const qc = useQueryClient();
   const [toast, setToast] = useState<NotificationDTO | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     let stop = false;

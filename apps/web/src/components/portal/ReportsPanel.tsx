@@ -5,7 +5,7 @@ import { Download } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { CLAIM_STATUS_LABELS, type AgingBucket, type ApprovalStats, type Receivables } from "@roofdesk/shared";
-import { api, downloadFile } from "@/lib/api";
+import { api, downloadFile, fetchBlob } from "@/lib/api";
 import { fmtDate, usd } from "@/lib/format";
 
 interface Overview {
@@ -53,6 +53,10 @@ const EXPORTS = [
 
 export function ReportsPanel() {
   const q = useQuery({ queryKey: ["reports", "overview"], queryFn: () => api<Overview>("/reports/overview"), staleTime: 30_000 });
+  const variance = useQuery({ queryKey: ["reports", "price-variance"], queryFn: () => api<{
+    items: { orderId: string; jobId: string; jobNumber: string; customer: string; supplierName: string; poNumber: string; invoiceNumber: string; documentId: string; receivedAt: string; expectedTotalCents: number; invoiceTotalCents: number; varianceCents: number | null; variancePct: number | null }[];
+    totals: { expectedCents: number; invoiceCents: number; varianceCents: number };
+  }>("/reports/price-variance"), staleTime: 30_000 });
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const o = q.data;
@@ -116,8 +120,28 @@ export function ReportsPanel() {
           <h3 className="mb-4 text-xl font-bold">Claims by status</h3>
           {claimRows.length === 0 ? <p className="text-sm text-mist">No claims yet.</p> : <Bars rows={claimRows} format={(n) => String(n)} />}
         </article>
+        <article className="panel p-5 lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div><h3 className="text-xl font-bold">Supplier invoice price variance</h3><p className="mt-1 text-sm text-mist">Compares recorded invoice totals with priced purchase order lines. Lines without a saved unit price are excluded.</p></div>
+            {variance.data && <p className="text-sm text-mist">Net variance <strong className="text-white">{usd(variance.data.totals.varianceCents)}</strong></p>}
+          </div>
+          {variance.isLoading ? <p className="mt-4 text-sm text-mist">Loading invoice comparisons…</p> : variance.isError ? <p role="alert" className="mt-4 text-sm text-bad">Price variance report could not be loaded.</p> : !variance.data?.items.length ? <p className="mt-4 text-sm text-mist">No supplier invoices have been recorded yet. Add a PDF invoice from a job’s Supplier orders tab.</p> : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead className="text-mist"><tr><th className="pb-2 font-medium">Job / PO</th><th className="pb-2 font-medium">Supplier / invoice</th><th className="pb-2 font-medium">PO total</th><th className="pb-2 font-medium">Invoice</th><th className="pb-2 font-medium">Variance</th><th className="pb-2 font-medium">File</th></tr></thead>
+                <tbody>{variance.data.items.map((item) => <tr key={item.orderId} className="border-t border-ink-600">
+                  <td className="py-3"><Link className="underline decoration-ink-500 hover:text-ember" href={`/jobs/${item.jobId}?tab=orders`}>{item.jobNumber || item.poNumber}</Link><span className="block text-xs text-mist">{item.poNumber} · {item.customer}</span></td>
+                  <td>{item.supplierName}<span className="block text-xs text-mist">{item.invoiceNumber} · {fmtDate(item.receivedAt)}</span></td>
+                  <td>{usd(item.expectedTotalCents)}</td><td>{usd(item.invoiceTotalCents)}</td>
+                  <td className={item.varianceCents !== null && item.varianceCents !== 0 ? "text-bad" : "text-ok"}>{item.varianceCents === null ? "No priced lines" : `${usd(item.varianceCents)}${item.variancePct === null ? "" : ` (${item.variancePct}%)`}`}</td>
+                  <td><button className="btn btn-ghost px-2" onClick={async () => { try { const blob = await fetchBlob(`/jobs/${item.jobId}/documents/${item.documentId}/file`); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `invoice-${item.invoiceNumber}.pdf`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); setErr(null); } catch (e) { setErr((e as Error).message); } }}>Download PDF</button></td>
+                </tr>)}</tbody>
+              </table>
+            </div>
+          )}
+        </article>
       </div>
-      <p className="text-xs text-mist">Requested claim amounts use the replacement cost of each job's original estimate. Material price variance needs supplier invoices, which are not captured yet.</p>
+      <p className="text-xs text-mist">Requested claim amounts use the replacement cost of each job's original estimate. Review invoice variances against the supplier invoice PDF before making accounting adjustments.</p>
     </section>
   );
 }

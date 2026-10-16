@@ -7,10 +7,11 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
-import { JOB_STAGES, JOB_TYPES, STAGE_LABELS, jobCreateSchema, type JobCreateInput, type JobDTO, type JobStage } from "@roofdesk/shared";
+import { JOB_STAGES, JOB_TYPES, jobCreateSchema, type JobCreateInput, type JobDTO, type JobStage } from "@roofdesk/shared";
 import { StageBadge } from "@/components/portal/StageBadge";
 import { ApiError, api, post } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useJobStageLabels } from "@/lib/jobStages";
 
 function NewJobForm({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient();
@@ -69,6 +70,7 @@ function NewJobForm({ onDone }: { onDone: () => void }) {
 
 function JobsList() {
   const { can } = useAuth();
+  const stageLabels = useJobStageLabels();
   const params = useSearchParams();
   const [stage, setStage] = useState<JobStage | "">((params.get("stage") as JobStage) ?? "");
   const [q, setQ] = useState("");
@@ -97,7 +99,7 @@ function JobsList() {
         </div>
         <select className="field sm:w-56" aria-label="Filter by stage" value={stage} onChange={(e) => setStage(e.target.value as JobStage | "")}>
           <option value="">All stages</option>
-          {JOB_STAGES.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
+          {JOB_STAGES.map((s) => <option key={s} value={s}>{stageLabels[s]}</option>)}
         </select>
       </div>
 

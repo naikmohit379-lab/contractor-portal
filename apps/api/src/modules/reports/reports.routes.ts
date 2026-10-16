@@ -26,6 +26,8 @@ import { LedgerEntry } from "../../models/LedgerEntry";
 import { Party } from "../../models/Party";
 import { Payment } from "../../models/Payment";
 import { PaymentMilestone } from "../../models/PaymentMilestone";
+import { PurchaseOrder } from "../../models/PurchaseOrder";
+import { Supplier } from "../../models/Supplier";
 import { Waiver } from "../../models/Waiver";
 import { toVersionDTO } from "../estimates/estimates.routes";
 
@@ -97,6 +99,41 @@ reportsRouter.get(
 );
 
 const kind = z.object({ kind: z.enum(["jobs", "payments", "waivers", "ledger"]) });
+
+reportsRouter.get(
+  "/price-variance",
+  asyncHandler(async (_req, res) => {
+    const orders = await PurchaseOrder.find({ "supplierInvoice.documentId": { $exists: true } }).sort({ "supplierInvoice.receivedAt": -1 });
+    const [jobs, suppliers] = await Promise.all([
+      Job.find({ _id: { $in: orders.map((o) => o.jobId) } }).select("jobNumber customer property"),
+      Supplier.find({ _id: { $in: orders.map((o) => o.supplierId) } }).select("name"),
+    ]);
+    const jobMap = new Map(jobs.map((j) => [j.id, j]));
+    const supplierMap = new Map(suppliers.map((s) => [s.id, s.name]));
+    const items = orders.map((order) => {
+      const expectedTotalCents = order.lines.reduce((sum, line) => sum + (line.quantity ?? 0) * (line.unitPriceCents ?? 0), 0);
+      const invoice = order.supplierInvoice!;
+      const varianceCents = invoice.totalCents! - expectedTotalCents;
+      const job = jobMap.get(String(order.jobId));
+      return {
+        orderId: order.id,
+        jobId: String(order.jobId),
+        jobNumber: job?.jobNumber ?? "",
+        customer: job?.customer?.name ?? "",
+        supplierName: supplierMap.get(String(order.supplierId)) ?? "Unknown supplier",
+        poNumber: order.poNumber,
+        invoiceNumber: invoice.invoiceNumber,
+        documentId: String(invoice.documentId),
+        receivedAt: invoice.receivedAt?.toISOString() ?? "",
+        expectedTotalCents,
+        invoiceTotalCents: invoice.totalCents!,
+        varianceCents: expectedTotalCents > 0 ? varianceCents : null,
+        variancePct: expectedTotalCents > 0 ? Math.round((varianceCents / expectedTotalCents) * 10000) / 100 : null,
+      };
+    });
+    res.json({ items, totals: { expectedCents: items.reduce((n, item) => n + item.expectedTotalCents, 0), invoiceCents: items.reduce((n, item) => n + item.invoiceTotalCents, 0), varianceCents: items.reduce((n, item) => n + (item.varianceCents ?? 0), 0) } });
+  }),
+);
 
 /**
  * CSV exports for spreadsheets and accountants. Built in memory, which is fine at this size; a background

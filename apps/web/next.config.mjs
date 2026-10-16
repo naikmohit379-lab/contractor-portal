@@ -17,7 +17,7 @@ const nextConfig = {
   poweredByHeader: false,
   // A self-contained server for the Docker image. The tracing root is the repo root so the workspace packages are included.
   output: "standalone",
-  experimental: { outputFileTracingRoot: path.join(here, "../../") },
+  outputFileTracingRoot: path.join(here, "../../"),
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

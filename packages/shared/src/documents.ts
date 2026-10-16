@@ -18,6 +18,7 @@ export type Marker = z.infer<typeof markerSchema>;
 export const documentUpdateSchema = z.object({
   caption: z.string().trim().max(300).optional(),
   slope: z.enum(DOC_SLOPES).optional(),
+  tags: z.array(z.string().trim().min(1).max(30)).max(12).optional(),
   includeInPacket: z.boolean().optional(),
   annotations: z.array(markerSchema).max(50).optional(),
 });
@@ -30,11 +31,24 @@ export interface DocumentDTO {
   sizeBytes: number;
   sha256: string;
   kind: "photo" | "document";
+  version: number;
+  tags: string[];
   slope?: (typeof DOC_SLOPES)[number];
   caption?: string;
   includeInPacket: boolean;
   annotations: Marker[];
   createdAt: string;
+}
+
+export interface DocumentVersionDTO {
+  version: number;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  sha256: string;
+  uploadedBy?: string;
+  createdAt: string;
+  current: boolean;
 }
 
 export const priceItemSchema = z.object({

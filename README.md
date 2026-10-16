@@ -31,9 +31,10 @@ pnpm dev                                    # web :3000, API :4000
 11. As the owner, **Refund** part of that payment (re-enter your password). Refunds above $1,000 wait on the **Payments** page for a different admin or owner to approve. The same page shows a reconciliation check of the ledger.
 12. Open the app in two browser windows (two users, or one normal and one private window with a second login). Sign a waiver or simulate a payment in one window: the other window's tabs refresh on their own, a toast appears, and the bell shows an unread count. Click the bell to jump to the item.
 13. **Settings**: choose which kinds of notification are also emailed. With `EMAIL_PROVIDER=log` (default) emails are printed in the API console, including the secure links, so you can click them. Add an email to a waiver party, a payer or a supplier and the link is sent automatically.
-14. **Dashboard** (owner, admin or billing): collected by month, owed and overdue amounts, claim approval rate and cycle time, how long waivers have waited, claims by status, and **CSV exports** for jobs, payments, waivers and the ledger.
+14. **Business overview** (owner, admin or billing): collected by month, owed and overdue amounts, claim approval rate and cycle time, waiver aging, claims by status, supplier invoice variance, and **CSV exports** for jobs, payments, waivers and the ledger.
 15. **Photos** tab on a job: take or upload photos, click a picture to mark hail hits or wind damage, tag the slope, then open the claim packet to see the marked photos printed with it.
 16. **Price list** page: edit your unit prices, or import a CSV from Excel (bad rows are listed by number and nothing is imported). Saving creates a new version. New estimates use it, and the estimate builder can add any item from it.
+17. **Admin Panel** (owner or admin): review company-wide job, claim, waiver, payment exception, late order, overdue task, missing-upload, and account counts; jump to recent jobs and inspect recent audit activity. Use **Team access** to invite Project Managers or Operations Interns. An existing Owner can also invite another Owner; admins cannot grant Owner access. Use the job's **Operations assignment** control to assign work. Follow-up due dates display as calendar dates across time zones, and overdue tasks receive daily in-app reminders. See `docs/OPERATIONS_WORKSPACE.md` for the admin and intern workflow.
 
 ## What is built
 | Area | Status |
@@ -44,7 +45,7 @@ pnpm dev                                    # web :3000, API :4000
 | Estimate engine: line math, O&P, tax, per-line depreciation, ACV/RCV, net claim | Done, 5 assertions run and passing |
 | Estimate versions (original, carrier approved, supplement), locking, diff view | Done |
 | Claim record, status machine, communication log, deductible sync | Done |
-| Printable claim packet (browser print to PDF) | Done, no photos yet |
+| Printable claim packet (browser print to PDF) | Done, includes selected annotated photos |
 | Suppliers with SKU/price catalog | Done (catalog embedded in supplier) |
 | Material list generator (squares and feet to bundles, rolls, pieces) | Done |
 | Purchase orders, status machine, link-based supplier confirmation | Done (link is copied or emailed by the user; no email service yet) |
@@ -66,28 +67,34 @@ pnpm dev                                    # web :3000, API :4000
 | Secure links emailed automatically to waiver parties, payers and suppliers; link text stripped from stored copies | Done |
 | Live updates over Server-Sent Events: data refreshes in other open windows, toasts, notification push | Done; single API instance (see below) |
 | Owner dashboard: collected by month, receivables, overdue, claim approval rate and cycle time, waiver aging, claims by status | Done, report math executed and passing |
+| Owner/admin operations panel with company-scoped queues, recent jobs and audit activity | Done; API is restricted to owner/admin permissions |
 | CSV exports (jobs, payments, waivers, ledger) with spreadsheet-formula protection | Done |
 | Photos and PDFs: upload (camera or files), type read from the file's bytes, 15 MB limit, SHA-256, local disk or S3/MinIO storage | Done |
 | Damage markers on photos (hail, wind, missing shingle, notes), slope tags, include-in-packet switch, photos in the printable claim packet | Done |
 | Company price list: versioned, CSV import with row-by-row error report, CSV export, "add from price list" in the estimate builder, new estimates priced from it | Done |
-| API unit tests, API integration tests against a real MongoDB, browser tests (desktop and phone, accessibility, golden path) | Written; the pure-logic parts were executed, the database and browser suites were not |
-| CI (types, tests, build, dependency audit, browser tests) and a deploy workflow with approval and automatic rollback | Written, not run |
+| Supplier invoice PDF capture and price variance report against saved PO line prices | Done; totals must be reviewed against the uploaded invoice because invoice line OCR/reconciliation is not included |
+| API unit and integration tests, shared and estimate rules | 82 API, 28 shared, and 5 estimate tests passed locally |
+| Browser tests (desktop and phone, accessibility, golden path) | Written; not run in this verification pass |
+| CI (types, tests, build, dependency audit, browser tests) and a deploy workflow with approval and automatic rollback | Written; production server deployment workflow not run |
 | Production Docker images, compose file, HTTPS reverse proxy, nightly backups, restore script, deployment guide | Written, not built or run |
 | Marketing page, SEO files, responsive portal | Done |
 
-## Not built yet
-1. Real aerial measurement providers, and BullMQ workers (measurement ordering still runs inside the API process, against a mock provider).
-2. Offline photo queue for poor signal, server-side thumbnails, virus scanning of uploads, and reading EXIF (time and GPS) from photos.
-3. Delivery verification, supplier invoice upload and the material price variance report.
-4. Waivers: statutory per-state forms (must come from your counsel), automatic reminders and escalation (needs a scheduler), SMS, OTP or notarization, preliminary-notice deadlines, closeout waiver packet export.
-5. Payments: matching against the gateway's own balance report, dispute evidence packets, payouts to suppliers and crews, receipts by email, a settings page for waiver gating and the refund limit (they are company fields with defaults), a strict Content-Security-Policy on payer pages.
+## First-release decisions and remaining work
+The agreed first-release scope is Texas insurance restoration, retail replacement and repair jobs. Payments remain in mock mode; the Operations Intern workspace is included in the MVP. EagleView is the selected first aerial measurement provider, but a real connection depends on obtaining vendor API access. Xactimate-compatible estimate export is required at launch. All four Texas waiver types need wording supplied and approved by counsel before use.
+
+## Not built or not ready for live use
+1. Real EagleView aerial measurement orders and report ingestion, plus background processing (measurement ordering currently runs in-process against the mock provider).
+2. Server-side thumbnails, virus scanning of uploads, and reading EXIF (time and GPS) from photos. The browser now keeps unsent photo files in a local IndexedDB queue (100 MB cap) and syncs when online while the user is signed in.
+3. Xactimate-compatible estimate export. Confirm the target interchange format with the intended recipient before calling an export compatible.
+4. Texas statutory waiver form wording and approval (all four types; counsel must provide/review the content), reminders for unsigned waivers, email/SMS reminders, escalation, SMS OTP or notarization, preliminary-notice deadlines, and a closeout waiver packet export. Vercel Cron now creates daily in-app reminders for overdue Operations follow-up tasks; it needs `CRON_SECRET` on the production deployment.
+5. Payments: matching against the gateway's own balance report, dispute evidence packets, payouts to suppliers and crews, receipts by email, and a strict Content-Security-Policy on payer pages.
 6. Several API servers sharing live events (needs Redis), PDF exports and exports as background jobs, QuickBooks or Xero sync, a public API with outgoing webhooks.
-7. Monitoring and alerting in production, and a committed `pnpm-lock.yaml` (generate it with `pnpm install`, commit it, then switch CI and the Dockerfiles to `--frozen-lockfile`).
+7. Production-readiness follow-through: enable GitHub monitor failure notifications, verify production probes, create an off-device Atlas backup, and complete an isolated restore drill. See `docs/PRODUCTION_READINESS.md`. The separate Docker deployment workflow still needs a real server/environment.
 
 ## Verification status
 **Run and passing in the build sandbox** (compiled and executed with Node, no installs needed): the estimate engine; waiver readiness rules; ledger, refund-approval and reconciliation rules; report math, CSV writer and notification preferences; CSV reader and price list import; the Stripe webhook signature check and event mapping; AWS Signature V4 signing (matches the two examples in AWS's documentation), file type detection and storage drivers; the real email and live-event modules with their database and logger stubbed.
 
-**Written but never run** (the build sandbox had no network, no MongoDB and no Docker): everything that needs installed packages or a database or a browser. That is the Express routes and MongoDB models, the web app, the 8 API test files in `apps/api/test` and the unit tests next to the code, the Playwright tests in `apps/web/e2e`, the Dockerfiles, `docker-compose.prod.yml`, the CI and deploy workflows, and the Stripe and Resend connections. Only a syntax-level TypeScript check was done on these. **Expect the first `pnpm install && pnpm typecheck && pnpm test` to turn up small problems.** Fix those before trusting any of it.
+**Verified locally on 15 October 2026:** all three package typechecks passed; the API test suite passed 82 tests, shared rules passed 28 tests, and estimate engine passed 5 tests. The Next.js application compiled and generated pages, but Windows blocked its final standalone packaging step when creating dependency symlinks. Vercel's Preview deployment built successfully. Browser E2E, production Docker deployment, backup restore, and vendor integrations still need separate verification. Stripe and Resend are not part of the first-release live workflow; payments remain mocked.
 
 ## Design notes
 - Visual language follows the reference: near-black blue surfaces, one burnt-orange accent, Barlow Condensed display type with Barlow for text.

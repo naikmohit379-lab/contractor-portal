@@ -1,15 +1,16 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, FileText, Trash2, Upload } from "lucide-react";
-import { useRef, useState } from "react";
-import { DOC_SLOPES, MARKER_KINDS, MARKER_LABELS, MAX_UPLOAD_BYTES, type DocumentDTO, type Marker } from "@roofdesk/shared";
+import { Camera, FilePlus2, FileText, History, Trash2, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { DOC_SLOPES, MARKER_KINDS, MARKER_LABELS, MAX_UPLOAD_BYTES, type DocumentDTO, type DocumentVersionDTO, type Marker } from "@roofdesk/shared";
 import { AuthImage } from "@/components/AuthImage";
 import { api, downloadFile, uploadFile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { fmtDate } from "@/lib/format";
+import { listOfflineUploads, MAX_OFFLINE_QUEUE_BYTES, removeOfflineUpload, saveOfflineUpload, type OfflineUpload } from "@/lib/offline-uploads";
 
-type UploadItem = { name: string; state: "uploading" | "done" | "error"; message?: string };
+type UploadItem = OfflineUpload & { state: "queued" | "uploading"; message?: string };
 const mb = (n: number) => `${(n / 1024 / 1024).toFixed(1)} MB`;
 
 function Detail({ jobId, doc, onClose }: { jobId: string; doc: DocumentDTO; onClose: () => void }) {
@@ -19,14 +20,27 @@ function Detail({ jobId, doc, onClose }: { jobId: string; doc: DocumentDTO; onCl
   const [slope, setSlope] = useState(doc.slope ?? "");
   const [include, setInclude] = useState(doc.includeInPacket);
   const [markers, setMarkers] = useState<Marker[]>(doc.annotations);
+  const [tags, setTags] = useState((doc.tags ?? []).join(", "));
   const [kind, setKind] = useState<Marker["kind"]>("hail");
+  const versionFileRef = useRef<HTMLInputElement>(null);
   const editable = can("job:write");
   const isImage = doc.contentType.startsWith("image/");
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["jobs", jobId, "documents"] });
+  const versions = useQuery({
+    queryKey: ["jobs", jobId, "documents", doc.id, "versions"],
+    queryFn: () => api<{ items: DocumentVersionDTO[] }>(`/jobs/${jobId}/documents/${doc.id}/versions`),
+  });
   const save = useMutation({
-    mutationFn: () => api(`/jobs/${jobId}/documents/${doc.id}`, { method: "PATCH", body: JSON.stringify({ caption, slope: slope || undefined, includeInPacket: include, annotations: markers }) }),
+    mutationFn: () => api(`/jobs/${jobId}/documents/${doc.id}`, { method: "PATCH", body: JSON.stringify({ caption, slope: slope || undefined, includeInPacket: include, annotations: markers, tags: [...new Set(tags.split(",").map((tag) => tag.trim()).filter(Boolean))] }) }),
     onSuccess: refresh,
+  });
+  const uploadVersion = useMutation({
+    mutationFn: (file: File) => uploadFile<DocumentDTO>(`/jobs/${jobId}/documents/${doc.id}/versions`, file),
+    onSuccess: () => {
+      refresh();
+      qc.invalidateQueries({ queryKey: ["jobs", jobId, "documents", doc.id, "versions"] });
+    },
   });
   const del = useMutation({ mutationFn: () => api(`/jobs/${jobId}/documents/${doc.id}`, { method: "DELETE" }), onSuccess: () => { refresh(); onClose(); } });
 
@@ -78,12 +92,24 @@ function Detail({ jobId, doc, onClose }: { jobId: string; doc: DocumentDTO; onCl
           </select>
         </div>
       </div>
+      <div><label className="label" htmlFor="doc-tags">Tags (comma separated)</label><input id="doc-tags" className="field" disabled={!editable} value={tags} onChange={(e) => setTags(e.target.value)} placeholder="invoice, roof, inspection" /></div>
       {isImage && <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="h-5 w-5 accent-ember" disabled={!editable} checked={include} onChange={(e) => setInclude(e.target.checked)} /> Include in the claim packet</label>}
 
-      {(save.isError || del.isError) && <p role="alert" className="text-sm text-bad">{((save.error || del.error) as Error).message}</p>}
+      <details className="rounded-md border border-ink-600 p-3">
+        <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold"><History size={17} aria-hidden /> Version history {versions.data && `(${versions.data.items.length})`}</summary>
+        {versions.isLoading ? <p className="mt-3 text-sm text-mist">Loading versions…</p> : versions.isError ? <p role="alert" className="mt-3 text-sm text-bad">Could not load version history.</p> : <ol className="mt-3 space-y-2 text-sm">
+          {versions.data?.items.map((version) => <li key={version.version} className="flex flex-wrap items-center justify-between gap-2 border-t border-ink-600 pt-2">
+            <span>Version {version.version}{version.current ? " (current)" : ""} · {version.filename} · {fmtDate(version.createdAt)}</span>
+            {!version.current && <button className="text-ember-300 underline" onClick={() => downloadFile(`/jobs/${jobId}/documents/${doc.id}/file?version=${version.version}`, version.filename)}>Download</button>}
+          </li>)}
+        </ol>}
+      </details>
+
+      {(save.isError || del.isError || uploadVersion.isError) && <p role="alert" className="text-sm text-bad">{((save.error || del.error || uploadVersion.error) as Error).message}</p>}
       <div className="flex flex-wrap gap-3">
         {editable && <button className="btn btn-primary" disabled={save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Saving" : "Save details"}</button>}
         <button className="btn btn-ghost" onClick={() => downloadFile(`/jobs/${jobId}/documents/${doc.id}/file`, doc.filename)}>Download original</button>
+        {editable && <><input ref={versionFileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,application/pdf" className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadVersion.mutate(file); e.target.value = ""; }} /><button className="btn btn-ghost" disabled={uploadVersion.isPending} onClick={() => versionFileRef.current?.click()}><FilePlus2 size={17} aria-hidden /> {uploadVersion.isPending ? "Uploading version…" : "Upload new version"}</button></>}
         {editable && <button className="btn btn-ghost" disabled={del.isPending} onClick={() => confirm("Delete this file permanently?") && del.mutate()}>Delete</button>}
       </div>
       <p className="break-all text-xs text-mist">{mb(doc.sizeBytes)} | uploaded {fmtDate(doc.createdAt)} | SHA-256 {doc.sha256.slice(0, 16)}</p>
@@ -92,25 +118,82 @@ function Detail({ jobId, doc, onClose }: { jobId: string; doc: DocumentDTO; onCl
 }
 
 export function PhotosTab({ jobId }: { jobId: string }) {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const qc = useQueryClient();
   const [queue, setQueue] = useState<UploadItem[]>([]);
+  const [online, setOnline] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const camRef = useRef<HTMLInputElement>(null);
+  const syncing = useRef(false);
   const q = useQuery({ queryKey: ["jobs", jobId, "documents"], queryFn: () => api<{ items: DocumentDTO[] }>(`/jobs/${jobId}/documents`) });
+
+  async function refreshQueue() {
+    if (!user?.id) { setQueue([]); return; }
+    const items = await listOfflineUploads(jobId, user.id);
+    setQueue(items.map((item) => ({ ...item, state: "queued" })));
+  }
+
+  async function syncQueue() {
+    if (syncing.current || !navigator.onLine || !user?.id) return;
+    syncing.current = true;
+    setOnline(true);
+    try {
+      for (const item of await listOfflineUploads(jobId, user.id)) {
+        setQueue((items) => items.map((entry) => entry.id === item.id ? { ...entry, state: "uploading", message: undefined } : entry));
+        try {
+          const file = new File([item.blob], item.fileName, { type: item.fileType, lastModified: item.lastModified });
+          await uploadFile(`/jobs/${jobId}/documents`, file);
+          await removeOfflineUpload(item.id);
+        } catch (error) {
+          const message = !navigator.onLine || error instanceof TypeError ? "Waiting for a connection. This file is saved on this device." : (error as Error).message;
+          setQueue((items) => items.map((entry) => entry.id === item.id ? { ...entry, state: "queued", message } : entry));
+          if (!navigator.onLine || error instanceof TypeError) break;
+        }
+      }
+      await refreshQueue();
+      qc.invalidateQueries({ queryKey: ["jobs", jobId, "documents"] });
+    } catch (error) {
+      setQueue((items) => items.map((entry) => ({ ...entry, state: "queued", message: (error as Error).message })));
+    } finally {
+      syncing.current = false;
+    }
+  }
+
+  useEffect(() => {
+    const onlineNow = () => setOnline(true);
+    const offlineNow = () => setOnline(false);
+    setOnline(navigator.onLine);
+    setQueue([]);
+    void refreshQueue().catch(() => {});
+    window.addEventListener("online", onlineNow);
+    window.addEventListener("offline", offlineNow);
+    return () => { window.removeEventListener("online", onlineNow); window.removeEventListener("offline", offlineNow); };
+  }, [jobId, user?.id]);
+
+  useEffect(() => {
+    if (online && queue.length) void syncQueue();
+  }, [online, queue.length, jobId]);
 
   async function upload(files: FileList | null) {
     if (!files?.length) return;
     const list = Array.from(files);
-    setQueue(list.map((f) => ({ name: f.name, state: "uploading" })));
-    // One at a time: phones on weak signal fail less, and the order stays the order you picked.
-    for (const [i, f] of list.entries()) {
-      const set = (p: Partial<UploadItem>) => setQueue((arr) => arr.map((x, idx) => (idx === i ? { ...x, ...p } : x)));
-      if (f.size > MAX_UPLOAD_BYTES) { set({ state: "error", message: `${mb(f.size)} is over the ${mb(MAX_UPLOAD_BYTES)} limit` }); continue; }
-      try { await uploadFile(`/jobs/${jobId}/documents`, f); set({ state: "done" }); } catch (e) { set({ state: "error", message: (e as Error).message }); }
+    for (const file of list) {
+      if (file.size > MAX_UPLOAD_BYTES) { window.alert(`${file.name}: ${mb(file.size)} is over the ${mb(MAX_UPLOAD_BYTES)} limit.`); continue; }
+      try {
+        if (!user?.id) throw new Error("Sign in again before saving uploads.");
+        const saved = await saveOfflineUpload(jobId, user.id, file);
+        setQueue((items) => [...items, { ...saved, state: "queued" }]);
+      } catch (error) {
+        window.alert(`${file.name}: ${(error as Error).message}`);
+      }
     }
-    qc.invalidateQueries({ queryKey: ["jobs", jobId, "documents"] });
+    if (navigator.onLine) void syncQueue();
+  }
+
+  async function discardQueued(id: string) {
+    await removeOfflineUpload(id);
+    setQueue((items) => items.filter((item) => item.id !== id));
   }
 
   const open = q.data?.items.find((d) => d.id === openId);
@@ -128,16 +211,18 @@ export function PhotosTab({ jobId }: { jobId: string }) {
         )}
       </div>
 
-      {queue.length > 0 && (
-        <ul className="panel divide-y divide-ink-600 text-sm" aria-live="polite">
-          {queue.map((u, i) => (
-            <li key={i} className="flex items-center justify-between gap-3 p-3">
-              <span className="truncate">{u.name}</span>
-              <span className={u.state === "error" ? "text-bad" : u.state === "done" ? "text-ok" : "text-mist"}>{u.state === "uploading" ? "Uploading" : u.state === "done" ? "Uploaded" : u.message}</span>
-            </li>
-          ))}
+      {queue.length > 0 && <section className="panel p-4" aria-label="Offline photo upload queue">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div><h3 className="font-bold">Pending uploads ({queue.length})</h3><p className="text-xs text-mist">Saved in this browser on this device (up to {mb(MAX_OFFLINE_QUEUE_BYTES)}). Keep RoofDesk open or return while online to sync.</p></div>
+          <button className="btn btn-ghost" disabled={!online || syncing.current} onClick={() => void syncQueue()}>{online ? "Sync now" : "Waiting for connection"}</button>
+        </div>
+        <ul className="divide-y divide-ink-600 text-sm" aria-live="polite">
+          {queue.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-3">
+            <span className="min-w-0"><span className="block truncate">{item.fileName}</span><span className="text-xs text-mist">{mb(item.fileSize)}</span></span>
+            <span className="flex shrink-0 items-center gap-3"><span className="text-mist">{item.state === "uploading" ? "Uploading…" : item.message ?? (online ? "Queued" : "Saved offline")}</span><button className="text-xs text-mist underline" onClick={() => void discardQueued(item.id)}>Remove</button></span>
+          </li>)}
         </ul>
-      )}
+      </section>}
 
       {open && <Detail key={open.id + open.createdAt + JSON.stringify(open.annotations)} jobId={jobId} doc={open} onClose={() => setOpenId(null)} />}
 
@@ -151,7 +236,7 @@ export function PhotosTab({ jobId }: { jobId: string }) {
                 : <span className="grid aspect-square place-items-center bg-ink-700 text-mist"><FileText size={36} aria-hidden /></span>}
               <span className="block space-y-0.5 p-2 text-xs">
                 <span className="block truncate font-medium">{d.caption || d.filename}</span>
-                <span className="block text-mist">{d.slope ?? "No slope"}{d.annotations.length > 0 && ` | ${d.annotations.length} marked`}{d.kind === "photo" && !d.includeInPacket && " | not in packet"}</span>
+                <span className="block text-mist">v{d.version} · {d.tags?.join(", ") || "No tags"}{d.slope && ` · ${d.slope}`}{d.annotations.length > 0 && ` · ${d.annotations.length} marked`}{d.kind === "photo" && !d.includeInPacket && " · not in packet"}</span>
               </span>
             </button>
           </li>
