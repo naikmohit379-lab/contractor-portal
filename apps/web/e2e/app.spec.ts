@@ -79,7 +79,7 @@ test.describe("golden path: job to claim", () => {
 
     await page.getByRole("button", { name: "Estimate", exact: true }).click();
     await page.getByRole("button", { name: "Build estimate from report" }).click();
-    await expect(page.getByText("Net claim")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Estimate" }).getByText("Net claim")).toBeVisible();
 
     await page.getByRole("button", { name: "Claim", exact: true }).click();
     await page.getByLabel("Insurance carrier").fill("Acme Mutual");
