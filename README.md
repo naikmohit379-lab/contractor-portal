@@ -74,8 +74,8 @@ pnpm dev                                    # web :3000, API :4000
 | Company price list: versioned, CSV import with row-by-row error report, CSV export, "add from price list" in the estimate builder, new estimates priced from it | Done |
 | Supplier invoice PDF capture and price variance report against saved PO line prices | Done; totals must be reviewed against the uploaded invoice because invoice line OCR/reconciliation is not included |
 | API unit and integration tests, shared and estimate rules | 82 API, 28 shared, and 5 estimate tests passed locally |
-| Browser tests (desktop and phone, accessibility, golden path) | Written; not run in this verification pass |
-| CI (types, tests, build, dependency audit, browser tests) and a deploy workflow with approval and automatic rollback | Written; production server deployment workflow not run |
+| Browser tests (desktop and phone, accessibility, golden path) | Passed in GitHub Actions on 16 October 2026 (31 passed, 3 skipped) |
+| CI (types, tests, build, dependency audit, browser tests) and a deploy workflow with approval and automatic rollback | GitHub CI passed; Vercel production deployed. The separate self-hosted server deployment workflow has not been run. |
 | Production Docker images, compose file, HTTPS reverse proxy, nightly backups, restore script, deployment guide | Written, not built or run |
 | Marketing page, SEO files, responsive portal | Done |
 
@@ -94,7 +94,9 @@ The agreed first-release scope is Texas insurance restoration, retail replacemen
 ## Verification status
 **Run and passing in the build sandbox** (compiled and executed with Node, no installs needed): the estimate engine; waiver readiness rules; ledger, refund-approval and reconciliation rules; report math, CSV writer and notification preferences; CSV reader and price list import; the Stripe webhook signature check and event mapping; AWS Signature V4 signing (matches the two examples in AWS's documentation), file type detection and storage drivers; the real email and live-event modules with their database and logger stubbed.
 
-**Verified locally on 15 October 2026:** all three package typechecks passed; the API test suite passed 82 tests, shared rules passed 28 tests, and estimate engine passed 5 tests. The Next.js application compiled and generated pages, but Windows blocked its final standalone packaging step when creating dependency symlinks. Vercel's Preview deployment built successfully. Browser E2E, production Docker deployment, backup restore, and vendor integrations still need separate verification. Stripe and Resend are not part of the first-release live workflow; payments remain mocked.
+**Verified locally on 15 October 2026:** all three package typechecks passed; the API test suite passed 82 tests, shared rules passed 28 tests, and estimate engine passed 5 tests. The Next.js application compiled and generated pages, but Windows blocked its final standalone packaging step when creating dependency symlinks. Vercel's Preview deployment built successfully.
+
+**Verified in CI and production on 16 October 2026:** the staging and main GitHub Actions checks passed, including typecheck, API/shared tests, build, dependency audit, and browser E2E (31 passed, 3 skipped). Production was deployed from commit `128bfa3`; `/api/v1/health` and `/api/v1/ready` both returned `{"ok":true}`. The production monitoring workflow and daily in-app reminder cron are now on the default branch. Docker deployment, backup restore, hands-on validation with real users, and vendor integrations still need separate verification. Stripe and Resend are not part of the first-release live workflow; payments remain mocked.
 
 ## Design notes
 - Visual language follows the reference: near-black blue surfaces, one burnt-orange accent, Barlow Condensed display type with Barlow for text.
