@@ -101,6 +101,8 @@ The agreed first-release scope is Texas insurance restoration, retail replacemen
 
 **Estimate handoff changes, 16 October 2026:** shared tests (29), API unit tests (24), and estimate-engine tests (5) passed; API and web typechecks and the API production build passed. The estimate API integration test could not start because the local in-memory MongoDB process exited with an `fassert` error. Next.js 15.5.24 compiled and generated pages, but Windows blocked standalone output packaging when it tried to create dependency symlinks. Vercel deployment has not been run for these changes.
 
+**Staging Operations validation, 21 October 2026:** the overdue-task reminder was visible for the synthetic QA task, but the Production-only cron schedule was not validated in Preview. Offline photo storage in the browser worked; syncing the queued photo and uploading a synthetic supplier invoice both returned HTTP 500 from the Preview API. The test invoice was not saved, and the synthetic photo remains queued in the current browser for retry. Preview has no S3 storage variables configured while the API defaults to local disk; this is the leading upload-failure cause, pending confirmation after persistent object storage is configured. Details: [`docs/OPERATIONS_STAGING_VALIDATION_2026-10-21.md`](docs/OPERATIONS_STAGING_VALIDATION_2026-10-21.md).
+
 ## Design notes
 - Visual language follows the reference: near-black blue surfaces, one burnt-orange accent, Barlow Condensed display type with Barlow for text.
 - Money is integer cents everywhere. Estimate totals are computed on read by the shared engine, never stored, so they cannot drift from line items.
