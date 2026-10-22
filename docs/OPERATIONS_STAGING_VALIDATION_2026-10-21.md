@@ -1,5 +1,22 @@
 # Operations Staging Validation — 2026-10-21
 
+## Final validation pass — 2026-10-22
+
+This section supersedes the earlier Oct 22 invoice and image-preview results below. All writes used the synthetic QA job and private Preview storage; Production was not touched.
+
+| Feature | Final result | Evidence / remaining boundary |
+| --- | --- | --- |
+| Offline photo flow | **Preview upload, sync, reload, and image display passed** | Uploaded `tmp-qa-preview.png` through the Photos upload control. The record appeared in the job and its detail view displayed an image. After reloading the job, the photo record and thumbnail remained. The earlier synthetic `synthetic-roof.jpg` still says “Preview not available”; this is specific to that old fixture, while a valid image now renders. The scheduled/offline transition was not forced in this pass; the earlier test confirmed saving to the browser queue while offline. |
+| Supplier invoice and variance | **Passed** | Uploaded synthetic invoice `QA-2026-1022-RETRY` for `$1,237.50` to PO `PO-13F4D0` (`$1,125.00`). The job showed `$112.50` variance (10%), and the Dashboard’s Supplier Invoice Price Variance report showed the same job, PO, invoice, totals, and variance. The invoice remained recorded after reloading. |
+| Overdue reminders | **In-app behavior and de-duplication passed; scheduled Preview execution not applicable** | The existing synthetic overdue task and unread reminders were left untouched. `apps/api/test/reminders.test.ts` passed its test that creates one in-app reminder for the first run and suppresses a duplicate on the second run for the same task/day. The Preview cron was not invoked; Vercel schedules this cron only for Production. |
+
+### Test run
+
+- `pnpm exec vitest run test/invoice-variance.test.ts test/reminders.test.ts` from `apps/api`: **2 files, 3 tests passed**.
+- The restricted shell initially blocked the in-memory database's loopback socket and temporary-file access. Re-running with the approved local test permissions worked; this was a machine sandbox limitation, not an application test failure.
+
+No real suppliers, customers, payments, or Production records were used. The invoice and image are synthetic QA artifacts in Preview. Do not treat the old malformed-looking JPEG fixture as a representative image upload.
+
 ## Follow-up — 2026-10-22
 
 ### Storage setup and deployment
