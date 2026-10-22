@@ -1,8 +1,16 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
-import { createLocalStorage, createS3Storage, newStorageKey } from "./storage";
+import { describe, expect, it, vi } from "vitest";
+
+const blobMocks = vi.hoisted(() => ({
+  put: vi.fn(),
+  get: vi.fn(),
+  del: vi.fn(),
+}));
+vi.mock("@vercel/blob", () => blobMocks);
+
+import { createLocalStorage, createS3Storage, createVercelBlobStorage, newStorageKey } from "./storage";
 
 describe("local storage", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "rd-store-"));
@@ -44,5 +52,38 @@ describe("S3 storage request shape", () => {
     const s3 = createS3Storage({ endpoint: "https://s3.us-east-1.amazonaws.com", bucket: "my-bucket", region: "us-east-1", accessKeyId: "k", secretAccessKey: "s", pathStyle: false }, fake);
     await s3.delete("k.jpg");
     expect(calls.at(-1)!.url).toBe("https://my-bucket.s3.us-east-1.amazonaws.com/k.jpg");
+  });
+});
+
+describe("private Vercel Blob storage", () => {
+  const d = createVercelBlobStorage();
+
+  it("writes private files without changing server-generated keys", async () => {
+    blobMocks.put.mockResolvedValueOnce({ pathname: "company/job/file.jpg" });
+    await d.put("company/job/file.jpg", Buffer.from("photo"), "image/jpeg");
+    expect(blobMocks.put).toHaveBeenCalledWith("company/job/file.jpg", expect.any(Buffer), {
+      access: "private",
+      addRandomSuffix: false,
+      allowOverwrite: false,
+      contentType: "image/jpeg",
+      cacheControlMaxAge: 60,
+    });
+  });
+
+  it("reads private content and deletes by pathname", async () => {
+    blobMocks.get.mockResolvedValueOnce({
+      statusCode: 200,
+      stream: new Response("private bytes").body,
+      blob: { contentType: "application/pdf" },
+    });
+    expect((await d.get("company/job/invoice.pdf")).toString()).toBe("private bytes");
+    expect(blobMocks.get).toHaveBeenCalledWith("company/job/invoice.pdf", { access: "private" });
+    await d.delete("company/job/invoice.pdf");
+    expect(blobMocks.del).toHaveBeenCalledWith("company/job/invoice.pdf");
+  });
+
+  it("fails clearly when a private object is missing", async () => {
+    blobMocks.get.mockResolvedValueOnce(null);
+    await expect(d.get("company/job/missing.jpg")).rejects.toThrow("Stored file was not found");
   });
 });

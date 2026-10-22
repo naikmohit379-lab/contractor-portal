@@ -9,6 +9,7 @@ export default defineConfig({
   noExternal: [
     "@roofdesk/shared",
     "@roofdesk/estimate-engine",
+    "@vercel/blob",
     "bcryptjs",
     "hash-wasm",
     "cookie-parser",

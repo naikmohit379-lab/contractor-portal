@@ -1,5 +1,5 @@
 import { env } from "../../config/env";
-import { createLocalStorage, createS3Storage, type StorageDriver } from "./storage";
+import { createLocalStorage, createS3Storage, createVercelBlobStorage, type StorageDriver } from "./storage";
 
 let driver: StorageDriver | null = null;
 
@@ -15,6 +15,9 @@ export function getStorage(): StorageDriver {
       secretAccessKey: env.S3_SECRET_KEY,
       pathStyle: env.S3_PATH_STYLE,
     });
+  } else if (env.STORAGE_DRIVER === "vercel-blob") {
+    if (!env.BLOB_READ_WRITE_TOKEN) throw new Error("BLOB_READ_WRITE_TOKEN is required when STORAGE_DRIVER=vercel-blob");
+    driver = createVercelBlobStorage();
   } else {
     driver = createLocalStorage(env.STORAGE_DIR);
   }

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { amzDateOf, authorizationHeader, awsEncode, hashPayload, type Credentials } from "./sigv4";
+import { del, get, put } from "@vercel/blob";
 
 /** Where uploaded files live. The database keeps only the key; the bytes are here. */
 export interface StorageDriver {
@@ -69,5 +70,32 @@ export function createS3Storage(cfg: S3Config, fetchImpl: typeof fetch = fetch):
     async put(key, body, contentType) { await call("PUT", key, body, contentType); },
     async get(key) { return Buffer.from(await (await call("GET", key)).arrayBuffer()); },
     async delete(key) { await call("DELETE", key); },
+  };
+}
+
+// ---------------------------------------------------------------- Vercel Blob (private)
+/**
+ * Private Vercel Blob storage for Vercel deployments. Reads always go through
+ * the authenticated API route; blob URLs are never exposed to clients.
+ */
+export function createVercelBlobStorage(): StorageDriver {
+  return {
+    async put(key, body, contentType) {
+      await put(key, body, {
+        access: "private",
+        addRandomSuffix: false, // keys already contain a server-generated UUID
+        allowOverwrite: false,
+        contentType,
+        cacheControlMaxAge: 60,
+      });
+    },
+    async get(key) {
+      const result = await get(key, { access: "private" });
+      if (!result || result.statusCode !== 200) throw new Error("Stored file was not found");
+      return Buffer.from(await new Response(result.stream).arrayBuffer());
+    },
+    async delete(key) {
+      await del(key);
+    },
   };
 }

@@ -70,7 +70,7 @@ pnpm dev                                    # web :3000, API :4000
 | Owner dashboard: collected by month, receivables, overdue, claim approval rate and cycle time, waiver aging, claims by status | Done, report math executed and passing |
 | Owner/admin operations panel with company-scoped queues, recent jobs and audit activity | Done; API is restricted to owner/admin permissions |
 | CSV exports (jobs, payments, waivers, ledger) with spreadsheet-formula protection | Done |
-| Photos and PDFs: upload (camera or files), type read from the file's bytes, 15 MB limit, SHA-256, local disk or S3/MinIO storage | Done |
+| Photos and PDFs: upload (camera or files), type read from the file's bytes, 15 MB limit, SHA-256, local disk, S3/MinIO, or private Vercel Blob storage | Done; Vercel Blob requires a private store connected to the project and `STORAGE_DRIVER=vercel-blob` in the deployment environment |
 | Damage markers on photos (hail, wind, missing shingle, notes), slope tags, include-in-packet switch, photos in the printable claim packet | Done |
 | Company price list: versioned, CSV import with row-by-row error report, CSV export, "add from price list" in the estimate builder, new estimates priced from it | Done |
 | Supplier invoice PDF capture and price variance report against saved PO line prices | Done; totals must be reviewed against the uploaded invoice because invoice line OCR/reconciliation is not included |
@@ -102,6 +102,8 @@ The agreed first-release scope is Texas insurance restoration, retail replacemen
 **Estimate handoff changes, 16 October 2026:** shared tests (29), API unit tests (24), and estimate-engine tests (5) passed; API and web typechecks and the API production build passed. The estimate API integration test could not start because the local in-memory MongoDB process exited with an `fassert` error. Next.js 15.5.24 compiled and generated pages, but Windows blocked standalone output packaging when it tried to create dependency symlinks. Vercel deployment has not been run for these changes.
 
 **Staging Operations validation, 21 October 2026:** the overdue-task reminder was visible for the synthetic QA task, but the Production-only cron schedule was not validated in Preview. Offline photo storage in the browser worked; syncing the queued photo and uploading a synthetic supplier invoice both returned HTTP 500 from the Preview API. The test invoice was not saved, and the synthetic photo remains queued in the current browser for retry. Preview has no S3 storage variables configured while the API defaults to local disk; this is the leading upload-failure cause, pending confirmation after persistent object storage is configured. Details: [`docs/OPERATIONS_STAGING_VALIDATION_2026-10-21.md`](docs/OPERATIONS_STAGING_VALIDATION_2026-10-21.md).
+
+**Vercel private Blob adapter, 22 October 2026:** the API now supports `STORAGE_DRIVER=vercel-blob` using Vercel's private Blob SDK for server-side upload, authenticated reads, and deletion. Connect a private Blob store to the Vercel project and select Preview so Vercel injects `BLOB_READ_WRITE_TOKEN`; then set `STORAGE_DRIVER=vercel-blob` for Preview and redeploy before repeating the synthetic upload checks. See [`docs/OPERATIONS_STAGING_VALIDATION_2026-10-21.md`](docs/OPERATIONS_STAGING_VALIDATION_2026-10-21.md) for the validation checklist.
 
 ## Design notes
 - Visual language follows the reference: near-black blue surfaces, one burnt-orange accent, Barlow Condensed display type with Barlow for text.
