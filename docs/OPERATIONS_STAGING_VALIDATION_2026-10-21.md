@@ -2,13 +2,26 @@
 
 ## Follow-up — 2026-10-22
 
-Implemented the private Vercel Blob storage adapter (`STORAGE_DRIVER=vercel-blob`) for photos and PDFs. API typecheck passed, the API bundle built successfully, and all 27 API unit tests passed. The Vercel Hobby team now has a private store named `contractor-portal-blob` in `iad1`; no files have been uploaded. The store connection currently has metadata variables in Production and Preview, but no read/write token. I prepared an update to restrict the connection and `BLOB_READ_WRITE_TOKEN` to Preview only; do not retry uploads until that change is saved, code is deployed to the staging Preview, and `STORAGE_DRIVER=vercel-blob` is set for Preview.
+### Storage setup and deployment
 
-After the Preview-only connection is active, verify the Vercel Preview environment includes `BLOB_READ_WRITE_TOKEN` and `STORAGE_DRIVER=vercel-blob`, redeploy staging, then retry the queued synthetic photo and synthetic supplier invoice below. Never add the Blob token to Production for this staging exercise.
+- Created the private Vercel Blob store `contractor-portal-blob` in `iad1` and connected it to Preview only. Its read/write token is scoped to Preview; Production remains unchecked.
+- Set `STORAGE_DRIVER=vercel-blob` for Preview branch `staging`.
+- Redeployed commit `622581a` as Preview deployment `7CiYGUmL6LNeooKxsAJLb2D7LY4W`. Deployment status is **Ready**.
+- `/api/v1/ready` initially returned `{"ok":false}` before the saved Preview settings were active. After redeploy, it returned `{"ok":true}`.
+
+### Hands-on validation
+
+| Feature | Result | Evidence / follow-up |
+| --- | --- | --- |
+| Offline photo sync | **Sync and record persistence passed; image preview needs follow-up** | The pre-existing synthetic `synthetic-roof.jpg` queue item synced to the synthetic QA job. After navigating away and reloading, the photo record remained in the Photos tab. RoofDesk displays “Preview not available,” so the stored file's image rendering/content still needs inspection. |
+| Supplier invoice and variance | **Blocked** | Submitted a synthetic invoice (`QA-2026-1022`, `$1,237.50`) against the `$1,125.00` QA purchase order. The UI returned “Failed to fetch.” Reloading showed the QA purchase order still Draft and invoice fields empty, confirming no invoice was recorded. Expected variance remains `$112.50` (10%). Vercel runtime logs include 300-second API timeout events in the same validation window, but they have not been correlated to this specific request. Do not call this feature validated until the request completes and the variance report is checked. |
+| Overdue reminders | **Partially validated** | In-app notifications show one overdue follow-up reminder per day for the synthetic QA task from Oct 16 through Oct 21. No Oct 22 reminder was present during this check. Reminder de-duplication across the visible dates looks correct; the scheduled trigger was not validated because the Vercel cron schedule is Production-only. Notifications were left unread. |
+
+Only the synthetic QA job and data were used. No Production environment or customer data was changed. The validation deployment and Blob credentials are Preview-only.
 
 ## Scope and safety
 
-Manual validation was performed against the Vercel staging Preview and the existing synthetic QA job only. No production records were changed. No real supplier, customer, or payment information was used. The test invoice did not persist. One synthetic photo remains queued in the current browser's local offline queue so it can be retried after the upload issue is fixed.
+Earlier manual validation was performed against the Vercel staging Preview and the existing synthetic QA job only. No production records were changed. No real supplier, customer, or payment information was used. The Oct 21 invoice did not persist; the queued synthetic photo later synced on Oct 22 and is now visible as a photo record after reload, though its preview is unavailable.
 
 ## Results
 
@@ -18,11 +31,9 @@ Manual validation was performed against the Vercel staging Preview and the exist
 | Supplier invoice and variance | **Blocked by Preview upload error** | Tried a synthetic PDF for `$1,237.50` against a `$1,125.00` purchase order (expected variance `$112.50`, 10%). `POST /api/v1/jobs/6ad1d45ffd979adfafa3fbbd/orders/6ad1d4d4fd979adfafa3fc10/invoice` returned HTTP 500 twice. Reload confirmed the invoice was not saved. |
 | Offline photo queue | **Offline save passed; server sync blocked** | A synthetic JPEG was saved in browser storage while offline and stayed queued after reconnect. `Sync now` attempted `POST /api/v1/jobs/6ad1d45ffd979adfafa3fbbd/documents`, which returned HTTP 500. The photo remains queued in this browser; do not clear site data before retrying. |
 
-## Likely configuration issue
+## Storage implementation and configuration
 
-The Vercel project has no persistent object storage configured for Preview. The API's `STORAGE_DRIVER` defaults to `local`, and its configuration warns that local uploads need a persistent server disk. A Vercel function's local filesystem is not suitable for durable uploaded files. This makes missing object-storage configuration the leading explanation for the two upload failures, but the generic Vercel 500 log did not expose the exception, so this needs confirmation after storage is configured.
-
-The API now supports a **private Vercel Blob** store (`@vercel/blob` 2.3) as well as S3-compatible storage. The private Blob adapter keeps file reads behind RoofDesk's authenticated API route. To use it, create a private Blob store in the Contractor Portal Vercel project and connect it to **Preview**; Vercel will provide `BLOB_READ_WRITE_TOKEN`. Then set `STORAGE_DRIVER=vercel-blob` for Preview and redeploy. Do not use a public Blob store for claim or customer documents. Vercel Hobby includes up to 1 GB-month storage, 2,000 advanced operations, and 10 GB Blob transfer per month; if limits are exceeded, Blob access is paused until the next 30-day period. Check current plan usage before live use.
+The API now supports a **private Vercel Blob** store (`@vercel/blob` 2.3) as well as S3-compatible storage. The private Blob adapter keeps file reads behind RoofDesk's authenticated API route. The staging store and Preview-only variables are configured and deployed. Do not use a public Blob store for claim or customer documents. Vercel Hobby includes up to 1 GB-month storage, 2,000 advanced operations, and 10 GB Blob transfer per month; if limits are exceeded, Blob access is paused until the next 30-day period. Check current plan usage before live use.
 
 Alternatively, to use S3-compatible storage, configure these in Vercel Preview (keep values private):
 
@@ -34,12 +45,12 @@ Alternatively, to use S3-compatible storage, configure these in Vercel Preview (
 - `S3_ENDPOINT` only when using an S3-compatible service other than AWS S3
 - `S3_PATH_STYLE=true` only when required by the storage provider
 
-Redeploy the staging Preview after adding storage configuration, then retry the queued photo and invoice upload with synthetic data. Confirm the invoice variance report shows the expected `$112.50` variance. Do not use the production database for these checks.
+Do not use the production database for further checks. The remaining staging action is to diagnose the invoice request timeout, then re-submit with a synthetic PDF and confirm the variance report shows `$112.50`.
 
 ## Next validation pass
 
-1. Add persistent object storage configuration to the Vercel Preview environment.
-2. Retry the queued synthetic photo; verify it appears in the job's Photos tab after sync and remains available after a reload.
-3. Upload a new synthetic supplier invoice; verify invoice metadata and the variance report.
-4. Confirm reminder de-duplication and the scheduled trigger separately; Preview does not run the production cron schedule.
-5. Record the new deployment and outcomes here without including credentials or tokens.
+1. Investigate the invoice API request timeout using the Vercel runtime trace/log details; the invoice did not persist.
+2. Inspect why the synced synthetic photo record says “Preview not available,” and verify a valid image can be opened after reload.
+3. Retry supplier invoice upload after the timeout is fixed; verify invoice metadata and the `$112.50` variance report.
+4. Confirm reminder de-duplication and the scheduled trigger separately; Preview does not run the Production cron schedule.
+5. Keep the Blob token Preview-only and record results here without including credentials or tokens.
