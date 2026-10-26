@@ -39,7 +39,7 @@ pnpm dev                                    # web :3000, API :4000
 ## What is built
 | Area | Status |
 |---|---|
-| Auth, rotating refresh tokens, tenancy plugin, RBAC, audit log | Done |
+| Auth, rotating refresh tokens, password reset, tenancy plugin, RBAC, audit log | Done; password reset email requires `EMAIL_PROVIDER=resend` and a verified Resend sender in deployed environments |
 | Jobs and pipeline | Done |
 | Measurements (provider adapter, mock provider, idempotent ordering) | Done (in-process, not queued) |
 | Estimate engine: line math, O&P, tax, per-line depreciation, ACV/RCV, net claim | Done, 5 assertions run and passing |
@@ -64,7 +64,7 @@ pnpm dev                                    # web :3000, API :4000
 | Internal reconciliation (ledger vs payment records, stuck refunds, disputes, stalled payments) | Done; gateway balance-report matching not built |
 | In-app notifications (bell, unread count, mark read) for measurements, claims, supplier replies, waivers, payments, disputes and refund approvals | Done |
 | Per-person email preferences by notification group | Done |
-| Email sending behind an interface: log provider (development) and Resend over HTTP | Done; Resend not yet tried against a real account |
+| Email sending behind an interface: log provider (development) and Resend over HTTP | Done; Resend not yet tried against a real account. Password-reset tokens are hashed, expire after one hour, are single-use, and revoke active refresh sessions after a successful reset |
 | Secure links emailed automatically to waiver parties, payers and suppliers; link text stripped from stored copies | Done |
 | Live updates over Server-Sent Events: data refreshes in other open windows, toasts, notification push | Done; single API instance (see below) |
 | Owner dashboard: collected by month, receivables, overdue, claim approval rate and cycle time, waiver aging, claims by status | Done, report math executed and passing |
@@ -82,6 +82,8 @@ pnpm dev                                    # web :3000, API :4000
 
 ## First-release decisions and remaining work
 The agreed first-release scope is Texas insurance restoration, retail replacement and repair jobs. Payments remain in mock mode; the Operations Intern workspace is included in the MVP. EagleView is the selected first aerial measurement provider, but a real connection depends on obtaining vendor API access. Estimate handoff is required at launch as a line-item CSV and printable PDF for manual entry; native Xactimate `.ESX` export is deferred unless the recipient requires it. All four Texas waiver types need wording supplied and approved by counsel before use.
+
+The API's internal source areas live in `apps/api/src/services/` (formerly `modules/`). This is a source-tree naming change; the API routes and behavior are unchanged. To deliver password-reset emails outside development, configure `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, and a verified `EMAIL_FROM` sender on the API deployment. Development's `EMAIL_PROVIDER=log` prints reset links in the API console for local testing.
 
 ## Not built or not ready for live use
 1. Real EagleView aerial measurement orders and report ingestion, plus background processing (measurement ordering currently runs in-process against the mock provider).

@@ -1,7 +1,7 @@
 # Technical Architecture: Roofing Contractor Portal
 Version: 1.0 (Draft) | Date: October 12, 2026 | Stack: React + Next.js (frontend), MERN backend (MongoDB, Express, Node.js) | Companion to: Product Requirements Document v1.0  
 ## 1. Purpose and Scope
-This document describes the technical architecture for the Roofing Contractor Portal: how the system is structured, which technologies are used where, how data flows, and how the four product modules (aerial measurement, insurance claim estimation, supplier order coordination, lien waiver tracking) are implemented. It is the reference for engineering, DevOps and security reviews.  
+This document describes the technical architecture for the Roofing Contractor Portal: how the system is structured, which technologies are used where, how data flows, and how its product areas (aerial measurement, insurance claim estimation, supplier order coordination, lien waiver tracking) are implemented. It is the reference for engineering, DevOps and security reviews.
 Items marked [Assumption] are proposals to confirm. Cloud provider and third-party vendors are not yet fixed.  
 ## 2. Architecture Principles
 1. Modular monolith first. One Node.js/Express deployable with strict internal module boundaries. Split into services only when scale or team structure demands it.  
@@ -153,10 +153,10 @@ packages/
 • WCAG 2.1 AA with Radix primitives and automated axe checks in CI.  
 • Service worker caches the shell and queues photo uploads for poor connectivity.  
 ## 6. Backend Architecture (MERN)
-### 6.1 Modular Monolith Structure
+### 6.1 Service-Oriented Monolith Structure
 apps/api/src/  
   core/          (config, logger, errors, middleware, tenancy, rbac, audit)  
-  modules/  
+  services/
     auth/ users/ companies/ jobs/ customers/ documents/  
     measurements/   (providers/, adapters, parsers)  
     claims/         (estimates, line-items, packets, supplements)  
@@ -166,7 +166,7 @@ apps/api/src/
   jobs/          (BullMQ queues, processors, schedules)  
   integrations/  (measurement, supplier, esign, weather, accounting, messaging)  
   app.ts, server.ts  
-Each module exposes only its service interface and routes; other modules call services, never another module's models directly. Layering inside a module: routes -> controller -> service -> repository (Mongoose).  
+Each service area exposes only its service interface and routes; other service areas call services, never another area's models directly. Layering inside a service area: routes -> controller -> service -> repository (Mongoose).
 ### 6.2 API Design
 • REST over HTTPS, JSON, versioned at /api/v1.  
 • Resource-oriented routes, e.g. /jobs/:jobId/measurements, /jobs/:jobId/estimates/:id/versions, /jobs/:jobId/orders, /payments/:id/waivers.  
@@ -197,7 +197,7 @@ Waiver reminders and escalations, stale imagery checks, status sync
 Leader-elected scheduler  
 Jobs are idempotent and keyed by business identifiers to avoid duplicate orders or charges.  
 ### 6.5 Eventing
-Modules publish domain events (MeasurementDelivered, ClaimStatusChanged, OrderConfirmed, WaiverSigned) on an in-process event bus backed by a transactional outbox collection. Consumers update read models, trigger notifications and emit real-time messages. This keeps modules decoupled and leaves a clean path to extracting services later.  
+Service areas publish domain events (MeasurementDelivered, ClaimStatusChanged, OrderConfirmed, WaiverSigned) on an in-process event bus backed by a transactional outbox collection. Consumers update read models, trigger notifications and emit real-time messages. This keeps service areas decoupled and leaves a clean path to extracting services later.
 ## 7. Data Architecture (MongoDB)
 ### 7.1 Principles
 • Atlas replica set (3 nodes minimum), multi-document transactions only where consistency demands it (e.g., waiver signing plus status update, estimate version creation).  
@@ -285,7 +285,7 @@ Failure handling: retries, fallback-provider prompt, and alerting when provider 
 • Photos: direct-to-storage presigned uploads, server-side thumbnail generation, EXIF capture (time, location) for evidence value.  
 ### 8.3 Supplier Order Coordination
 • Material list generator: maps estimate line items to catalog items using mapping rules, applies waste factors and converts units (squares to bundles).  
-• Supplier adapter tiers: (1) email/PDF with a confirmation link that updates order status, (2) supplier API or portal integration where available, (3) EDI via a dedicated connector later.  
+• Supplier adapter tiers: (1) email/PDF with a confirmation link that updates order status, (2) supplier API or portal integration where available, (3) EDI via a dedicated connector later.
 • State machine: Draft, Sent, Confirmed, Scheduled, Delivered, Partially Delivered, Backordered, Cancelled.  
 • Price variance: supplier invoices ingested (manual upload first, parsed later) and compared against quoted price; variances above the threshold raise a task.  
 ### 8.4 Lien Waiver Tracking
@@ -806,7 +806,7 @@ Step 12: Beta, Launch and Iteration (Weeks 44-52)
 Exit criteria: pilots live on production with metrics tracked and a prioritised post-launch roadmap.  
 ### 21.2 Cross-Cutting Practices Throughout
 • Definition of done: code reviewed, tests written, accessibility and responsive checks passed, security checklist ticked, docs updated.  
-• Release cadence: two-week sprints, feature flags for incomplete modules, staged rollouts with automatic rollback.  
+• Release cadence: two-week sprints, feature flags for incomplete product areas, staged rollouts with automatic rollback.
 • Quality gates: minimum coverage on the estimate engine, tenancy and waiver logic; end-to-end tests for each core journey.  
 • Documentation: OpenAPI spec, architecture decision records, runbooks, onboarding guide.  
 • Risk review: a fortnightly review of the Section 14 risks and open vendor dependencies.  

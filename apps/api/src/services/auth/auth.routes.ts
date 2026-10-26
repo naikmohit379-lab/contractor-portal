@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { Router, type Response } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
@@ -21,11 +21,15 @@ import { RefreshToken } from "../../models/RefreshToken";
 import { User } from "../../models/User";
 import { UserInvite } from "../../models/UserInvite";
 import { requestContext } from "../../core/context";
+import { sendLinkEmail } from "../../core/mailer";
+import { PasswordResetToken } from "../../models/PasswordResetToken";
 
 export const authRouter = Router();
 
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false });
 const acceptInviteSchema = z.object({ token: z.string().min(20).max(200), password: z.string().min(10).max(128) });
+const forgotPasswordSchema = z.object({ email: z.string().trim().toLowerCase().email() });
+const resetPasswordSchema = z.object({ token: z.string().min(20).max(200), password: z.string().min(10).max(128) });
 
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "company";
@@ -50,6 +54,56 @@ const toSessionUser = (u: any, company: { id: string; name: string }): SessionUs
   role: u.role,
   company,
 });
+
+authRouter.post(
+  "/forgot-password",
+  authLimiter,
+  validate({ body: forgotPasswordSchema }),
+  asyncHandler(async (req, res) => {
+    const { email } = req.body;
+    const user = await User.findOne({ email }).select("_id companyId name status").setOptions({ skipTenant: true });
+    // Use the same response for every email to avoid exposing which accounts exist.
+    if (user?.status === "active") {
+      const now = new Date();
+      await PasswordResetToken.updateMany({ userId: user._id, usedAt: null }, { $set: { usedAt: now } });
+      const token = randomBytes(32).toString("base64url");
+      const expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
+      await PasswordResetToken.create({ userId: user._id, companyId: user.companyId, tokenHash: hashToken(token), expiresAt });
+      await sendLinkEmail({
+        companyId: user.companyId,
+        to: email,
+        kind: "auth.password_reset",
+        subject: "Reset your RoofDesk password",
+        intro: `Hello ${user.name}, use the secure link below to choose a new RoofDesk password. It expires in one hour. If you did not request this, you can ignore this email.`,
+        url: `${env.WEB_ORIGIN}/reset-password/${token}`,
+      });
+    }
+    res.json({ message: "If an active account uses that email, password reset instructions will be sent when email delivery is configured." });
+  }),
+);
+
+authRouter.post(
+  "/reset-password",
+  authLimiter,
+  validate({ body: resetPasswordSchema }),
+  asyncHandler(async (req, res) => {
+    const { token, password } = req.body;
+    const reset = await PasswordResetToken.findOneAndUpdate(
+      { tokenHash: hashToken(token), usedAt: null, expiresAt: { $gt: new Date() } },
+      { $set: { usedAt: new Date() } },
+      { new: true },
+    );
+    if (!reset) throw new AppError(400, "reset_link_invalid", "This password reset link is invalid, expired, or already used");
+
+    const user = await User.findOne({ _id: reset.userId, status: "active" }).select("+passwordHash").setOptions({ skipTenant: true });
+    if (!user) throw new AppError(400, "reset_link_invalid", "This password reset link is invalid, expired, or already used");
+    user.passwordHash = await hashPassword(password);
+    await user.save();
+    await RefreshToken.updateMany({ userId: user._id, revokedAt: null }, { $set: { revokedAt: new Date() } });
+    clearRefreshCookie(res);
+    res.status(204).end();
+  }),
+);
 
 authRouter.post(
   "/register",

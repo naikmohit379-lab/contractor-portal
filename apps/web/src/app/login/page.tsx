@@ -41,7 +41,7 @@ export default function LoginPage() {
         <div>
           <div className="mb-2 flex items-center justify-between">
             <label className="label mb-0" htmlFor="password">Password</label>
-            <span className="text-xs text-mist">Forgot password? Coming soon</span>
+            <Link href="/forgot-password" className="text-xs text-ember hover:underline">Forgot password?</Link>
           </div>
           <div className="relative">
             <input id="password" type={showPassword ? "text" : "password"} autoComplete="current-password" className="field pr-16" {...register("password")} />
