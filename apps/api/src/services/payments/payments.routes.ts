@@ -24,6 +24,7 @@ import { AppError, notFound } from "../../core/errors";
 import { verifyPassword } from "../../core/password";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
 import { Company } from "../../models/Company";
+import { formatCurrency } from "../../core/format";
 import { Job } from "../../models/Job";
 import { LedgerEntry } from "../../models/LedgerEntry";
 import { Payment } from "../../models/Payment";
@@ -46,6 +47,7 @@ export const toPaymentDTO = (p: any): PaymentDTO => ({
   milestoneId: String(p.milestoneId),
   description: p.description,
   amountCents: p.amountCents,
+  currency: p.currency ?? "USD",
   status: p.status,
   payerName: p.payerName,
   payerEmail: p.payerEmail ?? undefined,
@@ -105,7 +107,10 @@ paymentsRouter.post(
   validate({ params: jobParam, body: paymentRequestSchema }),
   asyncHandler(async (req, res) => {
     if (!isValidObjectId(req.body.milestoneId)) throw new AppError(422, "invalid_payment", "Choose a payment");
-    const [job, m] = await Promise.all([Job.findById(req.params.jobId), PaymentMilestone.findOne({ _id: req.body.milestoneId, jobId: req.params.jobId })]);
+    const [job, m, company] = await Promise.all([
+      Job.findById(req.params.jobId), PaymentMilestone.findOne({ _id: req.body.milestoneId, jobId: req.params.jobId }),
+      Company.findById(req.auth!.companyId),
+    ]);
     if (!job) throw notFound("Job");
     if (!m) throw notFound("Payment");
     // The gate from Step 7: a payment can only be billed after it was marked ready (waivers in, or knowingly overridden).
@@ -116,7 +121,9 @@ paymentsRouter.post(
     const owed = outstandingCents(m.expectedAmountCents, existing.map((p) => ({ status: p.status, amountCents: p.amountCents, refundedCents: p.refundedCents })));
     if (owed <= 0) throw new AppError(409, "nothing_owed", "Everything for this payment has been paid or already requested");
     const amountCents = req.body.amountCents ?? owed;
-    if (amountCents > owed) throw new AppError(422, "too_much", `Only ${(owed / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })} is still owed on this payment`);
+    const currency = company?.settings?.currency ?? "USD";
+    const locale = company?.settings?.locale ?? "en-US";
+    if (amountCents > owed) throw new AppError(422, "too_much", `Only ${formatCurrency(owed, currency, locale)} is still owed on this payment`);
 
     const propertyLine1 = job.property?.line1;
     if (!propertyLine1) throw new AppError(409, "property_missing", "Add a property address before requesting payment");
@@ -126,6 +133,7 @@ paymentsRouter.post(
       milestoneId: m._id,
       description: `${m.label} for ${propertyLine1}`,
       amountCents,
+      currency,
       payerName: req.body.payerName,
       payerEmail: req.body.payerEmail || undefined,
       provider: env.PAYMENT_PROVIDER,
@@ -139,7 +147,7 @@ paymentsRouter.post(
       to: p.payerEmail,
       kind: "payment.link",
       subject: `Payment request: ${p.description}`,
-      intro: `A payment of ${(amountCents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })} is due for ${p.description}. You will pay on the payment processor's secure page.`,
+      intro: `A payment of ${formatCurrency(amountCents, p.currency, locale)} is due for ${p.description}. You will pay on the payment processor's secure page.`,
       url: payUrl(token),
     })) ? p.payerEmail : undefined;
     res.status(201).json({ payment: toPaymentDTO(p), payUrl: payUrl(token), emailedTo });

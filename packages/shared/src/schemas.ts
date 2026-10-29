@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MARKET_COUNTRIES } from "./market";
 
 export const JOB_STAGES = [
   "lead",
@@ -62,18 +63,38 @@ export type LoginInput = z.infer<typeof loginSchema>;
 
 const optionalEmail = z.union([email, z.literal("")]).optional();
 
+const propertyAddressSchema = z.object({
+  line1: z.string().trim().min(3, "Enter the street address").max(200),
+  line2: z.string().trim().max(200).optional(),
+  city: z.string().trim().min(2, "Enter the city, town, or locality").max(100),
+  locality: z.string().trim().max(100).optional(),
+  district: z.string().trim().max(100).optional(),
+  state: z.string().trim().min(2, "Enter the state or Union Territory").max(100),
+  zip: z.string().trim().max(10).optional(),
+  pinCode: z.string().trim().optional(),
+  landmark: z.string().trim().max(200).optional(),
+  coordinates: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).optional(),
+  country: z.enum(MARKET_COUNTRIES).optional(),
+}).superRefine((address, ctx) => {
+  const country = address.country ?? "US"; // no country means a legacy U.S. request
+  if (country === "IN") {
+    if (!address.district?.trim()) ctx.addIssue({ code: "custom", path: ["district"], message: "Enter the district" });
+    if (!address.pinCode || !/^[1-9][0-9]{5}$/.test(address.pinCode)) {
+      ctx.addIssue({ code: "custom", path: ["pinCode"], message: "Enter a valid 6-digit PIN code" });
+    }
+  } else {
+    if (address.state.length !== 2) ctx.addIssue({ code: "custom", path: ["state"], message: "Use the 2-letter state code" });
+    if (!address.zip || address.zip.length < 5) ctx.addIssue({ code: "custom", path: ["zip"], message: "Enter the ZIP code" });
+  }
+}).transform((address) => address.country === "US" || !address.country ? { ...address, state: address.state.toUpperCase() } : address);
+
 export const jobCreateSchema = z.object({
   customer: z.object({
     name: z.string().trim().min(2, "Enter the customer name").max(120),
     email: optionalEmail,
     phone: z.string().trim().max(30).optional(),
   }),
-  property: z.object({
-    line1: z.string().trim().min(3, "Enter the street address").max(200),
-    city: z.string().trim().min(2, "Enter the city").max(100),
-    state: z.string().trim().length(2, "Use the 2-letter state code").transform((s) => s.toUpperCase()),
-    zip: z.string().trim().min(5, "Enter the ZIP code").max(10),
-  }),
+  property: propertyAddressSchema,
   type: z.enum(JOB_TYPES).default("insurance"),
   notes: z.string().trim().max(2000).optional(),
 });
@@ -105,14 +126,18 @@ export interface SessionUser {
   name: string;
   email: string;
   role: import("./permissions").Role;
-  company: { id: string; name: string };
+  company: { id: string; name: string; settings?: import("./market").CompanyMarketSettings };
 }
 
 export interface JobDTO {
   id: string;
   jobNumber: string;
   customer: { name: string; email?: string; phone?: string };
-  property: { line1: string; city: string; state: string; zip: string };
+  property: {
+    line1: string; line2?: string; city: string; locality?: string; district?: string;
+    state: string; zip?: string; pinCode?: string; landmark?: string;
+    coordinates?: { lat: number; lng: number }; country?: (typeof MARKET_COUNTRIES)[number];
+  };
   type: JobType;
   stage: JobStage;
   assigneeIds?: string[];

@@ -41,6 +41,7 @@ pnpm dev                                    # web :3000, API :4000
 |---|---|
 | Auth, rotating refresh tokens, password reset, tenancy plugin, RBAC, audit log | Done; password reset email requires `EMAIL_PROVIDER=resend` and a verified Resend sender in deployed environments |
 | Jobs and pipeline | Done |
+| Company market preferences, Indian addresses, English/Hindi UI foundation, locale-aware formatting | Stage 1 implemented; U.S. defaults and existing records preserved |
 | Measurements (provider adapter, mock provider, idempotent ordering) | Done (in-process, not queued) |
 | Estimate engine: line math, O&P, tax, per-line depreciation, ACV/RCV, net claim | Done, 5 assertions run and passing |
 | Estimate versions (original, carrier approved, supplement), locking, diff view | Done |
@@ -74,14 +75,23 @@ pnpm dev                                    # web :3000, API :4000
 | Damage markers on photos (hail, wind, missing shingle, notes), slope tags, include-in-packet switch, photos in the printable claim packet | Done |
 | Company price list: versioned, CSV import with row-by-row error report, CSV export, "add from price list" in the estimate builder, new estimates priced from it | Done |
 | Supplier invoice PDF capture and price variance report against saved PO line prices | Done; totals must be reviewed against the uploaded invoice because invoice line OCR/reconciliation is not included |
-| API unit and integration tests, shared and estimate rules | Previously verified: 82 API, 28 shared, and 5 estimate tests passed locally |
+| API unit and integration tests, shared and estimate rules | Stage 1 verification: 91 API, 36 shared, and 5 estimate tests passed locally |
 | Browser tests (desktop and phone, accessibility, golden path) | Passed in GitHub Actions on 16 October 2026 (31 passed, 3 skipped) |
 | CI (types, tests, build, dependency audit, browser tests) and a deploy workflow with approval and automatic rollback | GitHub CI passed and Vercel production deployed. The separate Docker workflow built the API image but its web image failed because the GitHub Actions `DOMAIN` variable is unset; self-hosted deployment did not run. |
 | Production Docker images, compose file, HTTPS reverse proxy, nightly backups, restore script, deployment guide | Written, not built or run |
 | Marketing page, SEO files, responsive portal | Done |
 
+## India-first market settings (Stage 1)
+India is the current launch market for residential and commercial roofing contractors. New company registrations default to India, INR, English (India), `Asia/Kolkata`, and metric display units. Hindi is available for the translated navigation, dashboard, job forms, validation messages, job stages, estimate actions, and settings; untranslated text falls back to English. Existing companies retain U.S. defaults unless an authorized manager changes them.
+
+Indian property addresses use address lines, locality/city, district, state or Union Territory, six-digit PIN code, and country. Legacy U.S. addresses continue to accept their state code and ZIP. The Measurements tab converts provider square-foot/foot values to m²/metres for display when metric units are selected; the existing measurement and estimate engine still stores and processes square feet, feet, and roofing squares internally. Do not treat displayed conversions as a provider or estimate-engine migration.
+
+Indian price lists start empty. Estimate scope quantities can be generated, but their unit rates are zero until the company enters and verifies local material and labour prices. Do not issue such an estimate before those rates are completed. U.S. price-list defaults remain available to U.S. companies. Changing a company's market or currency is blocked after jobs, suppliers, or priced catalog data exist, to avoid relabeling historical values.
+
+The company settings are backward-compatible; no database migration or financial conversion is run. Payment storage remains in two-decimal minor units (cents for USD, paise for INR), existing USD records are not converted, and payments remain in mock mode. U.S. claims, Texas waiver templates, and tax-related fields have not been converted or approved for Indian legal/tax use. Indian tax treatment and contract/legal wording need CA/counsel review before real transactions. Real measurement integrations are not part of Stage 1.
+
 ## First-release decisions and remaining work
-The agreed first-release scope is Texas insurance restoration, retail replacement and repair jobs. Payments remain in mock mode; the Operations Intern workspace is included in the MVP. EagleView is the selected first aerial measurement provider, but a real connection depends on obtaining vendor API access. Estimate handoff is required at launch as a line-item CSV and printable PDF for manual entry; native Xactimate `.ESX` export is deferred unless the recipient requires it. All four Texas waiver types need wording supplied and approved by counsel before use.
+India is the first target market; U.S. functionality is preserved and deferred. The Operations Intern workspace remains in the MVP. Payments remain in mock mode. A real India-appropriate measurement provider still requires business selection and vendor access. Estimate handoff remains a line-item CSV and printable PDF for manual entry; it is not a native Xactimate `.ESX` project. No legal waiver form or tax language has been approved for India.
 
 The API's internal source areas live in `apps/api/src/services/` (formerly `modules/`). This is a source-tree naming change; the API routes and behavior are unchanged. To deliver password-reset emails outside development, configure `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, and a verified `EMAIL_FROM` sender on the API deployment. Development's `EMAIL_PROVIDER=log` prints reset links in the API console for local testing.
 

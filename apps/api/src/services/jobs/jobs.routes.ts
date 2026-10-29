@@ -34,7 +34,11 @@ export const toJobDTO = (j: any): JobDTO => ({
   id: j.id,
   jobNumber: j.jobNumber,
   customer: { name: j.customer.name, email: j.customer.email, phone: j.customer.phone },
-  property: { line1: j.property.line1, city: j.property.city, state: j.property.state, zip: j.property.zip },
+  property: {
+    line1: j.property.line1, line2: j.property.line2, city: j.property.city, locality: j.property.locality,
+    district: j.property.district, state: j.property.state, zip: j.property.zip, pinCode: j.property.pinCode,
+    landmark: j.property.landmark, coordinates: j.property.coordinates, country: j.property.country ?? "US",
+  },
   type: j.type,
   stage: j.stage,
   assigneeIds: (j.assigneeIds ?? []).map((id: unknown) => String(id)),

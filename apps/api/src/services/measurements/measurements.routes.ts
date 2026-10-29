@@ -101,7 +101,7 @@ measurementsRouter.post(
 
     const property = job.property;
     if (!property) throw new AppError(409, "property_missing", "Add a property address before ordering a measurement report");
-    const address = `${property.line1}, ${property.city}, ${property.state} ${property.zip}`;
+    const address = [property.line1, property.line2, property.locality, property.city, property.district, property.state, property.country === "IN" ? property.pinCode : property.zip].filter(Boolean).join(", ");
     const provider = getProvider(req.body.provider);
     const { providerOrderId } = await provider.orderReport({ address, idempotencyKey: idempotencyKey ?? `${job.id}-${Date.now()}` });
 

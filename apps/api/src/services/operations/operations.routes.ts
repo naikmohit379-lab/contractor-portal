@@ -33,7 +33,7 @@ operationsRouter.get(
     const assignedOnly = req.auth!.role === "operations";
     const jobFilter = assignedOnly ? { assigneeIds: req.auth!.userId } : {};
     const [jobs, assignedJobCount] = await Promise.all([
-      Job.find(jobFilter).sort({ updatedAt: -1 }).limit(100).select("jobNumber customer.name property.line1 property.city property.state stage updatedAt"),
+      Job.find(jobFilter).sort({ updatedAt: -1 }).limit(100).select("jobNumber customer.name property.line1 property.line2 property.locality property.city property.district property.state property.zip property.pinCode property.country stage updatedAt"),
       Job.countDocuments(jobFilter),
     ]);
     const jobIds = jobs.map((job) => job._id);
@@ -52,7 +52,7 @@ operationsRouter.get(
       id: job.id,
       jobNumber: job.jobNumber,
       customerName: job.customer?.name ?? "Customer",
-      address: [job.property?.line1, job.property?.city, job.property?.state].filter(Boolean).join(", "),
+      address: [job.property?.line1, job.property?.line2, job.property?.locality, job.property?.city, job.property?.district, job.property?.state, job.property?.country === "IN" ? job.property?.pinCode : job.property?.zip].filter(Boolean).join(", "),
       stage: job.stage,
       updatedAt: job.updatedAt.toISOString(),
     }] as const));

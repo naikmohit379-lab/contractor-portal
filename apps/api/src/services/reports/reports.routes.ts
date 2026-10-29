@@ -148,7 +148,7 @@ reportsRouter.get(
 
     if (req.params.kind === "jobs") {
       const jobs = await Job.find().sort({ createdAt: -1 });
-      rows = [["Job number", "Customer", "Address", "City", "State", "ZIP", "Type", "Stage", "Created"], ...jobs.map((j) => [j.jobNumber, j.customer?.name ?? "", j.property?.line1 ?? "", j.property?.city ?? "", j.property?.state ?? "", j.property?.zip ?? "", j.type, STAGE_LABELS[j.stage as keyof typeof STAGE_LABELS], iso((j as any).createdAt)])];
+      rows = [["Job number", "Customer", "Address", "City", "State", "ZIP", "Type", "Stage", "Created", "Address line 2", "Locality", "District", "PIN code", "Country"], ...jobs.map((j) => [j.jobNumber, j.customer?.name ?? "", j.property?.line1 ?? "", j.property?.city ?? "", j.property?.state ?? "", j.property?.zip ?? "", j.type, STAGE_LABELS[j.stage as keyof typeof STAGE_LABELS], iso((j as any).createdAt), j.property?.line2 ?? "", j.property?.locality ?? "", j.property?.district ?? "", j.property?.pinCode ?? "", j.property?.country ?? "US"])];
     } else if (req.params.kind === "payments") {
       const [ps, js] = await Promise.all([Payment.find().sort({ createdAt: -1 }), Job.find()]);
       const num = new Map(js.map((j) => [j.id, j.jobNumber]));

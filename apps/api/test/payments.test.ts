@@ -78,7 +78,7 @@ describe("gateway webhooks", () => {
   it("applies a signed event once and ignores its redelivery", async () => {
     job2 = await createJob(app, s);
     p2 = (await request(job2, await readyMilestone(job2))).body.payment.id;
-    const evt = stripeEvent("evt_paid_1", "checkout.session.completed", { payment_status: "paid", amount_total: 100000, currency: "usd", payment_intent: "pi_1", metadata: { paymentId: p2 } });
+    const evt = stripeEvent("evt_paid_1", "checkout.session.completed", { payment_status: "paid", amount_total: 100000, currency: "inr", payment_intent: "pi_1", metadata: { paymentId: p2 } });
     const first = await send(evt.body, evt.signature);
     expect(first.status).toBe(200);
     expect(first.body.outcome).toBe("applied");
@@ -97,7 +97,7 @@ describe("gateway webhooks", () => {
   it("flags a payment whose amount does not match and posts nothing", async () => {
     const job3 = await createJob(app, s);
     const p3 = (await request(job3, await readyMilestone(job3))).body.payment.id;
-    const evt = stripeEvent("evt_mismatch_1", "checkout.session.completed", { payment_status: "paid", amount_total: 50000, currency: "usd", metadata: { paymentId: p3 } });
+    const evt = stripeEvent("evt_mismatch_1", "checkout.session.completed", { payment_status: "paid", amount_total: 50000, currency: "inr", metadata: { paymentId: p3 } });
     await send(evt.body, evt.signature);
     const p = (await paymentsOf(job3)).payments[0];
     expect(p.status).toBe("requested");

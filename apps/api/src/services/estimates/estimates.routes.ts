@@ -9,6 +9,7 @@ import { touchJob } from "../../core/notify";
 import { AppError, notFound } from "../../core/errors";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
 import { Claim } from "../../models/Claim";
+import { Company } from "../../models/Company";
 import { Estimate } from "../../models/Estimate";
 import { Job } from "../../models/Job";
 import { MeasurementReport } from "../../models/MeasurementReport";
@@ -106,7 +107,7 @@ estimatesRouter.get(
     const lineItems = plainItems(version.lineItems as any);
     const settings = plainSettings(version.settings);
     const totals = computeTotals(lineItems, settings);
-    const address = [job.property?.line1, job.property?.city, job.property?.state, job.property?.zip].filter(Boolean).join(", ");
+    const address = [job.property?.line1, job.property?.line2, job.property?.locality, job.property?.city, job.property?.district, job.property?.state, job.property?.country === "IN" ? job.property?.pinCode : job.property?.zip].filter(Boolean).join(", ");
     const csv = estimateHandoffCsv(
       { jobNumber: job.jobNumber, customerName: job.customer?.name ?? "", address },
       toVersionDTO(version),
@@ -133,8 +134,10 @@ estimatesRouter.post(
     if (!m || m.status !== "delivered" || !m.totals?.areaSqFt) {
       throw new AppError(422, "measurement_not_ready", "Use a delivered measurement report to start an estimate");
     }
-    const prices = await pricesForEstimates();
-    const priceVersion = (await getActivePriceList()).doc.version;
+    const company = await Company.findById(req.auth!.companyId).select("settings.country");
+    const country = company?.settings?.country ?? "US";
+    const prices = await pricesForEstimates(country);
+    const priceVersion = (await getActivePriceList(country)).doc.version;
     const linear = m.linear ?? { ridge: 0, hip: 0, valley: 0, eave: 0, rake: 0 };
     const lineItems = buildRoofReplacementItems({
       totals: { areaSqFt: m.totals.areaSqFt, squares: m.totals.squares ?? 0, wastePct: m.totals.wastePct ?? 0 },
@@ -151,7 +154,9 @@ estimatesRouter.post(
           kind: "original",
           lineItems,
           settings: { ...DEFAULT_SETTINGS, deductibleCents: claim?.deductibleCents ?? 0 },
-          note: `Generated from the aerial measurement report, using price list version ${priceVersion}`,
+          note: country === "IN"
+            ? `Generated from the measurement report and price list version ${priceVersion}. Indian price list rates are blank; enter and verify local material and labour prices before issuing this estimate.`
+            : `Generated from the aerial measurement report, using price list version ${priceVersion}`,
           createdBy: req.auth!.userId,
         },
       ],

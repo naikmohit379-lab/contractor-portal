@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import mongoose, { isValidObjectId, type ClientSession } from "mongoose";
 import { isMilestonePaid, paymentReceivedLines, refundLines, type LedgerLine } from "@roofdesk/shared";
 import { requestContext } from "../../core/context";
+import { formatCurrency } from "../../core/format";
 import { notify, touchJob } from "../../core/notify";
 import { AuditLog } from "../../models/AuditLog";
 import { LedgerEntry } from "../../models/LedgerEntry";
@@ -60,7 +61,7 @@ export async function recomputeMilestone(session: ClientSession, milestoneId: un
   }
 }
 
-const usd = (c: number) => (c / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+const displayMoney = (cents: number, currency = "USD") => formatCurrency(cents, currency);
 
 export type EventOutcome = "applied" | "duplicate" | "unmatched";
 
@@ -110,7 +111,7 @@ export async function applyProviderEvent(evt: NormalizedEvent): Promise<EventOut
             await audit(p.companyId, "payment.succeeded", p._id, { amountCents: p.amountCents }, session);
             after.push(async () => {
               touchJob(p.companyId, p.jobId, "payments", "milestones");
-              await notify(p.companyId, { kind: "payment.succeeded", title: `Payment received: ${usd(p.amountCents)}`, body: `${p.payerName} paid for ${p.description}.`, href: `/jobs/${p.jobId}?tab=payments`, roles: ["owner", "admin", "billing"] });
+              await notify(p.companyId, { kind: "payment.succeeded", title: `Payment received: ${displayMoney(p.amountCents, p.currency)}`, body: `${p.payerName} paid for ${p.description}.`, href: `/jobs/${p.jobId}?tab=payments`, roles: ["owner", "admin", "billing"] });
             });
             break;
           }
@@ -130,7 +131,7 @@ export async function applyProviderEvent(evt: NormalizedEvent): Promise<EventOut
               await audit(p.companyId, "payment.failed", p._id, { reason: p.failureReason }, session);
               after.push(async () => {
                 touchJob(p.companyId, p.jobId, "payments");
-                await notify(p.companyId, { kind: "payment.failed", title: `Payment failed: ${usd(p.amountCents)}`, body: `${p.payerName}: ${p.failureReason}`, href: `/jobs/${p.jobId}?tab=payments`, roles: ["owner", "admin", "billing"] });
+                await notify(p.companyId, { kind: "payment.failed", title: `Payment failed: ${displayMoney(p.amountCents, p.currency)}`, body: `${p.payerName}: ${p.failureReason}`, href: `/jobs/${p.jobId}?tab=payments`, roles: ["owner", "admin", "billing"] });
               });
             }
             break;
@@ -157,7 +158,7 @@ export async function applyProviderEvent(evt: NormalizedEvent): Promise<EventOut
             await audit(p.companyId, "payment.dispute_opened", p._id, undefined, session);
             after.push(async () => {
               touchJob(p.companyId, p.jobId, "payments");
-              await notify(p.companyId, { kind: "payment.dispute", title: "A payment is being disputed", body: `${p.payerName} disputed ${usd(p.amountCents)} for ${p.description}. Gather your documents.`, href: `/jobs/${p.jobId}?tab=payments`, roles: ["owner", "admin", "billing"] });
+              await notify(p.companyId, { kind: "payment.dispute", title: "A payment is being disputed", body: `${p.payerName} disputed ${displayMoney(p.amountCents, p.currency)} for ${p.description}. Gather your documents.`, href: `/jobs/${p.jobId}?tab=payments`, roles: ["owner", "admin", "billing"] });
             });
             break;
         }

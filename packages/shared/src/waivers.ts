@@ -118,6 +118,9 @@ export interface PublicWaiverDTO {
   company: string;
   partyName: string;
   amountCents: number;
+  currency?: string;
+  locale?: string;
+  timezone?: string;
   throughDate: string;
   expiresAt?: string;
   text: string;

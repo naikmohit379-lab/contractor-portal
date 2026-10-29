@@ -7,7 +7,7 @@ import type { PublicWaiverDTO } from "@roofdesk/shared";
 import { Logo } from "@/components/Logo";
 import { SignaturePad } from "@/components/SignaturePad";
 import { ApiError, api, post } from "@/lib/api";
-import { fmtDate, fmtDateTime, usd } from "@/lib/format";
+import { fmtCalendarDate, fmtDate, fmtDateTime, usd } from "@/lib/format";
 
 export default function SignWaiverPage() {
   const { token } = useParams<{ token: string }>();
@@ -53,17 +53,17 @@ export default function SignWaiverPage() {
             <div role="status" className="space-y-2 rounded-xl bg-ok/10 p-5 text-ok">
               <p className="text-lg font-semibold">Signed. A record of this waiver has been saved.</p>
               {(result?.hash ?? w.documentHash) && <p className="break-all text-sm">Document fingerprint: {(result?.hash ?? w.documentHash)!.slice(0, 24)}</p>}
-              {w.signedAt && <p className="text-sm">Signed {fmtDateTime(w.signedAt)}</p>}
+              {w.signedAt && <p className="text-sm">Signed {fmtDateTime(w.signedAt, { currency: w.currency, locale: w.locale, timezone: w.timezone })}</p>}
             </div>
           ) : result?.kind === "declined" || w.status === "declined" ? (
             <p role="status" className="panel p-5 text-mist-strong">You declined to sign. The contractor has been told.</p>
           ) : w.status === "expired" ? (
-            <p role="alert" className="panel p-5 text-warn">This link expired{w.expiresAt && ` on ${fmtDate(w.expiresAt)}`}. Ask {w.company} to send a new one.</p>
+            <p role="alert" className="panel p-5 text-warn">This link expired{w.expiresAt && ` on ${fmtDate(w.expiresAt, { currency: w.currency, locale: w.locale, timezone: w.timezone })}`}. Ask {w.company} to send a new one.</p>
           ) : w.status === "cancelled" ? (
             <p className="panel p-5 text-mist-strong">This request was cancelled by the contractor.</p>
           ) : (
             <section className="panel space-y-5 p-5" aria-label="Sign this waiver">
-              <p className="text-sm text-mist-strong">Amount {usd(w.amountCents)}, through {fmtDate(w.throughDate)}. Read the waiver above, then sign below.</p>
+              <p className="text-sm text-mist-strong">Amount {usd(w.amountCents, { currency: w.currency, locale: w.locale })}, through {fmtCalendarDate(w.throughDate, { currency: w.currency, locale: w.locale, timezone: w.timezone })}. Read the waiver above, then sign below.</p>
               <div>
                 <label className="label" htmlFor="nm">Your full legal name</label>
                 <input id="nm" className="field" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />

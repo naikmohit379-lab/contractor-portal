@@ -53,7 +53,7 @@ async function createWaiver(
     partyName: ctx.party.name,
     companyName: ctx.companyName,
     ownerName: ctx.job.customer.name,
-    propertyAddress: `${ctx.job.property.line1}, ${ctx.job.property.city}, ${ctx.job.property.state} ${ctx.job.property.zip}`,
+    propertyAddress: [ctx.job.property.line1, ctx.job.property.line2, ctx.job.property.locality, ctx.job.property.city, ctx.job.property.district, ctx.job.property.state, ctx.job.property.country === "IN" ? ctx.job.property.pinCode : ctx.job.property.zip].filter(Boolean).join(", "),
     jobNumber: ctx.job.jobNumber,
     amount: usd(ctx.amountCents),
     throughDate: longDate(ctx.throughDate),

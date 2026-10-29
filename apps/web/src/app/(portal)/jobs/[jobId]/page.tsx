@@ -77,7 +77,7 @@ function JobDetail() {
         <div>
           <p className="text-sm text-mist">{j.jobNumber} | <span className="capitalize">{j.type}</span></p>
           <h1 className="text-4xl font-bold">{j.customer.name}</h1>
-          <p className="text-mist-strong">{j.property.line1}, {j.property.city}, {j.property.state} {j.property.zip}</p>
+          <p className="text-mist-strong">{[j.property.line1, j.property.line2, j.property.locality, j.property.city, j.property.district, j.property.state, j.property.country === "IN" ? j.property.pinCode : j.property.zip].filter(Boolean).join(", ")}</p>
         </div>
         <div className="flex items-center gap-3">
           <StageBadge stage={j.stage} />

@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { Router, type Response } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
-import { loginSchema, registerSchema, type SessionUser } from "@roofdesk/shared";
+import { INDIA_MARKET_DEFAULTS, loginSchema, normalizeMarketSettings, registerSchema, type SessionUser } from "@roofdesk/shared";
 import { env } from "../../config/env";
 import {
   REFRESH_COOKIE,
@@ -47,12 +47,12 @@ async function startSession(res: Response, user: { id: string; companyId: unknow
   return signAccessToken({ sub: user.id, cid: String(user.companyId), role: user.role as SessionUser["role"] });
 }
 
-const toSessionUser = (u: any, company: { id: string; name: string }): SessionUser => ({
+const toSessionUser = (u: any, company: { id: string; name: string; settings?: unknown }): SessionUser => ({
   id: u.id,
   name: u.name,
   email: u.email,
   role: u.role,
-  company,
+  company: { ...company, settings: normalizeMarketSettings(company.settings as Partial<typeof INDIA_MARKET_DEFAULTS> | undefined) },
 });
 
 authRouter.post(
@@ -117,6 +117,7 @@ authRouter.post(
     const company = await Company.create({
       name: companyName,
       slug: `${slugify(companyName)}-${Math.random().toString(36).slice(2, 6)}`,
+      settings: INDIA_MARKET_DEFAULTS,
     });
     const user = await User.create({
       companyId: company._id,
@@ -126,7 +127,7 @@ authRouter.post(
       passwordHash: await hashPassword(password),
     });
     const accessToken = await startSession(res, { id: user.id, companyId: company._id, role: user.role });
-    res.status(201).json({ accessToken, user: toSessionUser(user, { id: company.id, name: company.name }) });
+    res.status(201).json({ accessToken, user: toSessionUser(user, { id: company.id, name: company.name, settings: company.settings }) });
   }),
 );
 
@@ -182,7 +183,7 @@ authRouter.post(
     user.lastLoginAt = new Date();
     await user.save();
     const accessToken = await startSession(res, { id: user.id, companyId: user.companyId, role: user.role });
-    res.json({ accessToken, user: toSessionUser(user, { id: company!.id, name: company!.name }) });
+    res.json({ accessToken, user: toSessionUser(user, { id: company!.id, name: company!.name, settings: company!.settings }) });
   }),
 );
 
@@ -233,6 +234,6 @@ authRouter.get(
     const user = await User.findById(req.auth!.userId);
     const company = await Company.findById(req.auth!.companyId);
     if (!user || !company) throw unauthenticated();
-    res.json({ user: toSessionUser(user, { id: company.id, name: company.name }) });
+    res.json({ user: toSessionUser(user, { id: company.id, name: company.name, settings: company.settings }) });
   }),
 );

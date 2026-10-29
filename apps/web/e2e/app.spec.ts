@@ -36,10 +36,11 @@ test.describe("golden path: job to claim", () => {
     await page.goto("/jobs");
     await page.getByRole("button", { name: "New job" }).click();
     await page.getByLabel("Customer name").fill("Offline Photo Customer");
-    await page.getByLabel("Street address").fill("14 Oak Ridge Ln");
-    await page.getByLabel("City").fill("Austin");
-    await page.getByLabel("State").fill("TX");
-    await page.getByLabel("ZIP").fill("78701");
+    await page.getByLabel("Address line 1").fill("14 Palace Road");
+    await page.getByLabel("City / town / locality").fill("Bengaluru");
+    await page.getByLabel("District").fill("Bengaluru Urban");
+    await page.getByLabel("State / Union Territory").fill("Karnataka");
+    await page.getByLabel("PIN code").fill("560001");
     await page.getByRole("button", { name: "Create job" }).click();
     await page.getByRole("link", { name: /Offline Photo Customer/ }).click();
     await page.getByRole("button", { name: "Photos", exact: true }).click();
@@ -67,10 +68,12 @@ test.describe("golden path: job to claim", () => {
     await page.goto("/jobs");
     await page.getByRole("button", { name: "New job" }).click();
     await page.getByLabel("Customer name").fill("Casey Customer");
-    await page.getByLabel("Street address").fill("14 Oak Ridge Ln");
-    await page.getByLabel("City").fill("Austin");
-    await page.getByLabel("State").fill("TX");
-    await page.getByLabel("ZIP").fill("78701");
+    // This flow covers backward-compatible U.S. claim behavior from an India-default registration.
+    await page.getByLabel("Country").selectOption("US");
+    await page.getByLabel("Address line 1").fill("14 Oak Ridge Ln");
+    await page.getByLabel("City / town / locality").fill("Austin");
+    await page.getByLabel("State (2-letter code)").fill("TX");
+    await page.getByLabel("ZIP code").fill("78701");
     await page.getByRole("button", { name: "Create job" }).click();
     await page.getByRole("link", { name: /Casey Customer/ }).click();
 

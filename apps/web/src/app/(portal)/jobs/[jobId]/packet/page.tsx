@@ -45,7 +45,7 @@ export default function PacketPage() {
       <article className="space-y-8 rounded-xl bg-white p-8 text-ink-900 print:rounded-none print:p-0">
         <header className="border-b-2 border-ink-900 pb-4">
           <h1 className="text-4xl font-bold">Insurance claim packet</h1>
-          <p className="mt-1 text-sm">{job.customer.name} | {job.property.line1}, {job.property.city}, {job.property.state} {job.property.zip}</p>
+          <p className="mt-1 text-sm">{job.customer.name} | {[job.property.line1, job.property.line2, job.property.locality, job.property.city, job.property.district, job.property.state, job.property.country === "IN" ? job.property.pinCode : job.property.zip].filter(Boolean).join(", ")}</p>
         </header>
 
         <section>

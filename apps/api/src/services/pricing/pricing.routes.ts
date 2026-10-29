@@ -6,6 +6,7 @@ import { requireAuth } from "../../core/auth";
 import { invalidate } from "../../core/notify";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
 import { PriceList } from "../../models/PriceList";
+import { Company } from "../../models/Company";
 import { getActivePriceList, toPriceListDTO } from "./pricing";
 
 export const pricingRouter = Router();
@@ -14,14 +15,17 @@ pricingRouter.use(requireAuth);
 pricingRouter.get(
   "/active",
   requirePermission("job:read"),
-  asyncHandler(async (_req, res) => {
-    const { doc, isDefault } = await getActivePriceList();
+  asyncHandler(async (req, res) => {
+    const company = await Company.findById(req.auth!.companyId).select("settings.country");
+    const { doc, isDefault } = await getActivePriceList(company?.settings?.country ?? "US");
     res.json(toPriceListDTO(doc, isDefault));
   }),
 );
 
 async function saveVersion(req: any, items: any[]) {
-  const { doc: current } = await getActivePriceList();
+  const company = await Company.findById(req.auth!.companyId).select("settings.country");
+  const country = company?.settings?.country ?? "US";
+  const { doc: current } = await getActivePriceList(country);
   current.active = false;
   await current.save();
   const next = await PriceList.create({ version: current.version + 1, active: true, items, createdBy: req.auth.userId });
@@ -49,7 +53,8 @@ pricingRouter.post(
   "/reset",
   requirePermission("estimate:write"),
   asyncHandler(async (req, res) => {
-    const items = Object.entries(DEFAULT_PRICES).map(([key, p]) => ({ key, ...p }));
+    const company = await Company.findById(req.auth!.companyId).select("settings.country");
+    const items = company?.settings?.country === "IN" ? [] : Object.entries(DEFAULT_PRICES).map(([key, p]) => ({ key, ...p }));
     res.json(toPriceListDTO(await saveVersion(req, items), false));
   }),
 );

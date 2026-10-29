@@ -6,15 +6,18 @@ import { Download, Lock, Plus, Printer, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { computeTotals, diffVersions } from "@roofdesk/estimate-engine";
 import type { EstimateDTO, EstimateSettingsInput, EstimateVersionDTO, JobDTO, LineItemInput, MeasurementDTO, PriceListDTO } from "@roofdesk/shared";
-import { UNITS } from "@roofdesk/shared";
+import { UNITS, squareFeetToSquareMeters } from "@roofdesk/shared";
 import { NumInput } from "@/components/NumInput";
 import { api, downloadFile, post } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { centsToDollars, dollarsToCents, usd } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
+import { centsToDollars, dollarsToCents, fmtDate, usd } from "@/lib/format";
 
 const KIND_LABEL = { original: "Original", approved: "Carrier approved", supplement: "Supplement" } as const;
 
 function VersionEditor({ version, onSave, saving, canEdit, priceItems }: { version: EstimateVersionDTO; onSave: (items: LineItemInput[], s: EstimateSettingsInput) => void; saving: boolean; canEdit: boolean; priceItems: PriceListDTO["items"] }) {
+  const { user } = useAuth();
+  const { t } = useI18n();
   const [items, setItems] = useState<LineItemInput[]>(version.lineItems);
   const [settings, setSettings] = useState<EstimateSettingsInput>(version.settings);
   const locked = !!version.lockedAt;
@@ -70,7 +73,7 @@ function VersionEditor({ version, onSave, saving, canEdit, priceItems }: { versi
               </div>
               <div className="grid grid-cols-2 gap-3 md:contents">
                 <div>
-                  <label className="label md:sr-only">Unit price (USD)</label>
+                  <label className="label md:sr-only">{t("estimate.unitPrice")} ({user?.company.settings?.currency ?? "USD"})</label>
                   <NumInput value={it.unitPriceCents} disabled={!editable} format={(c) => centsToDollars(c)} parse={(s) => dollarsToCents(parseFloat(s))} onCommit={(c) => setItem(idx, { unitPriceCents: c })} />
                 </div>
                 <div>
@@ -91,8 +94,8 @@ function VersionEditor({ version, onSave, saving, canEdit, priceItems }: { versi
         </ul>
         {editable && (
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <button className="btn btn-ghost" onClick={addLine}><Plus size={16} aria-hidden /> Add blank line</button>
-            <label className="sr-only" htmlFor="from-list">Add an item from your price list</label>
+            <button className="btn btn-ghost" onClick={addLine}><Plus size={16} aria-hidden /> {t("estimate.addLine")}</button>
+            <label className="sr-only" htmlFor="from-list">{t("estimate.addFromPriceList")}</label>
             <select id="from-list" className="field w-auto max-w-full" value="" onChange={(e) => {
               const p = priceItems.find((x) => x.key === e.target.value);
               if (p) setItems((arr) => [...arr, { key: p.key, description: p.description, category: p.category, unit: p.unit, quantity: 1, unitPriceCents: p.unitPriceCents, taxable: p.taxable, depreciationPct: 0 }]);
@@ -133,7 +136,7 @@ function VersionEditor({ version, onSave, saving, canEdit, priceItems }: { versi
 
       {editable && (
         <div className="flex items-center gap-3">
-          <button className="btn btn-primary" disabled={!dirty || saving} onClick={() => onSave(items, settings)}>{saving ? "Saving" : "Save estimate"}</button>
+          <button className="btn btn-primary" disabled={!dirty || saving} onClick={() => onSave(items, settings)}>{saving ? t("common.saving") : t("estimate.save")}</button>
           {dirty && <span className="text-sm text-warn">Unsaved changes</span>}
         </div>
       )}
@@ -160,7 +163,8 @@ function VersionDiff({ from, to }: { from: EstimateVersionDTO; to: EstimateVersi
 }
 
 export function EstimateTab({ jobId }: { jobId: string }) {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
+  const { t } = useI18n();
   const qc = useQueryClient();
   const [selected, setSelected] = useState<number | null>(null);
   const [measurementId, setMeasurementId] = useState("");
@@ -190,24 +194,31 @@ export function EstimateTab({ jobId }: { jobId: string }) {
   const delivered = measurements.data?.items.filter((m) => m.status === "delivered") ?? [];
   const est = estimate.data?.estimate;
 
-  if (estimate.isLoading) return <p className="text-mist">Loading estimate</p>;
+  if (estimate.isLoading) return <p className="text-mist">{t("estimate.loading")}</p>;
 
   if (!est) {
     return (
       <section className="panel space-y-4 p-6" aria-label="Create estimate">
-        <h2 className="text-2xl font-bold">Build the estimate</h2>
+        <h2 className="text-2xl font-bold">{t("estimate.build")}</h2>
+        {user?.company.settings?.country === "IN" && (priceList.data?.items.length ?? 0) === 0 && <p role="status" className="rounded-md bg-warn/10 p-3 text-sm text-warn">{t("estimate.localRatesBlank")}</p>}
         {delivered.length === 0 ? (
-          <p className="text-mist">Order and receive an aerial report first. Quantities are taken from it.</p>
+          <p className="text-mist">{t("estimate.orderFirst")}</p>
         ) : (
           <>
-            <p className="max-w-xl text-mist-strong">Start from a standard re-roof template. Quantities come from the measurement report and you can edit every line afterwards.</p>
+            <p className="max-w-xl text-mist-strong">{t("estimate.startTemplate")}</p>
             <div className="max-w-sm">
-              <label className="label" htmlFor="meas">Measurement report</label>
+              <label className="label" htmlFor="meas">{t("estimate.measurementReport")}</label>
               <select id="meas" className="field" value={measurementId || delivered[0]!.id} onChange={(e) => setMeasurementId(e.target.value)}>
-                {delivered.map((m) => <option key={m.id} value={m.id}>{m.totals?.areaSqFt.toLocaleString()} sq ft, {new Date(m.createdAt).toLocaleDateString()}</option>)}
+                {delivered.map((m) => {
+                  const metric = user?.company.settings?.measurementSystem === "metric";
+                  const locale = user?.company.settings?.locale ?? "en-US";
+                  const area = m.totals?.areaSqFt ?? 0;
+                  const shownArea = metric ? squareFeetToSquareMeters(area) : area;
+                  return <option key={m.id} value={m.id}>{shownArea.toLocaleString(locale, { maximumFractionDigits: 2 })} {metric ? "m²" : "sq ft"}, {fmtDate(m.createdAt)}</option>;
+                })}
               </select>
             </div>
-            {can("estimate:write") && <button className="btn btn-primary" disabled={generate.isPending} onClick={() => generate.mutate(measurementId || delivered[0]!.id)}>{generate.isPending ? "Building estimate" : "Build estimate from report"}</button>}
+            {can("estimate:write") && <button className="btn btn-primary" disabled={generate.isPending} onClick={() => generate.mutate(measurementId || delivered[0]!.id)}>{generate.isPending ? t("estimate.building") : t("estimate.buildFromReport")}</button>}
           </>
         )}
         {generate.isError && <p role="alert" className="text-bad">{(generate.error as Error).message}</p>}
@@ -224,15 +235,15 @@ export function EstimateTab({ jobId }: { jobId: string }) {
     <>
     <section aria-label="Estimate" className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-bold">Estimate</h2>
+        <h2 className="text-2xl font-bold">{t("estimate.title")}</h2>
         <div className="flex flex-wrap gap-2">
           <button className="btn btn-ghost" onClick={() => { setExportError(""); void downloadFile(`/jobs/${jobId}/estimate/export.csv?versionNo=${version.versionNo}`, `roofdesk-estimate-v${version.versionNo}.csv`).catch((e) => setExportError((e as Error).message)); }}>
-            <Download size={16} aria-hidden /> Download handoff CSV
+            <Download size={16} aria-hidden /> {t("estimate.csvHandoff")}
           </button>
-          <button className="btn btn-ghost" onClick={() => window.print()}><Printer size={16} aria-hidden /> Print / Save PDF</button>
+          <button className="btn btn-ghost" onClick={() => window.print()}><Printer size={16} aria-hidden /> {t("estimate.printPdf")}</button>
           {can("estimate:write") && <>
-            <button className="btn btn-ghost" disabled={newVersion.isPending} onClick={() => newVersion.mutate("approved")}>Record carrier-approved version</button>
-            <button className="btn btn-ghost" disabled={newVersion.isPending} onClick={() => newVersion.mutate("supplement")}>New supplement version</button>
+            <button className="btn btn-ghost" disabled={newVersion.isPending} onClick={() => newVersion.mutate("approved")}>{t("estimate.carrierVersion")}</button>
+            <button className="btn btn-ghost" disabled={newVersion.isPending} onClick={() => newVersion.mutate("supplement")}>{t("estimate.newSupplement")}</button>
           </>}
         </div>
       </div>
@@ -260,7 +271,7 @@ export function EstimateTab({ jobId }: { jobId: string }) {
         <p className="text-sm uppercase tracking-wide">RoofDesk estimate handoff</p>
         <h1 className="my-2 text-3xl font-bold">{KIND_LABEL[version.kind]} · Version {version.versionNo}</h1>
         <p>Job {job.data?.jobNumber ?? jobId} · Prepared {new Date(version.createdAt).toLocaleDateString()}</p>
-        {job.data && <p>{job.data.customer.name} · {job.data.property.line1}, {job.data.property.city}, {job.data.property.state} {job.data.property.zip}</p>}
+        {job.data && <p>{job.data.customer.name} · {[job.data.property.line1, job.data.property.line2, job.data.property.locality, job.data.property.city, job.data.property.district, job.data.property.state, job.data.property.country === "IN" ? job.data.property.pinCode : job.data.property.zip].filter(Boolean).join(", ")}</p>}
         {version.note && <p className="mt-2">{version.note}</p>}
       </header>
       <table className="w-full border-collapse text-sm">
