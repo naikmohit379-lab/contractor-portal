@@ -3,14 +3,21 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { hasPermission, type LoginInput, type Permission, type RegisterInput, type SessionUser } from "@roofdesk/shared";
 import { api, post, refreshSession, setAccessToken } from "./api";
+import { setCompanyFormatPreferences } from "./format";
 
 type Status = "loading" | "authed" | "anon";
+
+const applyCompanyFormatting = (user: SessionUser | null) => {
+  const settings = user?.company.settings;
+  setCompanyFormatPreferences(settings ? { currency: settings.currency, locale: settings.locale, timezone: settings.timezone } : undefined);
+};
 interface AuthValue {
   user: SessionUser | null;
   status: Status;
   can: (p: Permission) => boolean;
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
+  refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -26,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (await refreshSession()) {
         try {
           const { user } = await api<{ user: SessionUser }>("/auth/me");
+          applyCompanyFormatting(user);
           setUser(user);
           setStatus("authed");
           return;
@@ -37,22 +45,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const startSession = (res: { accessToken: string; user: SessionUser }) => {
     setAccessToken(res.accessToken);
+    applyCompanyFormatting(res.user);
     setUser(res.user);
     setStatus("authed");
   };
 
   const login = useCallback(async (input: LoginInput) => startSession(await post("/auth/login", input)), []);
   const register = useCallback(async (input: RegisterInput) => startSession(await post("/auth/register", input)), []);
+  const refreshUser = useCallback(async () => {
+    const result = await api<{ user: SessionUser }>("/auth/me");
+    applyCompanyFormatting(result.user);
+    setUser(result.user);
+  }, []);
   const logout = useCallback(async () => {
     await post("/auth/logout").catch(() => {});
     setAccessToken(null);
+    applyCompanyFormatting(null);
     setUser(null);
     setStatus("anon");
   }, []);
 
   const value = useMemo<AuthValue>(
-    () => ({ user, status, login, register, logout, can: (p) => !!user && hasPermission(user.role, p) }),
-    [user, status, login, register, logout],
+    () => ({ user, status, login, register, refreshUser, logout, can: (p) => !!user && hasPermission(user.role, p) }),
+    [user, status, login, register, refreshUser, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

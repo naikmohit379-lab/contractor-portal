@@ -23,11 +23,27 @@ describe("estimates", () => {
     const v = r.body.estimate.versions[0];
     expect(v.kind).toBe("original");
     expect(v.lineItems.length).toBeGreaterThanOrEqual(8);
-    expect(v.totals.rcvCents).toBeGreaterThan(0);
+    expect(v.totals.rcvCents).toBe(0); // Indian catalogs start blank; U.S. sample rates are not reused.
+    expect(v.note).toMatch(/Indian price list rates are blank/);
     expect((await app.call("GET", `/jobs/${job}`, { token: s.token })).body.stage).toBe("estimated");
     expect((await buildEstimate(app, s, job)).status).toBe(409); // one estimate per job
   });
+  it("exports the selected estimate version as a private CSV handoff", async () => {
+    const job = await createJob(app, s);
+    await buildEstimate(app, s, job);
+    const response = await app.call("GET", `/jobs/${job}/estimate/export.csv?versionNo=1`, { token: s.token });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/csv");
+    expect(response.headers.get("content-disposition")).toContain("estimate-v1.csv");
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(response.body).toContain("record_type");
+    expect(response.body).toContain("Roofing");
+    expect(response.body).toContain("TOTAL");
+    expect((await app.call("GET", `/jobs/${job}/estimate/export.csv`, {})).status).toBe(401);
+  });
   it("uses the company's price list, as a new version, for new estimates", async () => {
+    await app.models.Company.updateOne({ _id: s.companyId }, { $set: { "settings.country": "US", "settings.currency": "USD" } });
+    await app.call("POST", "/price-lists/reset", { token: s.token });
     const before = await app.call("GET", "/price-lists/active", { token: s.token });
     const items = before.body.items.map((i: any) => (i.key === "shingles" ? { ...i, unitPriceCents: 99900 } : i));
     const saved = await app.call("PUT", "/price-lists/active", { token: s.token, body: { items } });

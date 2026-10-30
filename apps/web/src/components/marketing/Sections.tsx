@@ -1,18 +1,18 @@
 import { FileText, Ruler, ShieldCheck, Truck } from "lucide-react";
 import Link from "next/link";
 
-const MODULES = [
+const SERVICES = [
   { icon: Ruler, title: "Aerial measurements", text: "Order a roof report by address and get facets, pitch and linear feet straight into the job." },
   { icon: FileText, title: "Claim estimating", text: "Line-item estimates, photo evidence, versions and supplements for every insurance claim." },
   { icon: Truck, title: "Supplier orders", text: "Turn the approved estimate into a material list, send the PO and track the delivery." },
   { icon: ShieldCheck, title: "Lien waiver tracking", text: "Request, sign and verify waivers for every payment so draws are never held up." },
 ];
 
-export function ModuleStrip() {
+export function ServiceStrip() {
   return (
-    <section id="modules" className="border-y border-white/5 bg-ink-800">
+    <section id="services" className="border-y border-white/5 bg-ink-800">
       <div className="mx-auto grid max-w-7xl gap-8 px-5 py-14 sm:grid-cols-2 lg:grid-cols-4">
-        {MODULES.map(({ icon: Icon, title, text }) => (
+        {SERVICES.map(({ icon: Icon, title, text }) => (
           <div key={title} className="text-center">
             <Icon className="mx-auto text-ember" size={30} strokeWidth={1.5} aria-hidden />
             <h2 className="mt-3 text-xl font-bold">{title}</h2>

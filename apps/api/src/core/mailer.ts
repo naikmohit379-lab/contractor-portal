@@ -2,7 +2,7 @@ import { env, isProd } from "../config/env";
 import { EmailOutbox } from "../models/EmailOutbox";
 import { logger } from "./logger";
 
-const SECURE_LINK = /https?:\/\/[^\s]*\/(?:sign|pay|confirm|invite)\/[A-Za-z0-9_\-]+[^\s]*/g;
+const SECURE_LINK = /https?:\/\/[^\s]*\/(?:sign|pay|confirm|invite|reset-password)\/[A-Za-z0-9_\-]+[^\s]*/g;
 const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
 /** Plain text to simple HTML: paragraphs, and links become clickable. All other text is escaped. */
@@ -62,6 +62,6 @@ export async function sendEmail(input: EmailInput): Promise<boolean> {
   return ok;
 }
 
-/** An email whose job is to deliver one secure link (to sign, pay or confirm). */
+/** An email whose job is to deliver one secure link (for example, to sign, pay, confirm, invite or reset a password). */
 export const sendLinkEmail = (o: { companyId: unknown; to: string; kind: string; subject: string; intro: string; url: string }) =>
   sendEmail({ companyId: o.companyId, to: o.to, kind: o.kind, subject: o.subject, text: `${o.intro}\n\n${o.url}\n\nThis link is for you only. If you were not expecting this email, you can ignore it.` });

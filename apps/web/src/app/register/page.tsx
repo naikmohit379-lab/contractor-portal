@@ -20,6 +20,7 @@ export default function RegisterPage() {
   const { register: signUp } = useAuth();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<RegisterInput>({ resolver: zodResolver(registerSchema) });
 
   const onSubmit = handleSubmit(async (values) => {
@@ -37,8 +38,26 @@ export default function RegisterPage() {
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         {FIELDS.map((f) => (
           <div key={f.name}>
-            <label className="label" htmlFor={f.name}>{f.label}</label>
-            <input id={f.name} type={f.type} autoComplete={f.autoComplete} className="field" {...register(f.name)} />
+            {f.name === "password" ? <>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="label mb-0" htmlFor={f.name}>{f.label}</label>
+              </div>
+              <div className="relative">
+                <input id={f.name} type={showPassword ? "text" : "password"} autoComplete={f.autoComplete} className="field pr-16" {...register(f.name)} />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-3 text-sm font-semibold text-mist hover:text-white"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+            </> : <>
+              <label className="label" htmlFor={f.name}>{f.label}</label>
+              <input id={f.name} type={f.type} autoComplete={f.autoComplete} className="field" {...register(f.name)} />
+            </>}
             {errors[f.name] && <p className="field-error">{errors[f.name]?.message}</p>}
           </div>
         ))}

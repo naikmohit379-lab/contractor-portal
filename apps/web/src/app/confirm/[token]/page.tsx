@@ -5,13 +5,15 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { Logo } from "@/components/Logo";
 import { api, post } from "@/lib/api";
-import { fmtDate } from "@/lib/format";
+import { fmtCalendarDate } from "@/lib/format";
 
 interface PublicOrder {
   poNumber: string;
   status: string;
   company?: string;
   supplier?: string;
+  locale?: string;
+  timezone?: string;
   accountNumber?: string;
   deliverTo?: string;
   dropInstructions?: string;
@@ -46,7 +48,7 @@ export default function ConfirmOrderPage() {
             <p className="text-mist">From {o.company}{o.supplier && ` to ${o.supplier}`}{o.accountNumber && ` | Account ${o.accountNumber}`}</p>
           </div>
           {o.deliverTo && <p><span className="text-mist">Deliver to:</span> {o.deliverTo}</p>}
-          {o.requestedWindow && <p><span className="text-mist">Requested delivery:</span> {fmtDate(o.requestedWindow.date)}, {o.requestedWindow.slot}</p>}
+          {o.requestedWindow && <p><span className="text-mist">Requested delivery:</span> {fmtCalendarDate(o.requestedWindow.date, { locale: o.locale, timezone: o.timezone })}, {o.requestedWindow.slot}</p>}
           {o.dropInstructions && <p><span className="text-mist">Drop instructions:</span> {o.dropInstructions}</p>}
           <ul className="divide-y divide-ink-600 text-sm">
             {o.lines.map((l, i) => <li key={i} className="flex justify-between gap-3 py-2"><span>{l.description}{l.sku && <span className="ml-2 text-mist">{l.sku}</span>}</span><span className="font-medium">{l.quantity} {l.unit}</span></li>)}

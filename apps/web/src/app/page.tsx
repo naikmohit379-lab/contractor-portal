@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Hero } from "@/components/marketing/Hero";
 import { Navbar } from "@/components/marketing/Navbar";
-import { Cta, Footer, ModuleStrip, WaiverBoard, Workflow } from "@/components/marketing/Sections";
+import { Cta, Footer, ServiceStrip, WaiverBoard, Workflow } from "@/components/marketing/Sections";
 
 export const metadata: Metadata = {
   title: "Roofing contractor portal for measurements, claims, orders and lien waivers",
@@ -24,7 +24,7 @@ export default function HomePage() {
       <Navbar />
       <main>
         <Hero />
-        <ModuleStrip />
+        <ServiceStrip />
         <Workflow />
         <WaiverBoard />
         <Cta />

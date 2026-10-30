@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Logo } from "@/components/Logo";
 
 const LINKS = [
-  { href: "#modules", label: "Modules" },
+  { href: "#services", label: "Services" },
   { href: "#workflow", label: "Workflow" },
   { href: "#waivers", label: "Waivers" },
   { href: "#contact", label: "Contact" },

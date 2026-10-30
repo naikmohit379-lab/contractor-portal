@@ -37,11 +37,11 @@ function PayPage() {
             <p className="text-sm text-mist">{p.company}</p>
             <h1 className="text-3xl font-bold">{p.description}</h1>
           </div>
-          <p className="font-display text-5xl font-bold">{usd(p.amountCents)}</p>
+          <p className="font-display text-5xl font-bold">{usd(p.amountCents, { currency: p.currency, locale: p.locale })}</p>
           <p className="text-sm text-mist">For {p.payerName}</p>
 
           {p.status === "succeeded" || p.status === "partially_refunded" || p.status === "refunded" ? (
-            <p role="status" className="rounded-md bg-ok/10 p-4 text-ok">Paid{p.paidAt && ` on ${fmtDateTime(p.paidAt)}`}. Thank you.</p>
+            <p role="status" className="rounded-md bg-ok/10 p-4 text-ok">Paid{p.paidAt && ` on ${fmtDateTime(p.paidAt, { currency: p.currency, locale: p.locale, timezone: p.timezone })}`}. Thank you.</p>
           ) : p.status === "canceled" ? (
             <p className="rounded-md bg-ink-700 p-4 text-mist-strong">This payment request was canceled by the contractor.</p>
           ) : (

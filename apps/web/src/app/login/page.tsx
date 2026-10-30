@@ -13,6 +13,7 @@ export default function LoginPage() {
   const { login, status } = useAuth();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) });
 
   useEffect(() => {
@@ -38,8 +39,22 @@ export default function LoginPage() {
           {errors.email && <p className="field-error">{errors.email.message}</p>}
         </div>
         <div>
-          <label className="label" htmlFor="password">Password</label>
-          <input id="password" type="password" autoComplete="current-password" className="field" {...register("password")} />
+          <div className="mb-2 flex items-center justify-between">
+            <label className="label mb-0" htmlFor="password">Password</label>
+            <Link href="/forgot-password" className="text-xs text-ember hover:underline">Forgot password?</Link>
+          </div>
+          <div className="relative">
+            <input id="password" type={showPassword ? "text" : "password"} autoComplete="current-password" className="field pr-16" {...register("password")} />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-3 text-sm font-semibold text-mist hover:text-white"
+              onClick={() => setShowPassword((visible) => !visible)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
           {errors.password && <p className="field-error">{errors.password.message}</p>}
         </div>
         {error && <p role="alert" className="rounded-md bg-bad/10 p-3 text-sm text-bad">{error}</p>}

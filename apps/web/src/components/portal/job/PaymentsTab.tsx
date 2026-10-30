@@ -53,7 +53,7 @@ function RefundForm({ jobId, p, onDone }: { jobId: string; p: PaymentDTO; onDone
   return (
     <div className="mt-3 space-y-3 rounded-md border border-ink-500 p-4">
       <div className="grid gap-3 sm:grid-cols-3">
-        <div><label className="label">Refund amount (USD)</label><NumInput value={amount} format={(c) => centsToDollars(c)} parse={(s) => dollarsToCents(parseFloat(s))} onCommit={setAmount} /><p className="mt-1 text-xs text-mist">Up to {usd(max)}</p></div>
+        <div><label className="label">Refund amount ({p.currency ?? "USD"})</label><NumInput value={amount} format={(c) => centsToDollars(c)} parse={(s) => dollarsToCents(parseFloat(s))} onCommit={setAmount} /><p className="mt-1 text-xs text-mist">Up to {usd(max)}</p></div>
         <div className="sm:col-span-2"><label className="label" htmlFor={`rr-${p.id}`}>Reason</label><input id={`rr-${p.id}`} className="field" value={reason} onChange={(e) => setReason(e.target.value)} /></div>
       </div>
       <div className="max-w-xs"><label className="label" htmlFor={`rp-${p.id}`}>Your password, to confirm</label><input id={`rp-${p.id}`} type="password" autoComplete="current-password" className="field" value={password} onChange={(e) => setPassword(e.target.value)} /></div>

@@ -12,13 +12,21 @@ import { StageBadge } from "@/components/portal/StageBadge";
 import { ApiError, api, post } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useJobStageLabels } from "@/lib/jobStages";
+import { useI18n } from "@/lib/i18n";
 
 function NewJobForm({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient();
-  const { register, handleSubmit, setError, formState: { errors } } = useForm<JobCreateInput>({
+  const { user } = useAuth();
+  const { t, validation } = useI18n();
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  const country = user?.company.settings?.country ?? "US";
+  const { register, handleSubmit, setError, watch, formState: { errors } } = useForm<JobCreateInput>({
     resolver: zodResolver(jobCreateSchema),
-    defaultValues: { type: "insurance" },
+    defaultValues: { type: "insurance", property: { country } },
+    shouldUnregister: true,
   });
+  const selectedCountry = watch("property.country") ?? country;
   const create = useMutation({
     mutationFn: (v: JobCreateInput) => post<JobDTO>("/jobs", v),
     onSuccess: () => {
@@ -30,39 +38,64 @@ function NewJobForm({ onDone }: { onDone: () => void }) {
       else setError("root", { message: e instanceof Error ? e.message : "Could not create the job" });
     },
   });
+  const submit = (values: JobCreateInput) => {
+    if (Boolean(latitude) !== Boolean(longitude)) {
+      setError("root", { message: "Enter both latitude and longitude, or leave both blank." });
+      return;
+    }
+    create.mutate({ ...values, property: { ...values.property, ...(latitude && longitude ? { coordinates: { lat: Number(latitude), lng: Number(longitude) } } : {}) } });
+  };
 
   const text = (name: any, label: string, props: Record<string, string> = {}, err?: string) => (
     <div>
       <label className="label" htmlFor={name}>{label}</label>
       <input id={name} className="field" {...props} {...register(name)} />
-      {err && <p className="field-error">{err}</p>}
+      {err && <p className="field-error">{validation(err)}</p>}
     </div>
   );
 
   return (
-    <form onSubmit={handleSubmit((v) => create.mutate(v))} className="panel space-y-4 p-5" noValidate>
-      <h2 className="text-2xl font-bold">New job</h2>
+    <form onSubmit={handleSubmit(submit)} className="panel space-y-4 p-5" noValidate>
+      <h2 className="text-2xl font-bold">{t("jobs.new")}</h2>
       <div className="grid gap-4 sm:grid-cols-2">
-        {text("customer.name", "Customer name", { autoComplete: "off" }, errors.customer?.name?.message)}
-        {text("customer.phone", "Phone", { type: "tel", inputMode: "tel" })}
-        {text("customer.email", "Email", { type: "email", inputMode: "email" }, errors.customer?.email?.message)}
+        {text("customer.name", t("jobs.customerName"), { autoComplete: "off" }, errors.customer?.name?.message)}
+        {text("customer.phone", t("jobs.phone"), { type: "tel", inputMode: "tel" })}
+        {text("customer.email", t("jobs.email"), { type: "email", inputMode: "email" }, errors.customer?.email?.message)}
         <div>
-          <label className="label" htmlFor="type">Job type</label>
+          <label className="label" htmlFor="type">{t("jobs.jobType")}</label>
           <select id="type" className="field" {...register("type")}>
-            {JOB_TYPES.map((t) => <option key={t} value={t} className="capitalize">{t[0]!.toUpperCase() + t.slice(1)}</option>)}
+            {JOB_TYPES.map((kind) => <option key={kind} value={kind}>{t(({ insurance: "jobs.type.insurance", retail: "jobs.type.retail", commercial: "jobs.type.commercial" } as const)[kind])}</option>)}
           </select>
         </div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-[2fr_1.2fr_.6fr_.8fr]">
-        {text("property.line1", "Street address", { autoComplete: "street-address" }, errors.property?.line1?.message)}
-        {text("property.city", "City", {}, errors.property?.city?.message)}
-        {text("property.state", "State", { maxLength: "2", autoCapitalize: "characters" }, errors.property?.state?.message)}
-        {text("property.zip", "ZIP", { inputMode: "numeric", autoComplete: "postal-code" }, errors.property?.zip?.message)}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="label" htmlFor="property.country">{t("jobs.country")}</label>
+          <select id="property.country" className="field" {...register("property.country")}>
+            <option value="IN">{t("jobs.countryIndia")}</option>
+            <option value="US">{t("jobs.countryUs")}</option>
+          </select>
+        </div>
+        {text("property.line1", t("jobs.addressLine1"), { autoComplete: "address-line1" }, errors.property?.line1?.message)}
+        {text("property.line2", t("jobs.addressLine2"), { autoComplete: "address-line2" })}
+        {text("property.city", t("jobs.city"), {}, errors.property?.city?.message)}
+        {text("property.district", t("jobs.district"), {}, errors.property?.district?.message)}
+        {text("property.state", selectedCountry === "IN" ? t("jobs.stateIndia") : t("jobs.stateUs"), selectedCountry === "IN" ? {} : { maxLength: "2", autoCapitalize: "characters" }, errors.property?.state?.message)}
+        {selectedCountry === "IN" ? text("property.pinCode", t("jobs.pinCode"), { inputMode: "numeric", autoComplete: "postal-code", maxLength: "6" }, errors.property?.pinCode?.message) : text("property.zip", t("jobs.zip"), { inputMode: "numeric", autoComplete: "postal-code" }, errors.property?.zip?.message)}
+        {text("property.landmark", t("jobs.landmark"))}
       </div>
+      <fieldset className="space-y-2 rounded-lg border border-ink-600 p-4">
+        <legend className="px-1 font-semibold">Map coordinates (optional)</legend>
+        <p className="text-sm text-mist">For RoofV in India, add verified latitude and longitude from a map pin. This helps select the correct building.</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div><label className="label" htmlFor="property-latitude">Latitude</label><input id="property-latitude" className="field" type="number" min="-90" max="90" step="any" value={latitude} onChange={(event) => setLatitude(event.target.value)} /></div>
+          <div><label className="label" htmlFor="property-longitude">Longitude</label><input id="property-longitude" className="field" type="number" min="-180" max="180" step="any" value={longitude} onChange={(event) => setLongitude(event.target.value)} /></div>
+        </div>
+      </fieldset>
       {errors.root && <p role="alert" className="rounded-md bg-bad/10 p-3 text-sm text-bad">{errors.root.message}</p>}
       <div className="flex gap-3">
-        <button className="btn btn-primary" disabled={create.isPending}>{create.isPending ? "Creating job" : "Create job"}</button>
-        <button type="button" className="btn btn-ghost" onClick={onDone}>Cancel</button>
+        <button className="btn btn-primary" disabled={create.isPending}>{create.isPending ? t("jobs.creating") : t("jobs.create")}</button>
+        <button type="button" className="btn btn-ghost" onClick={onDone}>{t("common.cancel")}</button>
       </div>
     </form>
   );
@@ -70,6 +103,7 @@ function NewJobForm({ onDone }: { onDone: () => void }) {
 
 function JobsList() {
   const { can } = useAuth();
+  const { t } = useI18n();
   const stageLabels = useJobStageLabels();
   const params = useSearchParams();
   const [stage, setStage] = useState<JobStage | "">((params.get("stage") as JobStage) ?? "");
@@ -84,9 +118,9 @@ function JobsList() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-4xl font-bold">Jobs</h1>
+        <h1 className="text-4xl font-bold">{t("jobs.title")}</h1>
         {can("job:write") && !creating && (
-          <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={18} aria-hidden /> New job</button>
+          <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={18} aria-hidden /> {t("jobs.new")}</button>
         )}
       </div>
 
@@ -95,23 +129,23 @@ function JobsList() {
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-mist" aria-hidden />
-          <input className="field pl-10" placeholder="Search customer, address or job number" aria-label="Search jobs" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="field pl-10" placeholder={t("jobs.search")} aria-label={t("jobs.searchLabel")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <select className="field sm:w-56" aria-label="Filter by stage" value={stage} onChange={(e) => setStage(e.target.value as JobStage | "")}>
-          <option value="">All stages</option>
+        <select className="field sm:w-56" aria-label={t("jobs.filterStage")} value={stage} onChange={(e) => setStage(e.target.value as JobStage | "")}>
+          <option value="">{t("jobs.allStages")}</option>
           {JOB_STAGES.map((s) => <option key={s} value={s}>{stageLabels[s]}</option>)}
         </select>
       </div>
 
       <div className="panel divide-y divide-ink-600">
-        {jobs.isLoading && <p className="p-6 text-mist">Loading jobs</p>}
-        {jobs.isError && <p className="p-6 text-bad">Jobs could not be loaded. Refresh to try again.</p>}
-        {jobs.data?.items.length === 0 && <p className="p-6 text-mist">No jobs match. Change the filters or create a new job.</p>}
+        {jobs.isLoading && <p className="p-6 text-mist">{t("jobs.loading")}</p>}
+        {jobs.isError && <p className="p-6 text-bad">{t("jobs.loadError")}</p>}
+        {jobs.data?.items.length === 0 && <p className="p-6 text-mist">{t("jobs.none")}</p>}
         {jobs.data?.items.map((j) => (
           <Link key={j.id} href={`/jobs/${j.id}`} className="flex flex-col gap-2 p-4 hover:bg-ink-700 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="font-medium">{j.customer.name} <span className="ml-2 text-xs text-mist">{j.jobNumber}</span></p>
-              <p className="truncate text-sm text-mist">{j.property.line1}, {j.property.city}, {j.property.state} {j.property.zip}</p>
+              <p className="truncate text-sm text-mist">{[j.property.line1, j.property.line2, j.property.locality, j.property.city, j.property.district, j.property.state, j.property.country === "IN" ? j.property.pinCode : j.property.zip].filter(Boolean).join(", ")}</p>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-xs capitalize text-mist">{j.type}</span>

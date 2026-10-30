@@ -25,7 +25,9 @@ function finalizeKeys(items: Item[]): Item[] {
 }
 
 function Editor({ list }: { list: PriceListDTO }) {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
+  const currency = user?.company.settings?.currency ?? "USD";
+  const isIndia = user?.company.settings?.country === "IN";
   const qc = useQueryClient();
   const [items, setItems] = useState<Item[]>(list.items);
   const [importErrors, setImportErrors] = useState<{ row: number; message: string }[]>([]);
@@ -61,7 +63,7 @@ function Editor({ list }: { list: PriceListDTO }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-4xl font-bold">Price list</h1>
-          <p className="text-sm text-mist">Version {list.version}{list.isDefault ? ", the standard starting prices" : ""}. New estimates use these prices. Estimates already made keep theirs.</p>
+          <p className="text-sm text-mist">Version {list.version}{list.isDefault ? (isIndia ? ", local rates have not been entered yet" : ", the standard starting prices") : ""}. New estimates use these prices. Estimates already made keep theirs.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <input ref={fileRef} type="file" accept=".csv,text/csv" className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => { importFile(e.target.files?.[0]); e.target.value = ""; }} />
@@ -80,7 +82,7 @@ function Editor({ list }: { list: PriceListDTO }) {
       <p className="text-sm text-mist">CSV columns: description, unit, unit price (required), plus category, taxable (yes or no) and key (optional). Units: {UNITS.join(", ")}.</p>
 
       <div className="panel p-4">
-        <div className="hidden gap-3 px-1 pb-2 text-xs text-mist md:grid md:grid-cols-[2.4fr_1fr_.7fr_1fr_.5fr_2rem]"><span>Description</span><span>Category</span><span>Unit</span><span>Price (USD)</span><span>Tax</span><span /></div>
+        <div className="hidden gap-3 px-1 pb-2 text-xs text-mist md:grid md:grid-cols-[2.4fr_1fr_.7fr_1fr_.5fr_2rem]"><span>Description</span><span>Category</span><span>Unit</span><span>Price ({currency})</span><span>Tax</span><span /></div>
         <ul className="divide-y divide-ink-600">
           {items.map((it, idx) => (
             <li key={it.key} className="grid gap-3 py-3 md:grid-cols-[2.4fr_1fr_.7fr_1fr_.5fr_2rem] md:items-center">
@@ -88,7 +90,7 @@ function Editor({ list }: { list: PriceListDTO }) {
               <div><label className="label md:sr-only" htmlFor={`pc-${it.key}`}>Category</label><input id={`pc-${it.key}`} className="field" disabled={!editable} value={it.category} onChange={(e) => set(idx, { category: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-3 md:contents">
                 <div><label className="label md:sr-only" htmlFor={`pu-${it.key}`}>Unit</label><select id={`pu-${it.key}`} className="field" disabled={!editable} value={it.unit} onChange={(e) => set(idx, { unit: e.target.value as Item["unit"] })}>{UNITS.map((u) => <option key={u}>{u}</option>)}</select></div>
-                <div><label className="label md:sr-only" htmlFor={`pp-${it.key}`}>Price (USD)</label><NumInput id={`pp-${it.key}`} value={it.unitPriceCents} disabled={!editable} format={(c) => centsToDollars(c)} parse={(s) => dollarsToCents(parseFloat(s))} onCommit={(c) => set(idx, { unitPriceCents: c })} /></div>
+                <div><label className="label md:sr-only" htmlFor={`pp-${it.key}`}>Price ({currency})</label><NumInput id={`pp-${it.key}`} value={it.unitPriceCents} disabled={!editable} format={(c) => centsToDollars(c)} parse={(s) => dollarsToCents(parseFloat(s))} onCommit={(c) => set(idx, { unitPriceCents: c })} /></div>
               </div>
               <label className="flex min-h-[44px] items-center gap-2 text-sm md:justify-center"><input type="checkbox" className="h-5 w-5 accent-ember" disabled={!editable} checked={it.taxable} onChange={(e) => set(idx, { taxable: e.target.checked })} /><span className="md:sr-only">Taxable</span></label>
               {editable ? <button className="btn btn-ghost h-10 min-h-0 px-2" aria-label={`Remove ${it.description || "item"}`} onClick={() => setItems((a) => a.filter((_, i) => i !== idx))}><Trash2 size={16} /></button> : <span />}
@@ -102,7 +104,7 @@ function Editor({ list }: { list: PriceListDTO }) {
       {editable && (
         <div className="flex flex-wrap items-center gap-3">
           <button className="btn btn-primary" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Saving" : "Save as new version"}</button>
-          <button className="btn btn-ghost" disabled={reset.isPending} onClick={() => confirm("Replace your prices with the standard starting prices? This saves a new version; the old one is kept.") && reset.mutate()}>Reset to standard prices</button>
+          <button className="btn btn-ghost" disabled={reset.isPending} onClick={() => confirm(isIndia ? "Clear all local prices? This saves a new blank version; the old version is kept." : "Replace your prices with the standard starting prices? This saves a new version; the old one is kept.") && reset.mutate()}>{isIndia ? "Clear local prices" : "Reset to standard prices"}</button>
           {dirty && <span className="text-sm text-warn">Unsaved changes</span>}
         </div>
       )}

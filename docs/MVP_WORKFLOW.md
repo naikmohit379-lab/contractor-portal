@@ -17,7 +17,7 @@
 2. Assign an Operations Intern only to the job(s) she is authorized to work on. The API limits her job access to those assignments.
 3. Add roof photos and documents. Use the admin/operations queues to surface jobs with no uploads; verify actual claim-file completeness in the job before submission.
 4. Order a measurement. Until EagleView access is configured, make clear that the returned measurement is sample/mock data and do not rely on it for a customer estimate.
-5. Prepare and review an estimate from the company's versioned price list. Do not describe a CSV or internal estimate as Xactimate-compatible until the export format is confirmed and implemented.
+5. Prepare and review an estimate from the company's versioned price list. Use **Download handoff CSV** for line-item transfer or **Print / Save PDF** for review. These are not native Xactimate `.ESX` files; confirm the recipient's accepted interchange format before promising import compatibility.
 6. Prepare the claim, attach the supporting materials, and track carrier follow-up.
 7. Create supplier orders, record any supplier invoice PDF and invoice total, and review the price variance against priced PO lines.
 8. Use only waiver templates approved by an owner/admin after counsel review. Obtain signatures and verify required waivers before releasing payment readiness.

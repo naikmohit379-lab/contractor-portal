@@ -20,6 +20,16 @@ describe("tenant isolation", () => {
     expect((await app.call("GET", "/jobs", { token: b.token })).body.items).toHaveLength(0);
     expect((await app.call("GET", "/jobs", { token: a.token })).body.items).toHaveLength(1);
   });
+  it("creates an Indian property with a PIN and district while keeping existing U.S. jobs readable", async () => {
+    const created = await app.call("POST", "/jobs", { token: a.token, body: {
+      customer: { name: "Bengaluru Customer" },
+      property: { line1: "12 Example Road", city: "Bengaluru", district: "Bengaluru Urban", state: "Karnataka", pinCode: "560001", country: "IN" },
+      type: "retail",
+    } });
+    expect(created.status).toBe(201);
+    expect(created.body.property).toMatchObject({ country: "IN", district: "Bengaluru Urban", pinCode: "560001" });
+    expect((await app.call("GET", `/jobs/${jobA}`, { token: a.token })).body.property).toMatchObject({ state: "TX", zip: "78701" });
+  });
   it("refuses to change another company's data", async () => {
     expect((await app.call("PATCH", `/jobs/${jobA}/stage`, { token: b.token, body: { stage: "paid" } })).status).toBe(404);
     expect((await app.call("GET", `/jobs/${jobA}`, { token: a.token })).body.stage).toBe("lead");
@@ -43,9 +53,23 @@ describe("authentication", () => {
     const r = await app.call("POST", "/auth/register", { body: { companyName: "Fresh Co", name: "Fran Fresh", email, password: PASSWORD } });
     expect(r.status).toBe(201);
     expect(r.body.user.role).toBe("owner");
+    expect(r.body.user.company.settings).toMatchObject({ country: "IN", currency: "INR", locale: "en-IN", timezone: "Asia/Kolkata", measurementSystem: "metric" });
     const cookie = r.headers.getSetCookie().find((c) => c.startsWith("rd_refresh="))!;
     expect(cookie).toMatch(/HttpOnly/i);
     expect(cookie).toMatch(/Path=\/api\/v1\/auth/);
+  });
+  it("keeps pre-existing companies on U.S. defaults when their settings are absent", async () => {
+    const legacy = await app.models.Company.create({ name: "Legacy U.S. Company", slug: `legacy-${Date.now()}`, settings: { paymentGating: "block", refundApprovalThresholdCents: 35000 } });
+    expect(legacy.settings?.country).toBe("US");
+    expect(legacy.settings?.currency).toBe("USD");
+    expect(legacy.settings?.timezone).toBe("America/Chicago");
+    expect(legacy.settings?.paymentGating).toBe("block");
+    expect(legacy.settings?.refundApprovalThresholdCents).toBe(35000);
+  });
+  it("does not seed the U.S. example price catalog for an Indian company", async () => {
+    const india = await app.call("GET", "/price-lists/active", { token: a.token });
+    expect(india.status).toBe(200);
+    expect(india.body.items).toEqual([]);
   });
   it("rejects a duplicate email and a weak password", async () => {
     const dup = await app.call("POST", "/auth/register", { body: { companyName: "X Co", name: "Dup Dup", email: a.email, password: PASSWORD } });

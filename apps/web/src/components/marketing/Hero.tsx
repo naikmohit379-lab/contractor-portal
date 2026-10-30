@@ -23,7 +23,7 @@ export function Hero() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/register" className="btn btn-primary">Start free trial →</Link>
-            <a href="#modules" className="btn btn-ghost">See the modules ›</a>
+            <a href="#services" className="btn btn-ghost">See our services ›</a>
           </div>
           <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium">
             {TRUST.map((t) => (
