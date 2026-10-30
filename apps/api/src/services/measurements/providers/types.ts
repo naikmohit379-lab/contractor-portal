@@ -1,4 +1,6 @@
 export interface NormalizedReport {
+  preliminary?: boolean;
+  reviewStatus?: string;
   imageryDate: Date;
   facets: { id: string; areaSqFt: number; pitch: string }[];
   linear: { ridge: number; hip: number; valley: number; eave: number; rake: number };
@@ -11,6 +13,6 @@ export interface NormalizedReport {
  */
 export interface MeasurementProvider {
   readonly name: string;
-  orderReport(input: { address: string; idempotencyKey: string }): Promise<{ providerOrderId: string }>;
-  fetchReport(providerOrderId: string, address: string): Promise<NormalizedReport>;
+  orderReport(input: { address: string; idempotencyKey: string; coordinates?: { lat: number; lng: number }; pitch?: number; building?: number }): Promise<{ providerOrderId: string; providerJobId?: string }>;
+  fetchReport(providerOrderId: string, address: string, providerJobId?: string): Promise<NormalizedReport>;
 }

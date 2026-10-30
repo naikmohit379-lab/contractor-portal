@@ -16,6 +16,8 @@ export function interpolateText(template: string, values: Record<string, string 
 
 export const squareFeetToSquareMeters = (squareFeet: number) => squareFeet * 0.09290304;
 export const feetToMeters = (feet: number) => feet * 0.3048;
+export const squareMetersToSquareFeet = (squareMeters: number) => squareMeters / 0.09290304;
+export const metersToFeet = (meters: number) => meters / 0.3048;
 
 export function formatMinorCurrency(amountMinor: number, preferences: LocaleFormatOptions = {}) {
   const options = { ...defaults, ...preferences };

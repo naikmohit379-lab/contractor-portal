@@ -18,7 +18,7 @@ pnpm dev                                    # web :3000, API :4000
 ```
 
 ## Try the full flow
-1. Create a company account, add a job, **Measurements** tab: order an aerial report (mock provider, about 3 seconds).
+1. Create a company account and add a job. In **Measurements**, enter values from a real provider report or verified site measurement. The generated sample report is clearly marked and must not be used for quoting or material orders.
 2. **Estimate** tab: build the estimate from the report, edit lines, O&P, tax, depreciation; totals update live.
 3. **Claim** tab: add carrier, policy and claim number; submit the claim (this locks the estimate version), log adjuster calls, move it to Approved with an amount, then create a **supplement** estimate version and file a supplement.
 4. **Suppliers** page: add a supplier and map materials to SKUs and prices in its catalog.
@@ -42,7 +42,7 @@ pnpm dev                                    # web :3000, API :4000
 | Auth, rotating refresh tokens, password reset, tenancy plugin, RBAC, audit log | Done; password reset email requires `EMAIL_PROVIDER=resend` and a verified Resend sender in deployed environments |
 | Jobs and pipeline | Done |
 | Company market preferences, Indian addresses, English/Hindi UI foundation, locale-aware formatting | Stage 1 implemented; U.S. defaults and existing records preserved |
-| Measurements (provider adapter, mock provider, idempotent ordering) | Done (in-process, not queued) |
+| Measurements (manual report entry with metric/imperial conversion, mock demo provider, RoofV adapter) | Manual entry and coordinate-first RoofV integration code are available. RoofV stays disabled by default (`ROOFV_ENABLED=false`); set `ROOFV_API_KEY` only in the API server environment and validate in Preview before enabling. The demo provider is not a real measurement. |
 | Estimate engine: line math, O&P, tax, per-line depreciation, ACV/RCV, net claim | Done, 5 assertions run and passing |
 | Estimate versions (original, carrier approved, supplement), locking, diff view | Done |
 | Estimate handoff CSV and printable PDF | Done; suitable for review/manual entry, not native Xactimate `.ESX` |
@@ -96,7 +96,7 @@ India is the first target market; U.S. functionality is preserved and deferred. 
 The API's internal source areas live in `apps/api/src/services/` (formerly `modules/`). This is a source-tree naming change; the API routes and behavior are unchanged. To deliver password-reset emails outside development, configure `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, and a verified `EMAIL_FROM` sender on the API deployment. Development's `EMAIL_PROVIDER=log` prints reset links in the API console for local testing.
 
 ## Not built or not ready for live use
-1. Real EagleView aerial measurement orders and report ingestion, plus background processing (measurement ordering currently runs in-process against the mock provider).
+1. RoofV India measurement integration: provider coverage/API access are confirmed and an opt-in backend adapter is implemented. Still validate actual response fields and ambiguous-building handling in Preview, add the server-only key, implement signed webhook or reliable scheduled review polling, and distinguish preliminary from reviewed results before relying on reports for estimating. The integration is disabled by default; sample measurements are not for estimating.
 2. Server-side thumbnails, virus scanning of uploads, and reading EXIF (time and GPS) from photos. The browser now keeps unsent photo files in a local IndexedDB queue (100 MB cap) and syncs when online while the user is signed in.
 3. Native Xactimate-compatible estimate export (`.ESX`). The app now offers a line-item handoff CSV and a printable/save-as-PDF estimate, but these are not native Xactimate project files. Confirm the accepted interchange format with the intended recipient and obtain any required vendor specification before claiming import compatibility.
 4. Texas statutory waiver form wording and approval (all four types; counsel must provide/review the content), reminders for unsigned waivers, email/SMS reminders, escalation, SMS OTP or notarization, preliminary-notice deadlines, and a closeout waiver packet export. Vercel Cron now creates daily in-app reminders for overdue Operations follow-up tasks; it needs `CRON_SECRET` on the production deployment.

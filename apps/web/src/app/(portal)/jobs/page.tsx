@@ -18,6 +18,8 @@ function NewJobForm({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const { t, validation } = useI18n();
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
   const country = user?.company.settings?.country ?? "US";
   const { register, handleSubmit, setError, watch, formState: { errors } } = useForm<JobCreateInput>({
     resolver: zodResolver(jobCreateSchema),
@@ -36,6 +38,13 @@ function NewJobForm({ onDone }: { onDone: () => void }) {
       else setError("root", { message: e instanceof Error ? e.message : "Could not create the job" });
     },
   });
+  const submit = (values: JobCreateInput) => {
+    if (Boolean(latitude) !== Boolean(longitude)) {
+      setError("root", { message: "Enter both latitude and longitude, or leave both blank." });
+      return;
+    }
+    create.mutate({ ...values, property: { ...values.property, ...(latitude && longitude ? { coordinates: { lat: Number(latitude), lng: Number(longitude) } } : {}) } });
+  };
 
   const text = (name: any, label: string, props: Record<string, string> = {}, err?: string) => (
     <div>
@@ -46,7 +55,7 @@ function NewJobForm({ onDone }: { onDone: () => void }) {
   );
 
   return (
-    <form onSubmit={handleSubmit((v) => create.mutate(v))} className="panel space-y-4 p-5" noValidate>
+    <form onSubmit={handleSubmit(submit)} className="panel space-y-4 p-5" noValidate>
       <h2 className="text-2xl font-bold">{t("jobs.new")}</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         {text("customer.name", t("jobs.customerName"), { autoComplete: "off" }, errors.customer?.name?.message)}
@@ -75,6 +84,14 @@ function NewJobForm({ onDone }: { onDone: () => void }) {
         {selectedCountry === "IN" ? text("property.pinCode", t("jobs.pinCode"), { inputMode: "numeric", autoComplete: "postal-code", maxLength: "6" }, errors.property?.pinCode?.message) : text("property.zip", t("jobs.zip"), { inputMode: "numeric", autoComplete: "postal-code" }, errors.property?.zip?.message)}
         {text("property.landmark", t("jobs.landmark"))}
       </div>
+      <fieldset className="space-y-2 rounded-lg border border-ink-600 p-4">
+        <legend className="px-1 font-semibold">Map coordinates (optional)</legend>
+        <p className="text-sm text-mist">For RoofV in India, add verified latitude and longitude from a map pin. This helps select the correct building.</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div><label className="label" htmlFor="property-latitude">Latitude</label><input id="property-latitude" className="field" type="number" min="-90" max="90" step="any" value={latitude} onChange={(event) => setLatitude(event.target.value)} /></div>
+          <div><label className="label" htmlFor="property-longitude">Longitude</label><input id="property-longitude" className="field" type="number" min="-180" max="180" step="any" value={longitude} onChange={(event) => setLongitude(event.target.value)} /></div>
+        </div>
+      </fieldset>
       {errors.root && <p role="alert" className="rounded-md bg-bad/10 p-3 text-sm text-bad">{errors.root.message}</p>}
       <div className="flex gap-3">
         <button className="btn btn-primary" disabled={create.isPending}>{create.isPending ? t("jobs.creating") : t("jobs.create")}</button>

@@ -7,9 +7,13 @@ const measurementSchema = new Schema(
     jobId: { type: Schema.Types.ObjectId, ref: "Job", required: true, index: true },
     provider: { type: String, required: true },
     providerOrderId: String,
+    providerJobId: String,
     idempotencyKey: String,
     status: { type: String, enum: MEASUREMENT_STATUSES, default: "ordered" },
+    preliminary: { type: Boolean, default: false },
+    reviewStatus: String,
     addressSnapshot: String,
+    sourceNote: { type: String, maxlength: 300 },
     imageryDate: Date,
     facets: [{ _id: false, id: String, areaSqFt: Number, pitch: String }],
     linear: {

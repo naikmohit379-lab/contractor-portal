@@ -17,6 +17,10 @@ const schema = z.object({
   EMAIL_PROVIDER: z.enum(["log", "resend"]).default("log"),
   EMAIL_FROM: z.string().default("RoofDesk <no-reply@example.com>"),
   RESEND_API_KEY: z.string().optional(),
+  // RoofV is opt-in because each new measurement can consume the workspace allowance.
+  ROOFV_ENABLED: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  ROOFV_API_KEY: z.string().optional(),
+  ROOFV_API_BASE: z.string().url().default("https://roofv.ai/api/public/v1"),
   // Vercel Cron uses this bearer secret to authenticate scheduled reminder runs.
   CRON_SECRET: z.string().min(16).optional(),
   // File storage for photos and documents. Blob storage is private and suited to Vercel.
@@ -41,6 +45,7 @@ if (isProd) {
   if (!env.WEB_ORIGIN.startsWith("https://")) problems.push("WEB_ORIGIN must be an https:// address in production");
   if (env.PAYMENT_PROVIDER === "stripe" && (!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET)) problems.push("Stripe is selected but STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET is missing");
   if (env.EMAIL_PROVIDER === "resend" && !env.RESEND_API_KEY) problems.push("Resend is selected but RESEND_API_KEY is missing");
+  if (env.ROOFV_ENABLED && !env.ROOFV_API_KEY) problems.push("ROOFV_API_KEY is required when ROOFV_ENABLED=true");
   if (env.STORAGE_DRIVER === "local") console.warn("STORAGE_DRIVER=local: files live on this server's disk. Keep STORAGE_DIR on a persistent, backed-up volume, or use s3.");
   if (env.STORAGE_DRIVER === "vercel-blob" && !env.BLOB_READ_WRITE_TOKEN) problems.push("BLOB_READ_WRITE_TOKEN is required when STORAGE_DRIVER=vercel-blob");
   if (problems.length) throw new Error(`Unsafe production configuration:\n - ${problems.join("\n - ")}`);

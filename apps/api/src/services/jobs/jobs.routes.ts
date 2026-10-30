@@ -143,8 +143,9 @@ jobsRouter.patch(
   asyncHandler(async (req, res) => {
     const job = await Job.findById(req.params.jobId);
     if (!job) throw notFound("Job");
-    const { customer, ...rest } = req.body;
+    const { customer, property, ...rest } = req.body;
     if (customer) job.set("customer", { ...(job.customer ?? {}), ...customer });
+    if (property?.coordinates) job.set("property.coordinates", property.coordinates);
     Object.assign(job, rest);
     await job.save();
     await audit(req, "job.updated", "Job", job._id);

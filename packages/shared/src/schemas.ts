@@ -62,6 +62,7 @@ export const loginSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 
 const optionalEmail = z.union([email, z.literal("")]).optional();
+const coordinatesSchema = z.object({ lat: z.number().finite().min(-90).max(90), lng: z.number().finite().min(-180).max(180) });
 
 const propertyAddressSchema = z.object({
   line1: z.string().trim().min(3, "Enter the street address").max(200),
@@ -73,7 +74,7 @@ const propertyAddressSchema = z.object({
   zip: z.string().trim().max(10).optional(),
   pinCode: z.string().trim().optional(),
   landmark: z.string().trim().max(200).optional(),
-  coordinates: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).optional(),
+  coordinates: coordinatesSchema.optional(),
   country: z.enum(MARKET_COUNTRIES).optional(),
 }).superRefine((address, ctx) => {
   const country = address.country ?? "US"; // no country means a legacy U.S. request
@@ -102,6 +103,7 @@ export type JobCreateInput = z.input<typeof jobCreateSchema>;
 
 export const jobUpdateSchema = z.object({
   customer: jobCreateSchema.shape.customer.partial().optional(),
+  property: z.object({ coordinates: coordinatesSchema.optional() }).optional(),
   type: z.enum(JOB_TYPES).optional(),
   notes: z.string().trim().max(2000).optional(),
 });
@@ -115,9 +117,31 @@ export const jobListQuerySchema = z.object({
   cursor: z.string().optional(),
 });
 
-export const MEASUREMENT_PROVIDERS = ["mock"] as const; // add "eagleview", "hover", ... as adapters are built
+export const MEASUREMENT_PROVIDERS = ["mock", "roofv"] as const;
 export const measurementOrderSchema = z.object({
   provider: z.enum(MEASUREMENT_PROVIDERS).default("mock"),
+  pitch: z.number().finite().min(0).max(24).optional(),
+  building: z.number().int().min(1).max(4).optional(),
+  roofvConsent: z.boolean().optional(),
+});
+
+export const manualMeasurementSchema = z.object({
+  measurementSystem: z.enum(["metric", "imperial"]),
+  facets: z.array(z.object({
+    id: z.string().trim().min(1).max(20),
+    area: z.number().finite().positive().max(1_000_000),
+    pitch: z.string().trim().min(1).max(20),
+  })).min(1).max(80),
+  linear: z.object({
+    ridge: z.number().finite().min(0).max(1_000_000),
+    hip: z.number().finite().min(0).max(1_000_000),
+    valley: z.number().finite().min(0).max(1_000_000),
+    eave: z.number().finite().min(0).max(1_000_000),
+    rake: z.number().finite().min(0).max(1_000_000),
+  }),
+  wastePct: z.number().finite().min(0).max(100),
+  imageryDate: z.string().date().optional(),
+  sourceNote: z.string().trim().max(300).optional(),
 });
 
 // ---- API response shapes shared with the web app ----
@@ -151,10 +175,13 @@ export interface MeasurementDTO {
   jobId: string;
   provider: string;
   status: MeasurementStatus;
+  preliminary?: boolean;
+  reviewStatus?: string;
   imageryDate?: string;
   facets: { id: string; areaSqFt: number; pitch: string }[];
   linear: { ridge: number; hip: number; valley: number; eave: number; rake: number };
   totals?: { areaSqFt: number; squares: number; wastePct: number };
   error?: string;
+  sourceNote?: string;
   createdAt: string;
 }
