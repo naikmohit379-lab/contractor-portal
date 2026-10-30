@@ -13,11 +13,12 @@ import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { centsToDollars, dollarsToCents, fmtDate, usd } from "@/lib/format";
 
-const KIND_LABEL = { original: "Original", approved: "Carrier approved", supplement: "Supplement" } as const;
+const KIND_LABEL = { original: "Original", approved: "Customer approved", supplement: "Revision" } as const;
 
 function VersionEditor({ version, onSave, saving, canEdit, priceItems }: { version: EstimateVersionDTO; onSave: (items: LineItemInput[], s: EstimateSettingsInput) => void; saving: boolean; canEdit: boolean; priceItems: PriceListDTO["items"] }) {
   const { user } = useAuth();
   const { t } = useI18n();
+  const indiaMode = user?.company.settings?.country === "IN";
   const [items, setItems] = useState<LineItemInput[]>(version.lineItems);
   const [settings, setSettings] = useState<EstimateSettingsInput>(version.settings);
   const locked = !!version.lockedAt;
@@ -29,7 +30,7 @@ function VersionEditor({ version, onSave, saving, canEdit, priceItems }: { versi
   const addLine = () =>
     setItems((arr) => [...arr, { key: `custom_${Date.now().toString(36)}`, description: "", category: "Custom", unit: "EA", quantity: 1, unitPriceCents: 0, taxable: true, depreciationPct: 0 }]);
 
-  const summary: [string, number, boolean?][] = [
+  const legacySummary: [string, number, boolean?][] = [
     ["Line subtotal", totals.subtotalCents],
     [`Overhead (${settings.overheadPct}%)`, totals.overheadCents],
     [`Profit (${settings.profitPct}%)`, totals.profitCents],
@@ -39,6 +40,9 @@ function VersionEditor({ version, onSave, saving, canEdit, priceItems }: { versi
     ["Actual cash value (ACV)", totals.acvCents, true],
     ["Deductible", -totals.deductibleCents],
   ];
+  const summary: [string, number, boolean?][] = indiaMode
+    ? [["Line subtotal", totals.subtotalCents], [`Overhead (${settings.overheadPct}%)`, totals.overheadCents], [`Profit (${settings.profitPct}%)`, totals.profitCents], [`Tax / other charges (${settings.taxPct}%)`, totals.taxCents], ["Quotation total", totals.rcvCents, true]]
+    : legacySummary;
 
   return (
     <div className="space-y-5">
@@ -49,12 +53,12 @@ function VersionEditor({ version, onSave, saving, canEdit, priceItems }: { versi
       )}
 
       <div className="panel p-4">
-        <div className="hidden gap-3 px-1 pb-2 text-xs text-mist md:grid md:grid-cols-[2.4fr_.8fr_.7fr_1fr_.7fr_.5fr_1fr_2rem]">
-          <span>Description</span><span>Quantity</span><span>Unit</span><span>Unit price</span><span>Deprec. %</span><span>Tax</span><span className="text-right">Line total</span><span />
+        <div className={`hidden gap-3 px-1 pb-2 text-xs text-mist md:grid ${indiaMode ? "md:grid-cols-[2.4fr_.8fr_.7fr_1fr_.5fr_1fr_2rem]" : "md:grid-cols-[2.4fr_.8fr_.7fr_1fr_.7fr_.5fr_1fr_2rem]"}`}>
+          <span>Description</span><span>Quantity</span><span>Unit</span><span>Unit price</span>{!indiaMode && <span>Deprec. %</span>}<span>Tax / charges</span><span className="text-right">Line total</span><span />
         </div>
         <ul className="divide-y divide-ink-600">
           {items.map((it, idx) => (
-            <li key={it.key} className="grid gap-3 py-3 md:grid-cols-[2.4fr_.8fr_.7fr_1fr_.7fr_.5fr_1fr_2rem] md:items-center">
+            <li key={it.key} className={`grid gap-3 py-3 ${indiaMode ? "md:grid-cols-[2.4fr_.8fr_.7fr_1fr_.5fr_1fr_2rem]" : "md:grid-cols-[2.4fr_.8fr_.7fr_1fr_.7fr_.5fr_1fr_2rem]"} md:items-center`}>
               <div>
                 <label className="label md:sr-only" htmlFor={`d-${it.key}`}>Description</label>
                 <input id={`d-${it.key}`} className="field" value={it.description} disabled={!editable} onChange={(e) => setItem(idx, { description: e.target.value })} />
@@ -73,12 +77,12 @@ function VersionEditor({ version, onSave, saving, canEdit, priceItems }: { versi
               </div>
               <div className="grid grid-cols-2 gap-3 md:contents">
                 <div>
-                  <label className="label md:sr-only">{t("estimate.unitPrice")} ({user?.company.settings?.currency ?? "USD"})</label>
+                  <label className="label md:sr-only">{t("estimate.unitPrice")} ({user?.company.settings?.currency ?? "INR"})</label>
                   <NumInput value={it.unitPriceCents} disabled={!editable} format={(c) => centsToDollars(c)} parse={(s) => dollarsToCents(parseFloat(s))} onCommit={(c) => setItem(idx, { unitPriceCents: c })} />
                 </div>
                 <div>
-                  <label className="label md:sr-only">Depreciation %</label>
-                  <NumInput value={it.depreciationPct} disabled={!editable} onCommit={(n) => setItem(idx, { depreciationPct: Math.min(n, 100) })} />
+                  {!indiaMode && <><label className="label md:sr-only">Depreciation %</label>
+                  <NumInput value={it.depreciationPct} disabled={!editable} onCommit={(n) => setItem(idx, { depreciationPct: Math.min(n, 100) })} /></>}
                 </div>
               </div>
               <label className="flex min-h-[44px] items-center gap-2 text-sm md:justify-center">
@@ -109,16 +113,17 @@ function VersionEditor({ version, onSave, saving, canEdit, priceItems }: { versi
 
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="panel grid grid-cols-2 gap-4 p-4">
-          {([["overheadPct", "Overhead %"], ["profitPct", "Profit %"], ["taxPct", "Tax %"]] as const).map(([k, label]) => (
+          {([["overheadPct", "Overhead %"], ["profitPct", "Profit %"], ["taxPct", indiaMode ? "Tax / other charges %" : "Tax %"]] as const).map(([k, label]) => (
             <div key={k}>
               <label className="label">{label}</label>
               <NumInput value={settings[k]} disabled={!editable} onCommit={(n) => setSettings((s) => ({ ...s, [k]: n }))} />
             </div>
           ))}
-          <div>
-            <label className="label">Deductible (USD)</label>
+          {!indiaMode && <div>
+            <label className="label">Deductible</label>
             <NumInput value={settings.deductibleCents} disabled={!editable} format={(c) => centsToDollars(c)} parse={(s) => dollarsToCents(parseFloat(s))} onCommit={(c) => setSettings((s) => ({ ...s, deductibleCents: c }))} />
-          </div>
+          </div>}
+          {indiaMode && <p className="col-span-2 text-xs text-mist">Confirm any tax or other charge rate with your accountant before using this quotation. RoofDesk does not determine or certify Indian tax treatment.</p>}
         </div>
 
         <dl className="panel space-y-2 p-4 text-sm">
@@ -127,10 +132,8 @@ function VersionEditor({ version, onSave, saving, canEdit, priceItems }: { versi
               <dt className="text-mist-strong">{k}</dt><dd>{usd(v)}</dd>
             </div>
           ))}
-          <div className="flex items-baseline justify-between border-t border-ember/50 pt-3">
-            <dt className="font-display text-lg font-bold uppercase">Net claim</dt>
-            <dd className="font-display text-3xl font-bold text-ember">{usd(totals.netClaimCents)}</dd>
-          </div>
+          {!indiaMode && <div className="flex items-baseline justify-between border-t border-ember/50 pt-3"><dt className="font-display text-lg font-bold uppercase">Net claim</dt><dd className="font-display text-3xl font-bold text-ember">{usd(totals.netClaimCents)}</dd></div>}
+          {indiaMode && <div className="flex items-baseline justify-between border-t border-ember/50 pt-3"><dt className="font-display text-lg font-bold uppercase">Quotation total</dt><dd className="font-display text-3xl font-bold text-ember">{usd(totals.rcvCents)}</dd></div>}
         </dl>
       </div>
 
@@ -164,6 +167,7 @@ function VersionDiff({ from, to }: { from: EstimateVersionDTO; to: EstimateVersi
 
 export function EstimateTab({ jobId }: { jobId: string }) {
   const { can, user } = useAuth();
+  const indiaMode = user?.company.settings?.country === "IN";
   const { t } = useI18n();
   const qc = useQueryClient();
   const [selected, setSelected] = useState<number | null>(null);
@@ -247,7 +251,7 @@ export function EstimateTab({ jobId }: { jobId: string }) {
           </>}
         </div>
       </div>
-      <p className="text-sm text-mist">The CSV is a line-item handoff for manual entry. It is not a native Xactimate .ESX project file.</p>
+      <p className="text-sm text-mist">The CSV is a line-item handoff for manual entry; it includes the currency code and does not claim compatibility with another estimating system.</p>
       {exportError && <p role="alert" className="text-bad">{exportError}</p>}
 
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Estimate versions">
@@ -270,24 +274,24 @@ export function EstimateTab({ jobId }: { jobId: string }) {
       <header className="mb-6 border-b border-gray-300 pb-4">
         <p className="text-sm uppercase tracking-wide">RoofDesk estimate handoff</p>
         <h1 className="my-2 text-3xl font-bold">{KIND_LABEL[version.kind]} · Version {version.versionNo}</h1>
-        <p>Job {job.data?.jobNumber ?? jobId} · Prepared {new Date(version.createdAt).toLocaleDateString()}</p>
+        <p>Job {job.data?.jobNumber ?? jobId} · Prepared {new Date(version.createdAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}</p>
         {job.data && <p>{job.data.customer.name} · {[job.data.property.line1, job.data.property.line2, job.data.property.locality, job.data.property.city, job.data.property.district, job.data.property.state, job.data.property.country === "IN" ? job.data.property.pinCode : job.data.property.zip].filter(Boolean).join(", ")}</p>}
         {version.note && <p className="mt-2">{version.note}</p>}
       </header>
       <table className="w-full border-collapse text-sm">
-        <thead><tr><th>Description</th><th>Category</th><th>Qty</th><th>Unit</th><th>Unit price</th><th>Taxable</th><th>Deprec.</th><th>Line total</th></tr></thead>
+        <thead><tr><th>Description</th><th>Category</th><th>Qty</th><th>Unit</th><th>Unit price</th><th>Tax / charges</th>{!indiaMode && <th>Deprec.</th>}<th>Line total</th></tr></thead>
         <tbody>{version.lineItems.map((item) => <tr key={item.key}>
           <td>{item.description}</td><td>{item.category}</td><td>{item.quantity}</td><td>{item.unit}</td>
-          <td>{usd(item.unitPriceCents)}</td><td>{item.taxable ? "Yes" : "No"}</td><td>{item.depreciationPct}%</td>
+          <td>{usd(item.unitPriceCents)}</td><td>{item.taxable ? "Yes" : "No"}</td>{!indiaMode && <td>{item.depreciationPct}%</td>}
           <td>{usd(totals.lineTotals[item.key] ?? 0)}</td>
         </tr>)}</tbody>
       </table>
       <dl className="ml-auto mt-6 max-w-sm space-y-1">
-        {[["Line subtotal", totals.subtotalCents], ["Overhead", totals.overheadCents], ["Profit", totals.profitCents], ["Tax", totals.taxCents], ["Replacement cost (RCV)", totals.rcvCents], ["Depreciation", -totals.depreciationCents], ["Actual cash value (ACV)", totals.acvCents], ["Deductible", -totals.deductibleCents], ["Net claim", totals.netClaimCents]].map(([label, amount]) =>
+        {(indiaMode ? [["Line subtotal", totals.subtotalCents], ["Overhead", totals.overheadCents], ["Profit", totals.profitCents], ["Tax / other charges", totals.taxCents], ["Quotation total", totals.rcvCents]] : [["Line subtotal", totals.subtotalCents], ["Overhead", totals.overheadCents], ["Profit", totals.profitCents], ["Tax", totals.taxCents], ["Replacement cost (RCV)", totals.rcvCents], ["Depreciation", -totals.depreciationCents], ["Actual cash value (ACV)", totals.acvCents], ["Deductible", -totals.deductibleCents], ["Net claim", totals.netClaimCents]]).map(([label, amount]) =>
           <div key={label as string} className="flex justify-between gap-6"><dt>{label}</dt><dd>{usd(amount as number)}</dd></div>
         )}
       </dl>
-      <p className="mt-8 border-t border-gray-300 pt-3 text-xs">RoofDesk estimate handoff. Verify quantities, prices, depreciation, and applicable local requirements before submission. This document and its CSV are not Xactimate-native .ESX files.</p>
+      <p className="mt-8 border-t border-gray-300 pt-3 text-xs">RoofDesk estimate handoff. Verify quantities and local material/labour prices. Confirm any tax treatment and rates with your accountant before sharing this quotation.</p>
     </article>
     </>
   );

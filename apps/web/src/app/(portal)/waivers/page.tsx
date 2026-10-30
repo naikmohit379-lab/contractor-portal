@@ -40,7 +40,10 @@ function TemplateCard({ t }: { t: TemplateDTO }) {
 }
 
 export default function WaiverFormsPage() {
-  const q = useQuery({ queryKey: ["waiver-templates"], queryFn: () => api<{ items: TemplateDTO[] }>("/waiver-templates") });
+  const { user } = useAuth();
+  const india = user?.company.settings?.country === "IN";
+  const q = useQuery({ queryKey: ["waiver-templates"], queryFn: () => api<{ items: TemplateDTO[] }>("/waiver-templates"), enabled: !india });
+  if (india) return <section className="panel max-w-2xl space-y-2 p-5"><h1 className="text-3xl font-bold">Waiver forms are unavailable</h1><p className="text-mist-strong">The India-first workspace does not provide U.S. statutory waiver forms. Use contract and payment documents reviewed for your business by Indian counsel.</p></section>;
   return (
     <div className="space-y-5">
       <h1 className="text-4xl font-bold">Waiver forms</h1>

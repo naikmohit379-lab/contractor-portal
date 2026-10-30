@@ -26,6 +26,15 @@ describe("CSV export", () => {
     expect(r.headers.get("content-disposition")).toMatch(/attachment; filename="roofdesk-jobs-/);
     expect(r.body).toContain("'=HYPERLINK"); // the leading apostrophe stops it running as a formula
     expect(r.body).not.toMatch(/(^|,)"?=HYPERLINK/m);
+    expect(r.body).toContain("State / Union Territory");
+    expect(r.body).toContain("PIN code");
+  });
+  it("uses currency-neutral export headings for the Indian workspace and omits U.S. waiver exports", async () => {
+    const payments = await app.call("GET", "/reports/export/payments.csv", { token: s.token });
+    expect(payments.status).toBe(200);
+    expect(payments.body).toContain("Currency code");
+    expect(payments.body).not.toContain("Amount USD");
+    expect((await app.call("GET", "/reports/export/waivers.csv", { token: s.token })).status).toBe(404);
   });
   it("is limited to people who may see money, and to known report names", async () => {
     const est = await addUser(app, s.companyId, "estimator");

@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import { JOB_STAGES, JOB_TYPES } from "@roofdesk/shared";
+import { JOB_STAGES, JOB_TYPES, LEGACY_JOB_TYPES } from "@roofdesk/shared";
 import { tenancyPlugin } from "../core/tenancyPlugin";
 
 const jobSchema = new Schema(
@@ -23,7 +23,7 @@ const jobSchema = new Schema(
       coordinates: { lat: { type: Number, min: -90, max: 90 }, lng: { type: Number, min: -180, max: 180 } },
       country: { type: String, default: "US" },
     },
-    type: { type: String, enum: JOB_TYPES, default: "insurance" },
+    type: { type: String, enum: [...JOB_TYPES, ...LEGACY_JOB_TYPES], default: "residential" },
     stage: { type: String, enum: JOB_STAGES, default: "lead" },
     assigneeIds: [{ type: Schema.Types.ObjectId, ref: "User" }],
     notes: String,

@@ -16,7 +16,7 @@ type CatalogRow = SupplierDTO["catalog"][number];
 
 function CatalogEditor({ supplier }: { supplier: SupplierDTO }) {
   const qc = useQueryClient();
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const [rows, setRows] = useState<CatalogRow[]>(supplier.catalog);
   const save = useMutation({
     mutationFn: () => api<SupplierDTO>(`/suppliers/${supplier.id}/catalog`, { method: "PUT", body: JSON.stringify({ items: rows }) }),
@@ -35,7 +35,7 @@ function CatalogEditor({ supplier }: { supplier: SupplierDTO }) {
           </select>
           <input aria-label="SKU" placeholder="SKU" className="field" value={r.sku} disabled={!editable} onChange={(e) => set(i, { sku: e.target.value })} />
           <input aria-label="Product name" placeholder="Product name" className="field" value={r.name} disabled={!editable} onChange={(e) => set(i, { name: e.target.value })} />
-          <NumInput aria-label="Unit price (USD)" value={r.unitPriceCents} disabled={!editable} format={(c) => centsToDollars(c)} parse={(s) => dollarsToCents(parseFloat(s))} onCommit={(c) => set(i, { unitPriceCents: c })} />
+          <NumInput aria-label={`Unit price (${user?.company.settings?.currency ?? "INR"})`} value={r.unitPriceCents} disabled={!editable} format={(c) => centsToDollars(c)} parse={(s) => dollarsToCents(parseFloat(s))} onCommit={(c) => set(i, { unitPriceCents: c })} />
           {editable && <button className="btn btn-ghost px-3" aria-label="Remove row" onClick={() => setRows((a) => a.filter((_, x) => x !== i))}><Trash2 size={16} /></button>}
         </div>
       ))}

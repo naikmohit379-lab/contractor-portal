@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { buildEstimate, createJob, registerCompany, seedMeasurement, startTestApp, type Session, type TestApp } from "./helpers";
+import { buildEstimate, createJob, createLegacyUsJob, registerCompany, seedMeasurement, startTestApp, type Session, type TestApp } from "./helpers";
 
 let app: TestApp;
 let s: Session;
@@ -60,7 +60,7 @@ describe("estimates", () => {
 
 describe("claim workflow", () => {
   it("enforces the status machine, locks the submitted estimate, and requires a supplement version", async () => {
-    const job = await createJob(app, s);
+    const job = await createLegacyUsJob(app, s);
     const est = await buildEstimate(app, s, job);
     const v1 = est.body.estimate.versions[0];
     expect((await app.call("POST", `/jobs/${job}/claim`, { token: s.token, body: claimBody })).status).toBe(201);
@@ -99,7 +99,7 @@ describe("claim workflow", () => {
     expect(diff.body.deltaSubtotalCents).toBeGreaterThan(0);
   });
   it("cannot submit without an estimate", async () => {
-    const job = await createJob(app, s);
+    const job = await createLegacyUsJob(app, s);
     await app.call("POST", `/jobs/${job}/claim`, { token: s.token, body: claimBody });
     const r = await app.call("POST", `/jobs/${job}/claim/status`, { token: s.token, body: { status: "submitted" } });
     expect(r.status).toBe(422);

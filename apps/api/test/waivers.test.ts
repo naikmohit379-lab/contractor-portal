@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { addUser, createJob, createMilestone, lastSegment, registerCompany, startTestApp, type Session, type TestApp } from "./helpers";
+import { addUser, createLegacyUsJob, createMilestone, lastSegment, registerCompany, startTestApp, type Session, type TestApp } from "./helpers";
 
 let app: TestApp;
 let s: Session;
@@ -14,7 +14,8 @@ const readiness = async (id: string) => (await app.call("GET", `/jobs/${job}/mil
 beforeAll(async () => {
   app = await startTestApp();
   s = await registerCompany(app);
-  job = await createJob(app, s);
+  await app.models.Company.updateOne({ _id: s.companyId }, { $set: { "settings.country": "US", "settings.currency": "USD", "settings.locale": "en-US", "settings.timezone": "America/Chicago", "settings.measurementSystem": "imperial" } });
+  job = await createLegacyUsJob(app, s);
   await app.call("POST", `/jobs/${job}/parties`, { token: s.token, body: { type: "supplier", name: "Shingle Supply Co", contractAmountCents: 100000 } });
   m1 = await createMilestone(app, s, job, { label: "Draw 1" });
 });

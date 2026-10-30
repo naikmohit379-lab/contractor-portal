@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { randomBytes } from "node:crypto";
 import { PASSWORD, addUser, createJob, registerCompany, startTestApp, type Session, type TestApp } from "./helpers";
 
 let app: TestApp;
@@ -24,11 +25,17 @@ describe("tenant isolation", () => {
     const created = await app.call("POST", "/jobs", { token: a.token, body: {
       customer: { name: "Bengaluru Customer" },
       property: { line1: "12 Example Road", city: "Bengaluru", district: "Bengaluru Urban", state: "Karnataka", pinCode: "560001", country: "IN" },
-      type: "retail",
+      type: "residential",
     } });
     expect(created.status).toBe(201);
     expect(created.body.property).toMatchObject({ country: "IN", district: "Bengaluru Urban", pinCode: "560001" });
-    expect((await app.call("GET", `/jobs/${jobA}`, { token: a.token })).body.property).toMatchObject({ state: "TX", zip: "78701" });
+    const { requestContext } = await import("../src/core/context");
+    const legacy = await requestContext.run({ companyId: a.companyId, userId: a.userId, role: "owner" }, async () => app.models.Job.create({
+      jobNumber: `LEGACY-${Date.now()}`, customer: { name: "Historical Customer" },
+      property: { line1: "14 Oak Ridge Lane", city: "Austin", state: "TX", zip: "78701", country: "US" },
+      type: "insurance", stage: "lead", createdBy: a.userId,
+    }));
+    expect((await app.call("GET", `/jobs/${legacy.id}`, { token: a.token })).body.property).toMatchObject({ state: "TX", zip: "78701", country: "US" });
   });
   it("refuses to change another company's data", async () => {
     expect((await app.call("PATCH", `/jobs/${jobA}/stage`, { token: b.token, body: { stage: "paid" } })).status).toBe(404);
@@ -40,6 +47,12 @@ describe("tenant isolation", () => {
       expect(r.status).toBe(200);
       expect(r.body.items ?? r.body.payments ?? []).toHaveLength(0);
     }
+  });
+  it("does not expose U.S. claim or waiver workflows for Indian jobs", async () => {
+    expect((await app.call("GET", `/jobs/${jobA}/claim`, { token: a.token })).status).toBe(404);
+    expect((await app.call("GET", `/jobs/${jobA}/waivers`, { token: a.token })).status).toBe(404);
+    expect((await app.call("GET", "/waiver-templates", { token: a.token })).body.items).toEqual([]);
+    expect((await app.call("POST", "/waiver-templates/conditional_progress/approve", { token: a.token })).status).toBe(404);
   });
   it("makes a query without a tenant context fail loudly, and skipping must be explicit", async () => {
     await expect(app.models.Job.find()).rejects.toThrow(/Tenant context missing/);
@@ -57,6 +70,24 @@ describe("authentication", () => {
     const cookie = r.headers.getSetCookie().find((c) => c.startsWith("rd_refresh="))!;
     expect(cookie).toMatch(/HttpOnly/i);
     expect(cookie).toMatch(/Path=\/api\/v1\/auth/);
+  });
+  it("keeps an Indian workspace INR and does not allow market reinterpretation", async () => {
+    const current = await app.call("GET", "/admin/settings", { token: a.token });
+    const changed = await app.call("PUT", "/admin/settings", { token: a.token, body: {
+      ...current.body.settings,
+      country: "US", currency: "USD", locale: "en-US", timezone: "America/Chicago", measurementSystem: "imperial",
+    } });
+    expect(changed.status).toBe(409);
+    expect((await app.call("GET", "/admin/settings", { token: a.token })).body.settings).toMatchObject({ country: "IN", currency: "INR", locale: "en-IN", timezone: "Asia/Kolkata", measurementSystem: "metric" });
+  });
+  it("allows an existing U.S. workspace to save without changing its market", async () => {
+    const legacy = await registerCompany(app, "Legacy Settings Co");
+    await app.models.Company.updateOne({ _id: legacy.companyId }, { $set: { "settings.country": "US", "settings.currency": "USD", "settings.locale": "en-US", "settings.timezone": "America/Chicago", "settings.measurementSystem": "imperial" } });
+    const current = await app.call("GET", "/admin/settings", { token: legacy.token });
+    expect(current.body.settings).toMatchObject({ country: "US", currency: "USD", locale: "en-US", timezone: "America/Chicago", measurementSystem: "imperial" });
+    const saved = await app.call("PUT", "/admin/settings", { token: legacy.token, body: current.body.settings });
+    expect(saved.status).toBe(200);
+    expect(saved.body.settings).toMatchObject({ country: "US", currency: "USD", locale: "en-US", timezone: "America/Chicago", measurementSystem: "imperial" });
   });
   it("keeps pre-existing companies on U.S. defaults when their settings are absent", async () => {
     const legacy = await app.models.Company.create({ name: "Legacy U.S. Company", slug: `legacy-${Date.now()}`, settings: { paymentGating: "block", refundApprovalThresholdCents: 35000 } });
@@ -83,6 +114,34 @@ describe("authentication", () => {
     expect(wrong.status).toBe(401);
     expect(unknown.status).toBe(401);
     expect(wrong.body.error.message).toBe(unknown.body.error.message);
+  });
+  it("keeps forgot-password responses generic and records a redacted reset email", async () => {
+    const active = await app.call("POST", "/auth/forgot-password", { body: { email: a.email } });
+    const unknown = await app.call("POST", "/auth/forgot-password", { body: { email: "unknown-reset@example.com" } });
+    expect(active.status).toBe(200);
+    expect(active.body).toEqual(unknown.body);
+    const token = await app.models.PasswordResetToken.findOne({ userId: a.userId }).setOptions({ skipTenant: true });
+    expect(token).toBeTruthy();
+    expect(token!.tokenHash).toMatch(/^[a-f0-9]{64}$/);
+    const email = await app.models.EmailOutbox.findOne({ to: a.email, kind: "auth.password_reset" }).setOptions({ skipTenant: true });
+    expect(email?.status).toBe("sent");
+    expect(email?.redactedText).not.toContain("/reset-password/");
+  });
+  it("accepts a reset token once, changes the password, and revokes old sessions", async () => {
+    const { hashToken } = await import("../src/core/auth");
+    const raw = randomBytes(32).toString("base64url");
+    await app.models.PasswordResetToken.create({
+      userId: a.userId,
+      companyId: a.companyId,
+      tokenHash: hashToken(raw),
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    });
+    const reset = await app.call("POST", "/auth/reset-password", { body: { token: raw, password: "new secure password 123" } });
+    expect(reset.status).toBe(204);
+    expect((await app.call("POST", "/auth/reset-password", { body: { token: raw, password: "another password 123" } })).status).toBe(400);
+    expect((await app.call("POST", "/auth/login", { body: { email: a.email, password: PASSWORD } })).status).toBe(401);
+    expect((await app.call("POST", "/auth/login", { body: { email: a.email, password: "new secure password 123" } })).status).toBe(200);
+    expect((await app.call("POST", "/auth/refresh", { cookie: a.cookie })).status).toBe(401);
   });
   it("needs a valid token", async () => {
     expect((await app.call("GET", "/jobs")).status).toBe(401);

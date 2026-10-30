@@ -38,8 +38,6 @@ export default function AdminPage() {
   const { counts, recentJobs, activity } = overview.data;
   const cards = [
     { label: "Jobs on file", value: counts.jobs, href: "/jobs", icon: BriefcaseBusiness },
-    { label: "Claims needing follow-up", value: counts.activeClaims, href: "/jobs", icon: FileWarning },
-    { label: "Unsigned waivers", value: counts.openWaivers, href: "/waivers", icon: FileSignature, alert: true },
     { label: "Payment records flagged", value: counts.flaggedPayments, href: "/payments", icon: ShieldAlert, alert: true },
     { label: "Late supplier orders", value: counts.lateOrders, href: "/suppliers", icon: Truck, alert: true },
     { label: "Overdue follow-ups", value: counts.overdueTasks, href: "/dashboard", icon: AlertTriangle, alert: true },
@@ -76,6 +74,6 @@ export default function AdminPage() {
       </section>
     </div>
 
-    <p className="text-xs text-mist">Payments remain in mock mode for this release. Texas waiver templates are not statutory forms until counsel supplies and approves their wording. Aerial measurement orders continue to use the configured provider; real EagleView reports require vendor credentials.</p>
+    <p className="text-xs text-mist">Payments are simulated in this release. RoofV measurement orders require the server integration to be enabled and the workspace credentials to be configured.</p>
   </div>;
 }

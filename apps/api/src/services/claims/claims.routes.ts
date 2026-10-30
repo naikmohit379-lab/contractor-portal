@@ -29,6 +29,14 @@ import { advanceStage } from "../jobs/stages";
 
 export const claimsRouter = Router({ mergeParams: true });
 claimsRouter.use(requireAuth);
+// Keep historical U.S. claim records accessible, but prevent new claim workflows
+// from being used against India-first properties through direct API requests.
+claimsRouter.use(asyncHandler(async (req, _res, next) => {
+  const job = await Job.findById(req.params.jobId).select("property.country");
+  if (!job) return next();
+  if (job.property?.country === "IN") throw new AppError(404, "not_found", "This workflow is unavailable for this property");
+  next();
+}));
 
 const jobParam = z.object({ jobId: z.string().refine(isValidObjectId, "Invalid job id") });
 

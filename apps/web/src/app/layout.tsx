@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: { default: `${BRAND.name} | Roofing contractor portal`, template: `%s | ${BRAND.name}` },
   description:
-    "Order aerial roof measurements, build insurance claim estimates, coordinate supplier orders and track lien waivers in one job record.",
+    "Manage Indian roofing jobs, roof measurements, INR estimates, supplier orders and follow-up tasks in one workspace.",
   openGraph: { type: "website", siteName: BRAND.name, title: `${BRAND.name} | ${BRAND.tagline}` },
 };
 

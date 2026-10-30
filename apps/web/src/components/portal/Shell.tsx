@@ -43,7 +43,9 @@ export function Shell({ children }: { children: ReactNode }) {
   }
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-  const availableNav = NAV.map((n) => ({ ...n, label: t(n.label), short: n.short ? t(n.short) : undefined })).filter((n) => !n.permission || can(n.permission));
+  const availableNav = NAV.map((n) => ({ ...n, label: t(n.label), short: n.short ? t(n.short) : undefined }))
+    .filter((n) => !n.permission || can(n.permission))
+    .filter((n) => user.company.settings?.country !== "IN" || n.href !== "/waivers");
   const primary = availableNav.filter((n) => n.primary);
   const secondary = availableNav.filter((n) => !n.primary);
   const moreActive = secondary.some((n) => isActive(n.href));

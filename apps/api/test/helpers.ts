@@ -62,6 +62,8 @@ export async function startTestApp() {
     Payment: (await import("../src/models/Payment")).Payment,
     LedgerEntry: (await import("../src/models/LedgerEntry")).LedgerEntry,
     MeasurementReport: (await import("../src/models/MeasurementReport")).MeasurementReport,
+    PasswordResetToken: (await import("../src/models/PasswordResetToken")).PasswordResetToken,
+    EmailOutbox: (await import("../src/models/EmailOutbox")).EmailOutbox,
   };
 
   return {
@@ -107,9 +109,21 @@ export async function addUser(app: TestApp, companyId: string, role: string): Pr
 }
 
 export async function createJob(app: TestApp, s: Session, customer = "Casey Customer"): Promise<string> {
-  const r = await app.call("POST", "/jobs", { token: s.token, body: { customer: { name: customer }, property: { line1: "14 Oak Ridge Ln", city: "Austin", state: "TX", zip: "78701" }, type: "insurance" } });
+  const r = await app.call("POST", "/jobs", { token: s.token, body: { customer: { name: customer }, property: { line1: "14 Example Road", city: "Bengaluru", district: "Bengaluru Urban", state: "Karnataka", pinCode: "560001", country: "IN" }, type: "residential" } });
   if (r.status !== 201) throw new Error(`createJob failed: ${r.status} ${JSON.stringify(r.body)}`);
   return r.body.id;
+}
+
+/** Seeds a legacy U.S. property for compatibility tests; new job creation is India-only. */
+export async function createLegacyUsJob(app: TestApp, s: Session, customer = "Legacy Customer"): Promise<string> {
+  const { requestContext } = await import("../src/core/context");
+  const job = await requestContext.run({ companyId: s.companyId, userId: s.userId, role: "owner" }, () => app.models.Job.create({
+    jobNumber: `LEGACY-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    customer: { name: customer },
+    property: { line1: "14 Oak Ridge Lane", city: "Austin", state: "TX", zip: "78701", country: "US" },
+    type: "insurance", stage: "lead", createdBy: s.userId,
+  }));
+  return job.id;
 }
 
 /** Inserts a delivered measurement directly, so tests do not wait for the mock provider's delay. */

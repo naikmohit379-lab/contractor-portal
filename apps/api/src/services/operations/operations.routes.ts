@@ -37,13 +37,14 @@ operationsRouter.get(
       Job.countDocuments(jobFilter),
     ]);
     const jobIds = jobs.map((job) => job._id);
+    const legacyJobIds = jobs.filter((job) => job.property?.country !== "IN").map((job) => job._id);
     const [documents, claims, waivers, orders, tasks] = await Promise.all([
       Document.aggregate([
         { $match: { jobId: { $in: jobIds } } },
         { $group: { _id: "$jobId", count: { $sum: 1 }, photos: { $sum: { $cond: [{ $eq: ["$kind", "photo"] }, 1, 0] } } } },
       ]),
-      Claim.find({ jobId: { $in: jobIds }, status: { $in: ["submitted", "inspection_scheduled", "supplement_filed"] } }).select("jobId claimNo carrier status updatedAt"),
-      Waiver.find({ jobId: { $in: jobIds }, status: { $in: ["requested", "viewed"] } }).sort({ requestedAt: 1 }).limit(30).select("jobId partyId status requestedAt type"),
+      Claim.find({ jobId: { $in: legacyJobIds }, status: { $in: ["submitted", "inspection_scheduled", "supplement_filed"] } }).select("jobId claimNo carrier status updatedAt"),
+      Waiver.find({ jobId: { $in: legacyJobIds }, status: { $in: ["requested", "viewed"] } }).sort({ requestedAt: 1 }).limit(30).select("jobId partyId status requestedAt type"),
       PurchaseOrder.find({ jobId: { $in: jobIds }, status: { $in: ["sent", "confirmed", "scheduled", "partially_delivered", "backordered"] } }).sort({ updatedAt: -1 }).limit(30).select("jobId poNumber status deliveryWindow updatedAt"),
       OperationsTask.find({ jobId: { $in: jobIds }, status: { $ne: "done" } }).sort({ dueAt: 1, createdAt: -1 }).limit(30),
     ]);

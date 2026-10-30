@@ -3,7 +3,7 @@ import { INDIA_MARKET_DEFAULTS, LEGACY_MARKET_DEFAULTS, companyMarketSettingsSch
 import { jobCreateSchema } from "./schemas";
 import { feetToMeters, formatLocaleDateTime, formatLocaleDate, formatMinorCurrency, interpolateText, resolveLocalizedText, squareFeetToSquareMeters } from "./locale";
 
-const baseJob = { customer: { name: "Test Customer" }, type: "retail" as const };
+const baseJob = { customer: { name: "Test Customer" }, type: "residential" as const };
 
 describe("India-first market compatibility", () => {
   it("accepts Indian addresses with a district and PIN without U.S. ZIP fields", () => {
@@ -13,15 +13,14 @@ describe("India-first market compatibility", () => {
     expect(result.success).toBe(true);
   });
 
-  it("continues accepting legacy U.S. addresses and normalizes the state code", () => {
-    const result = jobCreateSchema.safeParse({ ...baseJob, property: { line1: "14 Oak Ridge Ln", city: "Austin", state: "tx", zip: "78701" } });
-    expect(result.success).toBe(true);
-    if (result.success) expect(result.data.property.state).toBe("TX");
+  it("rejects U.S. addresses when creating new jobs", () => {
+    const result = jobCreateSchema.safeParse({ ...baseJob, property: { line1: "14 Oak Ridge Ln", city: "Austin", state: "TX", zip: "78701", country: "US" } });
+    expect(result.success).toBe(false);
   });
 
-  it("requires a six-digit PIN and district in India, and state code plus ZIP in legacy U.S. requests", () => {
+  it("requires a six-digit PIN and district and rejects U.S. address formats", () => {
     expect(jobCreateSchema.safeParse({ ...baseJob, property: { line1: "12 Example Road", city: "Bengaluru", state: "Karnataka", country: "IN", pinCode: "56000" } }).success).toBe(false);
-    expect(jobCreateSchema.safeParse({ ...baseJob, property: { line1: "12 Example Road", city: "Austin", state: "Texas", zip: "78701" } }).success).toBe(false);
+    expect(jobCreateSchema.safeParse({ ...baseJob, property: { line1: "12 Example Road", city: "Austin", state: "Texas", zip: "78701", country: "US" } }).success).toBe(false);
   });
 
   it("uses India defaults for new companies while preserving U.S. defaults for legacy records", () => {

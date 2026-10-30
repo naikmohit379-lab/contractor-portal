@@ -29,6 +29,8 @@ import { PaymentMilestone } from "../../models/PaymentMilestone";
 import { PurchaseOrder } from "../../models/PurchaseOrder";
 import { Supplier } from "../../models/Supplier";
 import { Waiver } from "../../models/Waiver";
+import { Company } from "../../models/Company";
+import { notFound } from "../../core/errors";
 import { toVersionDTO } from "../estimates/estimates.routes";
 
 export const reportsRouter = Router();
@@ -143,24 +145,27 @@ reportsRouter.get(
   "/export/:kind.csv",
   validate({ params: kind }),
   asyncHandler(async (req, res) => {
+    const company = await Company.findById(req.auth!.companyId).select("settings.country settings.currency");
+    const currency = company?.settings?.currency ?? (company?.settings?.country === "IN" ? "INR" : "USD");
     const iso = (d?: Date | null) => (d ? d.toISOString() : "");
     let rows: (string | number | null)[][] = [];
 
     if (req.params.kind === "jobs") {
       const jobs = await Job.find().sort({ createdAt: -1 });
-      rows = [["Job number", "Customer", "Address", "City", "State", "ZIP", "Type", "Stage", "Created", "Address line 2", "Locality", "District", "PIN code", "Country"], ...jobs.map((j) => [j.jobNumber, j.customer?.name ?? "", j.property?.line1 ?? "", j.property?.city ?? "", j.property?.state ?? "", j.property?.zip ?? "", j.type, STAGE_LABELS[j.stage as keyof typeof STAGE_LABELS], iso((j as any).createdAt), j.property?.line2 ?? "", j.property?.locality ?? "", j.property?.district ?? "", j.property?.pinCode ?? "", j.property?.country ?? "US"])];
+      rows = [["Job number", "Customer", "Address", "City / town", "State / Union Territory", "ZIP code", "Type", "Stage", "Created", "Address line 2", "Locality", "District", "PIN code", "Country"], ...jobs.map((j) => [j.jobNumber, j.customer?.name ?? "", j.property?.line1 ?? "", j.property?.city ?? "", j.property?.state ?? "", j.property?.zip ?? "", j.type, STAGE_LABELS[j.stage as keyof typeof STAGE_LABELS], iso((j as any).createdAt), j.property?.line2 ?? "", j.property?.locality ?? "", j.property?.district ?? "", j.property?.pinCode ?? "", j.property?.country ?? "US"])];
     } else if (req.params.kind === "payments") {
       const [ps, js] = await Promise.all([Payment.find().sort({ createdAt: -1 }), Job.find()]);
       const num = new Map(js.map((j) => [j.id, j.jobNumber]));
-      rows = [["Job number", "Description", "Payer", "Amount USD", "Refunded USD", "Status", "Requested", "Paid"], ...ps.map((p) => [num.get(String(p.jobId)) ?? "", p.description, p.payerName, p.amountCents / 100, p.refundedCents / 100, PAYMENT_STATUS_LABELS[p.status as keyof typeof PAYMENT_STATUS_LABELS], iso((p as any).createdAt), iso(p.paidAt)])];
+      rows = [["Job number", "Description", "Payer", "Amount", "Refunded", "Currency code", "Status", "Requested", "Paid"], ...ps.map((p) => [num.get(String(p.jobId)) ?? "", p.description, p.payerName, p.amountCents / 100, p.refundedCents / 100, currency, PAYMENT_STATUS_LABELS[p.status as keyof typeof PAYMENT_STATUS_LABELS], iso((p as any).createdAt), iso(p.paidAt)])];
     } else if (req.params.kind === "waivers") {
+      if (company?.settings?.country === "IN") throw notFound("Report");
       const [ws, ps, js] = await Promise.all([Waiver.find().sort({ createdAt: -1 }), Party.find(), Job.find()]);
       const party = new Map(ps.map((p) => [p.id, p.name]));
       const num = new Map(js.map((j) => [j.id, j.jobNumber]));
-      rows = [["Job number", "Party", "Type", "Amount USD", "Through date", "Status", "Requested", "Signed", "Signer", "Fingerprint"], ...ws.map((w) => [num.get(String(w.jobId)) ?? "", party.get(String(w.partyId)) ?? "", w.type, w.amountCents / 100, iso(w.throughDate).slice(0, 10), w.status, iso(w.requestedAt), iso(w.signedAt), w.signerName ?? "", w.documentHash ?? ""])];
+      rows = [["Job number", "Party", "Type", "Amount", "Currency code", "Through date", "Status", "Requested", "Signed", "Signer", "Fingerprint"], ...ws.map((w) => [num.get(String(w.jobId)) ?? "", party.get(String(w.partyId)) ?? "", w.type, w.amountCents / 100, currency, iso(w.throughDate).slice(0, 10), w.status, iso(w.requestedAt), iso(w.signedAt), w.signerName ?? "", w.documentHash ?? ""])];
     } else {
       const ls = await LedgerEntry.find().sort({ at: 1 });
-      rows = [["Date", "Group", "Kind", "Account", "Direction", "Amount USD", "Memo", "Payment id"], ...ls.map((l) => [iso(l.at), l.group, l.kind, l.account, l.direction, l.amountCents / 100, l.memo ?? "", String(l.paymentId)])];
+      rows = [["Date", "Group", "Kind", "Account", "Direction", "Amount", "Currency code", "Memo", "Payment id"], ...ls.map((l) => [iso(l.at), l.group, l.kind, l.account, l.direction, l.amountCents / 100, currency, l.memo ?? "", String(l.paymentId)])];
     }
 
     await audit(req, "report.exported", "Report", new Types.ObjectId(req.auth!.companyId), { kind: req.params.kind, rows: rows.length - 1 });

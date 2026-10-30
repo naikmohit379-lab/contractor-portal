@@ -7,6 +7,7 @@ import { useState } from "react";
 import { CLAIM_STATUS_LABELS, type AgingBucket, type ApprovalStats, type Receivables } from "@roofdesk/shared";
 import { api, downloadFile, fetchBlob } from "@/lib/api";
 import { fmtDate, usd } from "@/lib/format";
+import { useAuth } from "@/lib/auth";
 
 interface Overview {
   generatedAt: string;
@@ -16,7 +17,7 @@ interface Overview {
   collectedByMonth: { month: string; cents: number }[];
 }
 
-const monthLabel = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+const monthLabel = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString("en-IN", { month: "short", timeZone: "UTC" });
 
 function Kpi({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "bad" | "ok" }) {
   return (
@@ -52,6 +53,8 @@ const EXPORTS = [
 ] as const;
 
 export function ReportsPanel() {
+  const { user } = useAuth();
+  const indiaMode = user?.company.settings?.country === "IN";
   const q = useQuery({ queryKey: ["reports", "overview"], queryFn: () => api<Overview>("/reports/overview"), staleTime: 30_000 });
   const variance = useQuery({ queryKey: ["reports", "price-variance"], queryFn: () => api<{
     items: { orderId: string; jobId: string; jobNumber: string; customer: string; supplierName: string; poNumber: string; invoiceNumber: string; documentId: string; receivedAt: string; expectedTotalCents: number; invoiceTotalCents: number; varianceCents: number | null; variancePct: number | null }[];
@@ -79,7 +82,7 @@ export function ReportsPanel() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="rep" className="text-2xl font-bold">Business overview</h2>
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Download CSV exports">
-          {EXPORTS.map((e) => (
+          {EXPORTS.filter((e) => !indiaMode || e.kind !== "waivers").map((e) => (
             <button key={e.kind} className="btn btn-ghost h-10 min-h-0 px-3" disabled={busy !== null} onClick={() => exportCsv(e.kind)}>
               <Download size={15} aria-hidden /> {busy === e.kind ? "Preparing" : e.label}
             </button>
@@ -90,13 +93,13 @@ export function ReportsPanel() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label="Collected this month" value={usd(thisMonth)} hint="Net of refunds" />
-        <Kpi label="Owed to you" value={usd(r.billedOutstandingCents)} hint={`${usd(r.awaitingWaiversCents)} more is waiting on waivers`} />
+        <Kpi label="Owed to you" value={usd(r.billedOutstandingCents)} hint={!indiaMode && r.awaitingWaiversCents ? `${usd(r.awaitingWaiversCents)} more is waiting on waivers` : "Open payment requests"} />
         <Kpi label="Overdue" value={usd(r.overdueCents)} tone={r.overdueCents > 0 ? "bad" : "ok"} hint="Past the payment's due date" />
-        <Kpi label="Claim approval rate" value={ap.ratePct === null ? "No data" : `${ap.ratePct}%`} hint={ap.decided ? `${usd(ap.approvedCents)} of ${usd(ap.requestedCents)} on ${ap.decided} decided claims` : "Needs a decided claim"} />
-        <Kpi label="Average claim cycle" value={o.claims.avgCycleDays === null ? "No data" : `${o.claims.avgCycleDays} days`} hint="Submitted to first decision" />
-        <Kpi label="Waivers outstanding" value={String(o.waivers.open)} hint="Requested, not yet signed" tone={o.waivers.aging[3]!.count > 0 ? "bad" : undefined} />
+        {!indiaMode && <Kpi label="Claim approval rate" value={ap.ratePct === null ? "No data" : `${ap.ratePct}%`} hint={ap.decided ? `${usd(ap.approvedCents)} of ${usd(ap.requestedCents)} on ${ap.decided} decided claims` : "Needs a decided claim"} />}
+        {!indiaMode && <Kpi label="Average claim cycle" value={o.claims.avgCycleDays === null ? "No data" : `${o.claims.avgCycleDays} days`} hint="Submitted to first decision" />}
+        {!indiaMode && <Kpi label="Waivers outstanding" value={String(o.waivers.open)} hint="Requested, not yet signed" tone={o.waivers.aging[3]!.count > 0 ? "bad" : undefined} />}
         <Kpi label="Payment links out" value={usd(r.openRequestedCents)} hint="Sent, not yet settled" />
-        <Kpi label="Claims on file" value={String(o.claims.total)} />
+        {!indiaMode && <Kpi label="Claims on file" value={String(o.claims.total)} />}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -104,7 +107,7 @@ export function ReportsPanel() {
           <h3 className="mb-4 text-xl font-bold">Collected by month</h3>
           <Bars rows={o.collectedByMonth.map((m) => ({ label: monthLabel(m.month), value: Math.max(m.cents, 0) }))} format={usd} />
         </article>
-        <article className="panel p-5">
+        {!indiaMode && <article className="panel p-5">
           <h3 className="mb-4 text-xl font-bold">How long waivers have waited</h3>
           <Bars rows={o.waivers.aging.map((b) => ({ label: b.label.replace(" days or more", "+ days").replace(" days", " d"), value: b.count, sub: b.count ? `oldest ${b.oldestDays} d` : undefined }))} format={(n) => String(n)} />
           {o.waivers.oldest.length > 0 && (
@@ -115,11 +118,11 @@ export function ReportsPanel() {
               </ul>
             </div>
           )}
-        </article>
-        <article className="panel p-5 lg:col-span-2">
+        </article>}
+        {!indiaMode && <article className="panel p-5 lg:col-span-2">
           <h3 className="mb-4 text-xl font-bold">Claims by status</h3>
           {claimRows.length === 0 ? <p className="text-sm text-mist">No claims yet.</p> : <Bars rows={claimRows} format={(n) => String(n)} />}
-        </article>
+        </article>}
         <article className="panel p-5 lg:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div><h3 className="text-xl font-bold">Supplier invoice price variance</h3><p className="mt-1 text-sm text-mist">Compares recorded invoice totals with priced purchase order lines. Lines without a saved unit price are excluded.</p></div>
@@ -141,7 +144,7 @@ export function ReportsPanel() {
           )}
         </article>
       </div>
-      <p className="text-xs text-mist">Requested claim amounts use the replacement cost of each job's original estimate. Review invoice variances against the supplier invoice PDF before making accounting adjustments.</p>
+      <p className="text-xs text-mist">Review supplier invoice variances against the original invoice before making accounting adjustments.</p>
     </section>
   );
 }

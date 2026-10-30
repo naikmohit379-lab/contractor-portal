@@ -15,11 +15,11 @@ export const JOB_STAGES = [
 export type JobStage = (typeof JOB_STAGES)[number];
 
 export const STAGE_LABELS: Record<JobStage, string> = {
-  lead: "Lead",
+  lead: "Enquiry",
   measured: "Measured",
-  estimated: "Estimated",
-  claim_filed: "Claim filed",
-  approved: "Approved",
+  estimated: "Estimate prepared",
+  claim_filed: "Quotation sent",
+  approved: "Work approved",
   materials_ordered: "Materials ordered",
   in_progress: "In progress",
   complete: "Complete",
@@ -39,7 +39,9 @@ export const jobStageLabelsSchema = z.object({
 });
 export type JobStageLabels = z.infer<typeof jobStageLabelsSchema>;
 
-export const JOB_TYPES = ["insurance", "retail", "commercial"] as const;
+/** Job types offered for Indian roofing work. Legacy U.S. types remain readable in stored records. */
+export const JOB_TYPES = ["residential", "commercial", "repair"] as const;
+export const LEGACY_JOB_TYPES = ["insurance", "retail"] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
 export const MEASUREMENT_STATUSES = ["ordered", "processing", "delivered", "failed"] as const;
@@ -77,17 +79,16 @@ const propertyAddressSchema = z.object({
   coordinates: coordinatesSchema.optional(),
   country: z.enum(MARKET_COUNTRIES).optional(),
 }).superRefine((address, ctx) => {
-  const country = address.country ?? "US"; // no country means a legacy U.S. request
+  const country = address.country ?? "IN";
   if (country === "IN") {
     if (!address.district?.trim()) ctx.addIssue({ code: "custom", path: ["district"], message: "Enter the district" });
     if (!address.pinCode || !/^[1-9][0-9]{5}$/.test(address.pinCode)) {
       ctx.addIssue({ code: "custom", path: ["pinCode"], message: "Enter a valid 6-digit PIN code" });
     }
   } else {
-    if (address.state.length !== 2) ctx.addIssue({ code: "custom", path: ["state"], message: "Use the 2-letter state code" });
-    if (!address.zip || address.zip.length < 5) ctx.addIssue({ code: "custom", path: ["zip"], message: "Enter the ZIP code" });
+    ctx.addIssue({ code: "custom", path: ["country"], message: "RoofDesk currently accepts Indian property addresses only" });
   }
-}).transform((address) => address.country === "US" || !address.country ? { ...address, state: address.state.toUpperCase() } : address);
+}).transform((address) => ({ ...address, country: "IN" as const }));
 
 export const jobCreateSchema = z.object({
   customer: z.object({
@@ -96,7 +97,7 @@ export const jobCreateSchema = z.object({
     phone: z.string().trim().max(30).optional(),
   }),
   property: propertyAddressSchema,
-  type: z.enum(JOB_TYPES).default("insurance"),
+  type: z.enum(JOB_TYPES).default("residential"),
   notes: z.string().trim().max(2000).optional(),
 });
 export type JobCreateInput = z.input<typeof jobCreateSchema>;

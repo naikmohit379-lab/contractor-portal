@@ -8,7 +8,7 @@ import { api, patch, post } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { fmtDate } from "@/lib/format";
 
-function MeasurementCard({ m, measurementSystem = "imperial", locale = "en-US" }: { m: MeasurementDTO; measurementSystem?: "metric" | "imperial"; locale?: string }) {
+function MeasurementCard({ m, measurementSystem = "metric", locale = "en-IN" }: { m: MeasurementDTO; measurementSystem?: "metric" | "imperial"; locale?: string }) {
   const pending = m.status === "ordered" || m.status === "processing";
   const number = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 });
   const area = (sqFt: number) => measurementSystem === "metric" ? `${number(squareFeetToSquareMeters(sqFt))} m²` : `${number(sqFt)} sq ft`;
@@ -42,8 +42,8 @@ function MeasurementCard({ m, measurementSystem = "imperial", locale = "en-US" }
 
 export function MeasurementsTab({ jobId }: { jobId: string }) {
   const { can, user } = useAuth();
-  const measurementSystem = user?.company.settings?.measurementSystem ?? "imperial";
-  const locale = user?.company.settings?.locale ?? "en-US";
+  const measurementSystem = user?.company.settings?.measurementSystem ?? "metric";
+  const locale = user?.company.settings?.locale ?? "en-IN";
   const [manualOpen, setManualOpen] = useState(false);
   const [facets, setFacets] = useState([{ id: "A", area: "", pitch: "" }]);
   const [linear, setLinear] = useState({ ridge: "", hip: "", valley: "", eave: "", rake: "" });

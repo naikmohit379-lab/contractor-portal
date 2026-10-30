@@ -29,7 +29,17 @@ test.describe("signed-in app", () => {
   });
 });
 
-test.describe("golden path: job to claim", () => {
+test("password reset request is reachable and confirms generically", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByRole("link", { name: "Forgot password?" }).click();
+  await expect(page).toHaveURL(/\/forgot-password/);
+  await expect(page.getByRole("heading", { name: "Reset your password" })).toBeVisible();
+  await page.getByLabel("Email").fill("unknown-reset@example.com");
+  await page.getByRole("button", { name: "Send reset link" }).click();
+  await expect(page.getByRole("status")).toContainText("If an active account uses that email");
+});
+
+test.describe("India-first job flow", () => {
   test("keeps a photo on device while offline and syncs it after reconnecting", async ({ page, context, isMobile }) => {
     test.skip(isMobile, "the offline upload flow is run on desktop; the phone project covers layout above");
     await registerViaUi(page);
@@ -61,39 +71,22 @@ test.describe("golden path: job to claim", () => {
     await expect(page.getByRole("region", { name: "Offline photo upload queue" })).toHaveCount(0);
   });
 
-  test("measure, estimate and file a claim", async ({ page, isMobile }) => {
-    test.skip(isMobile, "the long flow is run on desktop; the phone project covers layout above");
+  test("creates an Indian job and keeps U.S. claim and waiver workflows out of the UI", async ({ page, isMobile }) => {
+    test.skip(isMobile, "the data-entry flow is run on desktop; the phone project covers layout above");
     await registerViaUi(page);
 
     await page.goto("/jobs");
     await page.getByRole("button", { name: "New job" }).click();
-    await page.getByLabel("Customer name").fill("Casey Customer");
-    // This flow covers backward-compatible U.S. claim behavior from an India-default registration.
-    await page.getByLabel("Country").selectOption("US");
-    await page.getByLabel("Address line 1").fill("14 Oak Ridge Ln");
-    await page.getByLabel("City / town / locality").fill("Austin");
-    await page.getByLabel("State (2-letter code)").fill("TX");
-    await page.getByLabel("ZIP code").fill("78701");
+    await page.getByLabel("Customer name").fill("Bengaluru Customer");
+    await page.getByLabel("Address line 1").fill("14 Palace Road");
+    await page.getByLabel("City / town / locality").fill("Bengaluru");
+    await page.getByLabel("District").fill("Bengaluru Urban");
+    await page.getByLabel("State / Union Territory").fill("Karnataka");
+    await page.getByLabel("PIN code").fill("560001");
     await page.getByRole("button", { name: "Create job" }).click();
-    await page.getByRole("link", { name: /Casey Customer/ }).click();
-
-    await page.getByRole("button", { name: "Order aerial report" }).click();
-    await expect(page.getByText("Total area")).toBeVisible({ timeout: 30_000 }); // the live stream refreshes this by itself
-
-    await page.getByRole("button", { name: "Estimate", exact: true }).click();
-    await page.getByRole("button", { name: "Build estimate from report" }).click();
-    await expect(page.getByRole("region", { name: "Estimate" }).getByText("Net claim")).toBeVisible();
-
-    await page.getByRole("button", { name: "Claim", exact: true }).click();
-    await page.getByLabel("Insurance carrier").fill("Acme Mutual");
-    await page.getByLabel("Policy number").fill("P-100");
-    await page.getByLabel("Claim number").fill("C-200");
-    await page.getByLabel("Date of loss").fill("2026-09-01");
-    await page.getByRole("button", { name: "Create claim" }).click();
-    await expect(page.getByRole("heading", { name: "Acme Mutual" })).toBeVisible();
-
-    await page.getByRole("button", { name: "Submit claim" }).click();
-    await page.getByRole("button", { name: "Confirm" }).click();
-    await expect(page.getByText("Submitted").first()).toBeVisible();
+    await page.getByRole("link", { name: /Bengaluru Customer/ }).click();
+    await expect(page.getByText(/Bengaluru Urban.*Karnataka.*560001/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Claim", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Waivers", exact: true })).toHaveCount(0);
   });
 });

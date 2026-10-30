@@ -84,7 +84,7 @@ function NewOrder({ jobId, suppliers, onDone }: { jobId: string; suppliers: Supp
 }
 
 function OrderCard({ jobId, order, supplier }: { jobId: string; order: PurchaseOrderDTO; supplier?: SupplierDTO }) {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const qc = useQueryClient();
   const [link, setLink] = useState<string | null>(null);
   const [emailedTo, setEmailedTo] = useState<string | null>(null);
@@ -156,7 +156,7 @@ function OrderCard({ jobId, order, supplier }: { jobId: string; order: PurchaseO
       ) : can("order:send") ? (
         <div className="mt-4 grid gap-3 rounded-md border border-ink-600 p-4 sm:grid-cols-3">
           <div><label className="label" htmlFor={`invoice-number-${order.id}`}>Invoice number</label><input id={`invoice-number-${order.id}`} className="field" maxLength={80} value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} /></div>
-          <div><label className="label" htmlFor={`invoice-total-${order.id}`}>Invoice total (USD)</label><input id={`invoice-total-${order.id}`} type="number" min="0.01" step="0.01" className="field" value={invoiceTotal} onChange={(e) => setInvoiceTotal(e.target.value)} /></div>
+          <div><label className="label" htmlFor={`invoice-total-${order.id}`}>Invoice total ({user?.company.settings?.currency ?? "INR"})</label><input id={`invoice-total-${order.id}`} type="number" min="0.01" step="0.01" className="field" value={invoiceTotal} onChange={(e) => setInvoiceTotal(e.target.value)} /></div>
           <div><label className="label" htmlFor={`invoice-file-${order.id}`}>Invoice PDF</label><input id={`invoice-file-${order.id}`} type="file" accept="application/pdf,.pdf" className="field" onChange={(e) => setInvoiceFile(e.target.files?.[0] ?? null)} /></div>
           {invoice.isError && <p role="alert" className="text-sm text-bad sm:col-span-3">{(invoice.error as Error).message}</p>}
           <div className="sm:col-span-3"><button className="btn btn-ghost" disabled={invoice.isPending || !invoiceFile || !invoiceNumber.trim() || Number(invoiceTotal) <= 0} onClick={() => invoice.mutate()}>{invoice.isPending ? "Uploading invoice" : "Upload invoice and record total"}</button></div>

@@ -27,6 +27,14 @@ import { ensureTemplates, renderTemplate } from "./templates";
 
 export const waiversRouter = Router({ mergeParams: true });
 waiversRouter.use(requireAuth);
+// Indian statutory waiver forms have not been approved. Keep historical U.S.
+// records available while blocking new/edited waiver workflows for Indian jobs.
+waiversRouter.use(asyncHandler(async (req, _res, next) => {
+  const job = await Job.findById(req.params.jobId).select("property.country");
+  if (!job) return next();
+  if (job.property?.country === "IN") throw new AppError(404, "not_found", "This workflow is unavailable for this property");
+  next();
+}));
 
 const jobParam = z.object({ jobId: z.string().refine(isValidObjectId, "Invalid job id") });
 const waiverParam = jobParam.extend({ waiverId: z.string().refine(isValidObjectId, "Invalid waiver id") });

@@ -4,7 +4,7 @@ export interface LocaleFormatOptions {
   timezone?: string;
 }
 
-const defaults: Required<LocaleFormatOptions> = { currency: "USD", locale: "en-US", timezone: "America/Chicago" };
+const defaults: Required<LocaleFormatOptions> = { currency: "INR", locale: "en-IN", timezone: "Asia/Kolkata" };
 
 export function resolveLocalizedText(language: "en" | "hi", english: string, localized?: string) {
   return language === "hi" ? localized ?? english : english;

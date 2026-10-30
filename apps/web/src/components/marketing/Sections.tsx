@@ -2,10 +2,10 @@ import { FileText, Ruler, ShieldCheck, Truck } from "lucide-react";
 import Link from "next/link";
 
 const SERVICES = [
-  { icon: Ruler, title: "Aerial measurements", text: "Order a roof report by address and get facets, pitch and linear feet straight into the job." },
-  { icon: FileText, title: "Claim estimating", text: "Line-item estimates, photo evidence, versions and supplements for every insurance claim." },
-  { icon: Truck, title: "Supplier orders", text: "Turn the approved estimate into a material list, send the PO and track the delivery." },
-  { icon: ShieldCheck, title: "Lien waiver tracking", text: "Request, sign and verify waivers for every payment so draws are never held up." },
+  { icon: Ruler, title: "Roof measurements", text: "Use verified site measurements or request a coordinate-based RoofV report when provider access is enabled." },
+  { icon: FileText, title: "Estimates and quotations", text: "Prepare itemized customer estimates from your locally maintained material and labour prices." },
+  { icon: Truck, title: "Supplier orders", text: "Build a material list, record purchase orders and follow deliveries and invoice variances." },
+  { icon: ShieldCheck, title: "Operations tracking", text: "Assign follow-ups, keep job photos together and see the next task for each project." },
 ];
 
 export function ServiceStrip() {
@@ -26,11 +26,11 @@ export function ServiceStrip() {
 
 const STEPS = [
   "Create the job and verify the property address",
-  "Order the aerial report and review the roof plan",
-  "Build the estimate and submit the claim packet",
+  "Enter a verified measurement or request a provider report",
+  "Build and review the customer quotation",
   "Order materials once the scope is approved",
-  "Request waivers before each payment is released",
-  "Collect final payment and close the job",
+  "Coordinate the crew, supplier deliveries and job follow-ups",
+  "Record payment status and close the job",
 ];
 
 export function Workflow() {
@@ -49,60 +49,6 @@ export function Workflow() {
   );
 }
 
-const MATRIX = {
-  columns: ["Deposit", "Draw 1", "Final"],
-  rows: [
-    { party: "Shingle supplier", cells: ["signed", "signed", "requested"] },
-    { party: "Roofing crew", cells: ["signed", "requested", "not due"] },
-    { party: "Gutter sub", cells: ["signed", "overdue", "not due"] },
-  ],
-};
-const CELL: Record<string, string> = {
-  signed: "bg-ok/15 text-ok",
-  requested: "bg-warn/15 text-warn",
-  overdue: "bg-bad/15 text-bad",
-  "not due": "bg-ink-700 text-mist",
-};
-
-export function WaiverBoard() {
-  return (
-    <section id="waivers" className="bg-ink-800 py-20">
-      <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 lg:grid-cols-2">
-        <div>
-          <h2 className="text-4xl font-bold sm:text-5xl">Know who still owes you a waiver.</h2>
-          <p className="mt-5 max-w-md text-mist-strong">
-            Every payment shows which suppliers, crews and subs have signed. Release a draw only when the paperwork is in, or get a warning when it is not.
-          </p>
-        </div>
-        <div className="panel overflow-x-auto p-4" role="region" aria-label="Sample waiver status board" tabIndex={0}>
-          <table className="w-full min-w-[420px] text-left text-sm">
-            <thead>
-              <tr className="text-mist">
-                <th className="pb-3 font-medium">Party</th>
-                {MATRIX.columns.map((c) => (
-                  <th key={c} className="pb-3 font-medium">{c}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {MATRIX.rows.map((r) => (
-                <tr key={r.party} className="border-t border-ink-600">
-                  <td className="py-3 pr-3 font-medium">{r.party}</td>
-                  {r.cells.map((c, i) => (
-                    <td key={i} className="py-3 pr-2">
-                      <span className={`inline-block rounded px-2 py-1 text-xs font-semibold capitalize ${CELL[c]}`}>{c}</span>
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export function Cta() {
   return (
     <section id="contact" className="mx-auto max-w-7xl px-5 py-20 text-center">
@@ -116,7 +62,7 @@ export function Cta() {
 export function Footer() {
   return (
     <footer className="border-t border-white/5 py-8 text-center text-sm text-mist">
-      <p>© {new Date().getFullYear()} RoofDesk. Lien waiver forms are templates, not legal advice.</p>
+      <p>© {new Date().getFullYear()} RoofDesk. Built for Indian roofing contractors.</p>
     </footer>
   );
 }

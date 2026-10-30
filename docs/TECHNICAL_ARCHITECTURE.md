@@ -1,3 +1,5 @@
+> **Historical draft notice (2026-10-30):** This October 12 architecture draft describes the earlier U.S.-focused product. Current active market direction and constraints are in `INDIA_FIRST_SCOPE.md`. Treat U.S. claims/waivers, vendor assumptions, and old deployment recommendations below as historical unless separately re-approved.
+
 # Technical Architecture: Roofing Contractor Portal
 Version: 1.0 (Draft) | Date: October 12, 2026 | Stack: React + Next.js (frontend), MERN backend (MongoDB, Express, Node.js) | Companion to: Product Requirements Document v1.0  
 ## 1. Purpose and Scope

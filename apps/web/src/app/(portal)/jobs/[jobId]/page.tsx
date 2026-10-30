@@ -57,7 +57,6 @@ function JobDetail() {
   const { can } = useAuth();
   const stageLabels = useJobStageLabels();
   const qc = useQueryClient();
-  const tab = TABS.find((t) => t.id === params.get("tab"))?.id ?? "measurements";
 
   const job = useQuery({ queryKey: ["jobs", jobId], queryFn: () => api<JobDTO>(`/jobs/${jobId}`) });
   const setStage = useMutation({
@@ -68,6 +67,9 @@ function JobDetail() {
   if (job.isLoading) return <p className="text-mist">Loading job</p>;
   if (job.isError || !job.data) return <p className="text-bad">This job could not be found.</p>;
   const j = job.data;
+  const legacyUsJob = j.property.country !== "IN";
+  const visibleTabs = legacyUsJob ? TABS : TABS.filter((item) => item.id !== "claim" && item.id !== "waivers");
+  const tab = visibleTabs.find((item) => item.id === params.get("tab"))?.id ?? "measurements";
 
   return (
     <div className="space-y-6">
@@ -92,7 +94,7 @@ function JobDetail() {
       {can("job:assign") && <OperationsAssignees jobId={jobId} assignedIds={j.assigneeIds} />}
 
       <nav className="-mx-5 flex overflow-x-auto border-b border-ink-600 px-5" aria-label="Job sections">
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <button key={t.id} aria-current={tab === t.id ? "page" : undefined} onClick={() => router.replace(`/jobs/${jobId}?tab=${t.id}`, { scroll: false })}
             className={clsx("min-h-[44px] whitespace-nowrap border-b-2 px-4 text-sm font-semibold", tab === t.id ? "border-ember text-ember" : "border-transparent text-mist-strong hover:text-white")}>
             {t.label}

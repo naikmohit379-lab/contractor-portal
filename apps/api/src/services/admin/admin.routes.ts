@@ -34,12 +34,19 @@ adminRouter.get(
   }),
 );
 
-const companySettingsSchema = z.object({
-  ...companyMarketSettingsSchema.shape,
+const legacyUSMarketSettingsSchema = z.object({
+  country: z.literal("US"),
+  currency: z.literal("USD"),
+  locale: z.literal("en-US"),
+  language: z.enum(["en", "hi"]),
+  timezone: z.literal("America/Chicago"),
+  measurementSystem: z.literal("imperial"),
+});
+const companySettingsSchema = z.union([companyMarketSettingsSchema, legacyUSMarketSettingsSchema]).and(z.object({
   paymentGating: z.enum(["warn", "block"]),
   refundApprovalThresholdCents: z.number().int().min(0).max(100_000_000),
   stageLabels: jobStageLabelsSchema,
-});
+}));
 
 adminRouter.put(
   "/settings",
@@ -55,12 +62,7 @@ adminRouter.put(
     };
     const marketChanged = req.body.country !== before.country || req.body.currency !== before.currency;
     if (marketChanged) {
-      const [hasJobs, hasPriceLists, hasSuppliers] = await Promise.all([
-        Job.exists({}), PriceList.exists({ items: { $elemMatch: {} } }), Supplier.exists({}),
-      ]);
-      if (hasJobs || hasPriceLists || hasSuppliers) {
-        return res.status(409).json({ error: { code: "market_locked", message: "Country and currency cannot be changed after jobs, price lists, or supplier catalogs exist. Create a separate company to use another market without reinterpreting existing values." } });
-      }
+      return res.status(409).json({ error: { code: "market_locked", message: "A company’s country and currency are fixed at registration so existing records are never reinterpreted. Create a separate company for an India workspace." } });
     }
     for (const key of ["country", "currency", "locale", "language", "timezone", "measurementSystem"] as const) {
       company.set(`settings.${key}`, req.body[key]);

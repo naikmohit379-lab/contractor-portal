@@ -62,42 +62,46 @@ export default function SettingsPage() {
         {companySettings.isLoading ? <p className="text-sm text-mist">{t("common.loadingWorkspace")}</p> : companySettings.isError || !companySettings.data ? <p role="alert" className="text-sm text-bad">Company controls could not be loaded. {(companySettings.error as Error | undefined)?.message}</p> : <form className="space-y-4" onSubmit={(event) => {
           event.preventDefault();
           const values = new FormData(event.currentTarget);
+          const current = companySettings.data!.settings;
+          const indiaWorkspace = current.country === "IN";
           const stageLabels = Object.fromEntries(JOB_STAGES.map((stage) => [stage, String(values.get(`stageLabel_${stage}`) ?? STAGE_LABELS[stage])])) as JobStageLabels;
           saveCompany.mutate({
-            country: values.get("country") as CompanySettings["country"],
-            currency: values.get("currency") as CompanySettings["currency"],
-            locale: values.get("locale") as CompanySettings["locale"],
-            language: values.get("language") as CompanySettings["language"],
-            timezone: String(values.get("timezone") ?? ""),
-            measurementSystem: values.get("measurementSystem") as CompanySettings["measurementSystem"],
-            paymentGating: values.get("paymentGating") as CompanySettings["paymentGating"],
-            refundApprovalThresholdCents: Math.round(Number(values.get("refundApprovalThresholdDollars")) * 100), stageLabels,
+            country: current.country,
+            currency: current.currency,
+            locale: indiaWorkspace ? values.get("locale") as CompanySettings["locale"] : current.locale,
+            language: indiaWorkspace ? values.get("language") as CompanySettings["language"] : current.language,
+            timezone: current.timezone,
+            measurementSystem: current.measurementSystem,
+            paymentGating: indiaWorkspace ? current.paymentGating : values.get("paymentGating") as CompanySettings["paymentGating"],
+            refundApprovalThresholdCents: indiaWorkspace ? current.refundApprovalThresholdCents : Math.round(Number(values.get("refundApprovalThresholdDollars")) * 100),
+            stageLabels,
           });
         }}>
           <fieldset className="space-y-4">
             <legend className="text-lg font-bold">{t("settings.marketTitle")}</legend>
             <p className="text-sm text-mist">{t("settings.marketHelp", { company: user?.company.name ?? "" })}</p>
+            {companySettings.data.settings.country !== "IN" && <p className="rounded-md bg-warn/10 p-3 text-sm text-warn">This existing U.S. workspace keeps its original USD and imperial settings. New India work should use a separate company workspace; existing records are not converted.</p>}
             <div className="grid gap-4 sm:grid-cols-2">
-              <div><label className="label" htmlFor="market-country">{t("settings.country")}</label><select id="market-country" name="country" className="field" defaultValue={companySettings.data.settings.country}><option value="IN">{t("jobs.countryIndia")}</option><option value="US">{t("jobs.countryUs")}</option></select></div>
-              <div><label className="label" htmlFor="market-currency">{t("settings.currency")}</label><select id="market-currency" name="currency" className="field" defaultValue={companySettings.data.settings.currency}><option value="INR">INR (₹)</option><option value="USD">USD ($)</option></select></div>
-              <div><label className="label" htmlFor="market-locale">{t("settings.locale")}</label><select id="market-locale" name="locale" className="field" defaultValue={companySettings.data.settings.locale}><option value="en-IN">English (India)</option><option value="hi-IN">हिन्दी (भारत)</option><option value="en-US">English (United States)</option></select></div>
-              <div><label className="label" htmlFor="market-language">{t("settings.language")}</label><select id="market-language" name="language" className="field" defaultValue={companySettings.data.settings.language}><option value="en">{t("settings.english")}</option><option value="hi">{t("settings.hindi")}</option></select></div>
-              <div><label className="label" htmlFor="market-timezone">{t("settings.timezone")}</label><input id="market-timezone" name="timezone" className="field" defaultValue={companySettings.data.settings.timezone} list="timezone-examples" /><datalist id="timezone-examples"><option value="Asia/Kolkata" /><option value="America/Chicago" /><option value="America/New_York" /></datalist></div>
-              <div><label className="label" htmlFor="market-units">{t("settings.units")}</label><select id="market-units" name="measurementSystem" className="field" defaultValue={companySettings.data.settings.measurementSystem}><option value="metric">{t("settings.metric")}</option><option value="imperial">{t("settings.imperial")}</option></select></div>
+              <div><label className="label" htmlFor="market-country">{t("settings.country")}</label><p id="market-country" className="field">{companySettings.data.settings.country === "IN" ? "India" : "United States (legacy)"}</p></div>
+              <div><label className="label" htmlFor="market-currency">{t("settings.currency")}</label><p id="market-currency" className="field">{companySettings.data.settings.currency}</p></div>
+              <div><label className="label" htmlFor="market-locale">{t("settings.locale")}</label>{companySettings.data.settings.country === "IN" ? <select id="market-locale" name="locale" className="field" defaultValue={companySettings.data.settings.locale === "hi-IN" ? "hi-IN" : "en-IN"}><option value="en-IN">English (India)</option><option value="hi-IN">हिन्दी (भारत)</option></select> : <p id="market-locale" className="field">{companySettings.data.settings.locale}</p>}</div>
+              <div><label className="label" htmlFor="market-language">{t("settings.language")}</label>{companySettings.data.settings.country === "IN" ? <select id="market-language" name="language" className="field" defaultValue={companySettings.data.settings.language}><option value="en">{t("settings.english")}</option><option value="hi">{t("settings.hindi")}</option></select> : <p id="market-language" className="field">{companySettings.data.settings.language}</p>}</div>
+              <div><label className="label" htmlFor="market-timezone">{t("settings.timezone")}</label><p id="market-timezone" className="field">{companySettings.data.settings.timezone}</p></div>
+              <div><label className="label" htmlFor="market-units">{t("settings.units")}</label><p id="market-units" className="field">{companySettings.data.settings.measurementSystem}</p></div>
             </div>
           </fieldset>
-          <div>
+          {companySettings.data.settings.country !== "IN" && <div>
             <label className="label" htmlFor="payment-gating">When a payment is marked ready with unsigned waivers</label>
             <select id="payment-gating" name="paymentGating" className="field" defaultValue={companySettings.data.settings.paymentGating}>
               <option value="warn">Warn and require a recorded reason to continue</option>
               <option value="block">Block until required waivers are signed</option>
             </select>
-          </div>
-          <div>
+          </div>}
+          {companySettings.data.settings.country !== "IN" && <div>
             <label className="label" htmlFor="refund-threshold">Require a second approver for refunds above ({companySettings.data.settings.currency})</label>
             <input id="refund-threshold" name="refundApprovalThresholdDollars" className="field" type="number" min="0" max="1000000" step="0.01" defaultValue={(companySettings.data.settings.refundApprovalThresholdCents / 100).toFixed(2)} />
             <p className="mt-1 text-xs text-mist">Enter 0 to turn off the second-approval threshold. Owners and admins cannot approve their own large refund.</p>
-          </div>
+          </div>}
           <fieldset className="space-y-3 border-t border-ink-600 pt-4">
             <legend className="text-lg font-bold">Job pipeline labels</legend>
             <p className="text-sm text-mist">Rename the standard stages shown across the job list and dashboard. This changes display names only; workflow order and stage behavior stay the same.</p>

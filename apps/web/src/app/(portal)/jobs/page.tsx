@@ -16,17 +16,15 @@ import { useI18n } from "@/lib/i18n";
 
 function NewJobForm({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient();
-  const { user } = useAuth();
   const { t, validation } = useI18n();
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
-  const country = user?.company.settings?.country ?? "US";
-  const { register, handleSubmit, setError, watch, formState: { errors } } = useForm<JobCreateInput>({
+  const country = "IN" as const;
+  const { register, handleSubmit, setError, formState: { errors } } = useForm<JobCreateInput>({
     resolver: zodResolver(jobCreateSchema),
-    defaultValues: { type: "insurance", property: { country } },
+    defaultValues: { type: "residential", property: { country } },
     shouldUnregister: true,
   });
-  const selectedCountry = watch("property.country") ?? country;
   const create = useMutation({
     mutationFn: (v: JobCreateInput) => post<JobDTO>("/jobs", v),
     onSuccess: () => {
@@ -64,24 +62,22 @@ function NewJobForm({ onDone }: { onDone: () => void }) {
         <div>
           <label className="label" htmlFor="type">{t("jobs.jobType")}</label>
           <select id="type" className="field" {...register("type")}>
-            {JOB_TYPES.map((kind) => <option key={kind} value={kind}>{t(({ insurance: "jobs.type.insurance", retail: "jobs.type.retail", commercial: "jobs.type.commercial" } as const)[kind])}</option>)}
+            {JOB_TYPES.map((kind) => <option key={kind} value={kind}>{t(({ residential: "jobs.type.residential", repair: "jobs.type.repair", commercial: "jobs.type.commercial" } as const)[kind])}</option>)}
           </select>
         </div>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor="property.country">{t("jobs.country")}</label>
-          <select id="property.country" className="field" {...register("property.country")}>
-            <option value="IN">{t("jobs.countryIndia")}</option>
-            <option value="US">{t("jobs.countryUs")}</option>
-          </select>
+          <input type="hidden" value="IN" {...register("property.country")} />
+          <p className="field rounded-md text-sm">{t("jobs.countryIndia")}</p>
         </div>
         {text("property.line1", t("jobs.addressLine1"), { autoComplete: "address-line1" }, errors.property?.line1?.message)}
         {text("property.line2", t("jobs.addressLine2"), { autoComplete: "address-line2" })}
         {text("property.city", t("jobs.city"), {}, errors.property?.city?.message)}
         {text("property.district", t("jobs.district"), {}, errors.property?.district?.message)}
-        {text("property.state", selectedCountry === "IN" ? t("jobs.stateIndia") : t("jobs.stateUs"), selectedCountry === "IN" ? {} : { maxLength: "2", autoCapitalize: "characters" }, errors.property?.state?.message)}
-        {selectedCountry === "IN" ? text("property.pinCode", t("jobs.pinCode"), { inputMode: "numeric", autoComplete: "postal-code", maxLength: "6" }, errors.property?.pinCode?.message) : text("property.zip", t("jobs.zip"), { inputMode: "numeric", autoComplete: "postal-code" }, errors.property?.zip?.message)}
+        {text("property.state", t("jobs.stateIndia"), {}, errors.property?.state?.message)}
+        {text("property.pinCode", t("jobs.pinCode"), { inputMode: "numeric", autoComplete: "postal-code", maxLength: "6" }, errors.property?.pinCode?.message)}
         {text("property.landmark", t("jobs.landmark"))}
       </div>
       <fieldset className="space-y-2 rounded-lg border border-ink-600 p-4">

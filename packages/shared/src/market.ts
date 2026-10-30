@@ -39,9 +39,9 @@ export const INDIA_MARKET_DEFAULTS: CompanyMarketSettings = {
 };
 
 export const companyMarketSettingsSchema = z.object({
-  country: z.enum(MARKET_COUNTRIES),
-  currency: z.enum(CURRENCIES),
-  locale: z.enum(["en-IN", "hi-IN", "en-US"]),
+  country: z.literal("IN"),
+  currency: z.literal("INR"),
+  locale: z.enum(["en-IN", "hi-IN"]),
   language: z.enum(LANGUAGES),
   timezone: z.string().trim().min(1).max(80).refine((timezone) => {
     try {
@@ -50,8 +50,8 @@ export const companyMarketSettingsSchema = z.object({
     } catch {
       return false;
     }
-  }, "Enter a valid time zone, such as Asia/Kolkata"),
-  measurementSystem: z.enum(MEASUREMENT_SYSTEMS),
+  }, "Enter a valid time zone, such as Asia/Kolkata").refine((timezone) => timezone === "Asia/Kolkata", "Indian workspaces use Asia/Kolkata"),
+  measurementSystem: z.literal("metric"),
 });
 
 export function normalizeMarketSettings(settings?: Partial<CompanyMarketSettings> | null): CompanyMarketSettings {

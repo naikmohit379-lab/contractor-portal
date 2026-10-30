@@ -61,7 +61,7 @@ export async function recomputeMilestone(session: ClientSession, milestoneId: un
   }
 }
 
-const displayMoney = (cents: number, currency = "USD") => formatCurrency(cents, currency);
+const displayMoney = (cents: number, currency = "INR") => formatCurrency(cents, currency, currency === "INR" ? "en-IN" : "en-US");
 
 export type EventOutcome = "applied" | "duplicate" | "unmatched";
 

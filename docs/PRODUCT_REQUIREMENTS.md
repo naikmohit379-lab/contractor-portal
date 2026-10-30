@@ -1,3 +1,5 @@
+> **Historical draft notice (2026-10-30):** This October 12 U.S.-focused PRD is retained as historical source material. The active launch scope is Pan-India and is defined in `INDIA_FIRST_SCOPE.md`; this draft is not an authorization for U.S. workflows, U.S. legal forms, or U.S. tax behavior.
+
 # Product Requirements Document: Roofing Contractor Portal
 Version: 1.0 (Draft) | Date: October 12, 2026 | Status: For review  
 ## 1. Overview

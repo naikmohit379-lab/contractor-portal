@@ -107,11 +107,14 @@ estimatesRouter.get(
     const lineItems = plainItems(version.lineItems as any);
     const settings = plainSettings(version.settings);
     const totals = computeTotals(lineItems, settings);
+    const company = await Company.findById(req.auth!.companyId).select("settings.currency");
+    const currency = company?.settings?.currency ?? (job.property?.country === "IN" ? "INR" : "USD");
     const address = [job.property?.line1, job.property?.line2, job.property?.locality, job.property?.city, job.property?.district, job.property?.state, job.property?.country === "IN" ? job.property?.pinCode : job.property?.zip].filter(Boolean).join(", ");
     const csv = estimateHandoffCsv(
       { jobNumber: job.jobNumber, customerName: job.customer?.name ?? "", address },
       toVersionDTO(version),
       totals,
+      currency,
     );
     const filename = `roofdesk-${job.jobNumber}-estimate-v${versionNo}.csv`.replace(/[^a-zA-Z0-9._-]/g, "_");
     res.setHeader("Content-Type", "text/csv; charset=utf-8");

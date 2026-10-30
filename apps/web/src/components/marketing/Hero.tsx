@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Check, MapPin } from "lucide-react";
 import { RoofPlan } from "./RoofPlan";
 
-const TRUST = ["Role-based access", "Full audit trail", "Hosted-field payments"];
+const TRUST = ["India-first workflows", "INR and metric defaults", "Role-based access"];
 
 export function Hero() {
   return (
@@ -19,7 +19,7 @@ export function Hero() {
             <span className="text-ember">final payment.</span>
           </h1>
           <p className="mt-6 max-w-lg text-lg text-mist-strong">
-            Measure from the sky, file the insurance claim, order the shingles and collect every lien waiver from one job record.
+            Capture roof measurements, prepare customer quotations, track materials and coordinate your roofing work from one job record.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/register" className="btn btn-primary">Start free trial →</Link>
@@ -37,8 +37,8 @@ export function Hero() {
         <div className="relative">
           <RoofPlan className="w-full" />
           <aside className="panel absolute -bottom-6 right-0 w-64 bg-ink-800/95 p-4 shadow-2xl backdrop-blur sm:right-4" aria-label="Sample measurement report">
-            <p className="text-xs text-mist">Sample report, 14 Oak Ridge Ln</p>
-            <p className="mt-1 font-display text-3xl font-bold">2,847 sq ft</p>
+            <p className="text-xs text-mist">Illustrative sample, Bengaluru</p>
+            <p className="mt-1 font-display text-3xl font-bold">264.3 m²</p>
             <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
               {[["Squares", "28.5"], ["Pitch", "7/12"], ["Waste", "12%"]].map(([k, v]) => (
                 <div key={k}>
@@ -53,7 +53,7 @@ export function Hero() {
 
       <div className="mx-auto max-w-7xl px-5 pb-8">
         <p className="mx-auto flex w-fit items-center gap-2 rounded-full border border-ink-500 bg-ink-800/80 px-4 py-2 text-sm text-mist-strong">
-          <MapPin size={16} className="text-ember" aria-hidden /> Made for US storm-restoration and re-roof crews
+          <MapPin size={16} className="text-ember" aria-hidden /> Built for residential and commercial roofers across India
         </p>
       </div>
     </section>

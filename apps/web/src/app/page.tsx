@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { Hero } from "@/components/marketing/Hero";
 import { Navbar } from "@/components/marketing/Navbar";
-import { Cta, Footer, ServiceStrip, WaiverBoard, Workflow } from "@/components/marketing/Sections";
+import { Cta, Footer, ServiceStrip, Workflow } from "@/components/marketing/Sections";
 
 export const metadata: Metadata = {
-  title: "Roofing contractor portal for measurements, claims, orders and lien waivers",
+  title: "Roofing contractor portal for Indian roofers",
   alternates: { canonical: "/" },
 };
 
@@ -14,7 +14,7 @@ const jsonLd = {
   name: "RoofDesk",
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
-  description: "Roofing contractor portal for aerial measurements, insurance claim estimates, supplier orders and lien waiver tracking.",
+  description: "India-first roofing contractor portal for roof measurements, INR estimates, quotations, supplier orders and operations tracking.",
 };
 
 export default function HomePage() {
@@ -26,7 +26,6 @@ export default function HomePage() {
         <Hero />
         <ServiceStrip />
         <Workflow />
-        <WaiverBoard />
         <Cta />
       </main>
       <Footer />

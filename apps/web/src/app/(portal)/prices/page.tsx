@@ -26,7 +26,7 @@ function finalizeKeys(items: Item[]): Item[] {
 
 function Editor({ list }: { list: PriceListDTO }) {
   const { can, user } = useAuth();
-  const currency = user?.company.settings?.currency ?? "USD";
+  const currency = user?.company.settings?.currency ?? "INR";
   const isIndia = user?.company.settings?.country === "IN";
   const qc = useQueryClient();
   const [items, setItems] = useState<Item[]>(list.items);
