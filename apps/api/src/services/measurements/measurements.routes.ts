@@ -119,8 +119,8 @@ measurementsRouter.post(
   asyncHandler(async (req, res) => {
     const report = await MeasurementReport.findOne({ _id: req.params.reportId, jobId: req.params.jobId, provider: "roofv" });
     if (!report) throw notFound("RoofV measurement report");
-    if (!["failed", "processing", "ordered"].includes(report.status)) {
-      throw new AppError(409, "measurement_not_refreshable", "Only a pending or failed RoofV report can be checked again.");
+    if (!["failed", "processing", "ordered", "delivered"].includes(report.status)) {
+      throw new AppError(409, "measurement_not_refreshable", "This RoofV report cannot be checked again.");
     }
     report.status = "processing";
     report.error = undefined;

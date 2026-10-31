@@ -34,9 +34,9 @@ function MeasurementCard({ m, measurementSystem = "metric", locale = "en-IN", on
       {m.provider === "roofv" && m.preliminary && <p className="mt-3 rounded-md bg-warn/10 p-3 text-sm text-warn">This RoofV result is preliminary ({m.reviewStatus ?? "not reviewed"}). Verify it on site and do not rely on it as a technician-reviewed report.</p>}
       {pending && <p className="mt-3 text-sm text-mist">Waiting for the provider. This page updates on its own.</p>}
       {m.status === "failed" && <p className="mt-3 text-sm text-bad">{m.error}</p>}
-      {m.provider === "roofv" && m.status === "failed" && onRefresh && <div className="mt-3 space-y-2">
-        <p className="text-sm text-mist">Check the existing RoofV report again. This makes a free read request; it does not order another measurement.</p>
-        <button type="button" className="btn" onClick={() => onRefresh(m.id)} disabled={refreshing}>{refreshing ? "Checking existing report…" : "Check existing RoofV report"}</button>
+      {m.provider === "roofv" && (m.status === "failed" || m.status === "delivered") && onRefresh && <div className="mt-3 space-y-2">
+        <p className="text-sm text-mist">Refresh this existing RoofV report with a free read request. It does not order another measurement.</p>
+        <button type="button" className="btn" onClick={() => onRefresh(m.id)} disabled={refreshing}>{refreshing ? "Refreshing existing report…" : "Refresh existing RoofV report"}</button>
       </div>}
       {m.status === "delivered" && m.totals && <>
         <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -170,6 +170,6 @@ export function MeasurementsTab({ jobId }: { jobId: string }) {
       <button className="btn btn-primary" type="submit" disabled={manual.isPending}>{manual.isPending ? "Saving report…" : "Save measurement report"}</button>
     </form>}
     {measurements.data?.items.length === 0 && <p className="panel p-6 text-mist">No reports yet. Enter a report manually, order a RoofV measurement, or generate sample data for testing.</p>}
-    {measurements.data?.items.map((m) => <MeasurementCard key={m.id} m={m} measurementSystem={measurementSystem} locale={locale} onRefresh={m.provider === "roofv" && m.status === "failed" ? (id) => refreshExistingRoofV.mutate(id) : undefined} refreshing={refreshExistingRoofV.isPending} />)}
+    {measurements.data?.items.map((m) => <MeasurementCard key={m.id} m={m} measurementSystem={measurementSystem} locale={locale} onRefresh={m.provider === "roofv" && ["failed", "delivered"].includes(m.status) ? (id) => refreshExistingRoofV.mutate(id) : undefined} refreshing={refreshExistingRoofV.isPending} />)}
   </section>;
 }

@@ -63,6 +63,7 @@ describe("RoofV free quota endpoint", () => {
       provider: "roofv",
       providerOrderId: "roof-sample-id",
       addressSnapshot: "742 Koramangala Road, Bengaluru, Karnataka 560034, IN",
+      imageryDate: new Date(),
       status: "failed",
       createdAt: new Date(),
       updatedAt: new Date(),
