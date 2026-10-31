@@ -18,6 +18,8 @@ The integration code is present behind `ROOFV_ENABLED=false` by default. It prov
 
 The Measurements tab also has a **Check RoofV free quota** action. It calls RoofV's free `GET /me` endpoint from the server and returns only the sanitized monthly quota/credit fields; account identity and key abilities are not exposed. The check sends no property address or coordinates and does not order a measurement. It requires an authenticated user with `measurement:order` permission. A **Check existing RoofV report** action performs only a free GET against the already stored `roof_id`; it cannot create another measurement order.
 
+Staging validation on 2026-10-31: RoofV `/me` showed 30 included measurements and 0 prepaid credits. One authorized Koramangala sample order returned 110.93 m² and `review.status: not_reviewed`; the app correctly marks it preliminary. The supplied 6/12 pitch was the RoofDesk default/input, not a satellite-derived pitch. The RoofV response did not contain edge lengths or an imagery date, and the UI now displays those as unavailable. The initial report read timed out through the saved RoofV job endpoint; the code was corrected to use the vendor-documented free `/measurements/{roof_id}` lookup, and the existing request was recovered without issuing another order. A later quota check still showed 30 included and 0 prepaid credits; confirm any quota attribution in the RoofV account before using measurements beyond this sample.
+
 Before enabling production calls:
 
 1. Create a dedicated, expiring RoofDesk API key with write permission, then keep it only in Vercel Preview/server environment variables. Never paste it into chat, commit it, or expose it to the browser.

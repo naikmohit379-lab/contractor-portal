@@ -1,7 +1,7 @@
 export interface NormalizedReport {
   preliminary?: boolean;
   reviewStatus?: string;
-  imageryDate: Date;
+  imageryDate?: Date;
   facets: { id: string; areaSqFt: number; pitch: string }[];
   linear: { ridge: number; hip: number; valley: number; eave: number; rake: number };
   totals: { areaSqFt: number; squares: number; wastePct: number };

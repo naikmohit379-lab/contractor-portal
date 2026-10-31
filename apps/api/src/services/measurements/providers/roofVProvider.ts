@@ -124,7 +124,7 @@ function normalize(payload: JsonRecord): NormalizedReport {
   return {
     preliminary: Boolean(data.preliminary) || reviewStatus === "not_reviewed",
     reviewStatus,
-    imageryDate: imageryDate ? new Date(imageryDate) : new Date(),
+    imageryDate: imageryDate ? new Date(imageryDate) : undefined,
     facets,
     linear: {
       ridge: length("ridge"), hip: length("hip"), valley: length("valley"),

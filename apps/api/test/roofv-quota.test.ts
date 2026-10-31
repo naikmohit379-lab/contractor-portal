@@ -88,6 +88,7 @@ describe("RoofV free quota endpoint", () => {
       await vi.waitFor(async () => {
         const report = await app.models.MeasurementReport.collection.findOne({ _id: reportId });
         expect(report?.status).toBe("delivered");
+        expect(report?.imageryDate).toBeUndefined();
       }, { timeout: 5_000 });
 
       const roofVCalls = fetchMock.mock.calls.filter(([input]) => String(input).startsWith("https://roofv.ai/"));

@@ -48,7 +48,7 @@ function MeasurementCard({ m, measurementSystem = "metric", locale = "en-IN", on
             <tbody>{m.facets.map((f) => <tr key={f.id} className="border-t border-ink-600"><td className="py-2">{f.id}</td><td>{measurementSystem === "metric" ? number(squareFeetToSquareMeters(f.areaSqFt)) : number(f.areaSqFt)}</td><td>{f.pitch}</td></tr>)}</tbody>
           </table>
         </div>
-        <p className="mt-4 text-sm text-mist">Ridge {length(m.linear.ridge)} | Hip {length(m.linear.hip)} | Valley {length(m.linear.valley)} | Eave {length(m.linear.eave)} | Rake {length(m.linear.rake)}{m.imageryDate && ` | Imagery from ${fmtDate(m.imageryDate)}`}</p>
+        <p className="mt-4 text-sm text-mist">Ridge {m.linear.ridge > 0 ? length(m.linear.ridge) : "not provided"} | Hip {m.linear.hip > 0 ? length(m.linear.hip) : "not provided"} | Valley {m.linear.valley > 0 ? length(m.linear.valley) : "not provided"} | Eave {m.linear.eave > 0 ? length(m.linear.eave) : "not provided"} | Rake {m.linear.rake > 0 ? length(m.linear.rake) : "not provided"}{m.imageryDate && ` | Imagery from ${fmtDate(m.imageryDate)}`}</p>
         {m.sourceNote && <p className="mt-2 text-sm text-mist">Source note: {m.sourceNote}</p>}
       </>}
     </article>
