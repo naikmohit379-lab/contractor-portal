@@ -22,6 +22,7 @@ import { reportsRouter } from "./services/reports/reports.routes";
 import { claimsRouter } from "./services/claims/claims.routes";
 import { estimatesRouter } from "./services/estimates/estimates.routes";
 import { measurementsRouter } from "./services/measurements/measurements.routes";
+import { measurementProvidersRouter } from "./services/measurements/provider.routes";
 import { ordersRouter } from "./services/orders/orders.routes";
 import { publicRouter } from "./services/orders/public.routes";
 import { companyPaymentsRouter, paymentsRouter } from "./services/payments/payments.routes";
@@ -73,6 +74,7 @@ export function createApp() {
   }));
   v1.use("/jobs", jobsRouter);
   v1.use("/jobs/:jobId/measurements", measurementsRouter);
+  v1.use("/providers", measurementProvidersRouter);
   v1.use("/jobs/:jobId/estimate", estimatesRouter);
   v1.use("/jobs/:jobId/claim", claimsRouter);
   v1.use("/jobs/:jobId/orders", ordersRouter);

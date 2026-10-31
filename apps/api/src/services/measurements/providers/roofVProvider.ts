@@ -37,6 +37,45 @@ async function roofVRequest(path: string, body?: JsonRecord): Promise<JsonRecord
   return payload;
 }
 
+export interface RoofVQuota {
+  period?: string;
+  included: number;
+  includedUsed: number;
+  includedRemaining: number;
+  creditsBalance: number;
+  creditsPerMeasurement: number;
+  measurementsAvailable: number;
+  resetsAt?: string;
+}
+
+/** Free account check used before a measurement so users can avoid unexpected credit use. */
+export async function getRoofVQuota(apiKey = env.ROOFV_API_KEY, apiBase = env.ROOFV_API_BASE): Promise<RoofVQuota> {
+  if (!apiKey) throw new Error("RoofV API key is not configured on this server.");
+  const response = await fetch(`${apiBase.replace(/\/$/, "")}/me`, {
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "User-Agent": "RoofDesk/1.0" },
+    signal: AbortSignal.timeout(20_000),
+  });
+  const payload = await response.json().catch(() => ({})) as JsonRecord;
+  if (!response.ok) throw new Error(`RoofV account check failed with HTTP ${response.status}. Check the Preview API key and its expiry.`);
+
+  const quota = payload?.data?.measurement_quota;
+  const numericFields = ["included", "included_used", "included_remaining", "credits_balance", "credits_per_measurement", "measurements_available"];
+  if (!quota || numericFields.some((key) => !Number.isFinite(Number(quota[key])))) {
+    throw new Error("RoofV account check returned no readable quota. Check the account response before ordering.");
+  }
+
+  return {
+    period: typeof quota.period === "string" ? quota.period : undefined,
+    included: Number(quota.included),
+    includedUsed: Number(quota.included_used),
+    includedRemaining: Number(quota.included_remaining),
+    creditsBalance: Number(quota.credits_balance),
+    creditsPerMeasurement: Number(quota.credits_per_measurement),
+    measurementsAvailable: Number(quota.measurements_available),
+    resetsAt: typeof quota.resets_at === "string" ? quota.resets_at : undefined,
+  };
+}
+
 function normalize(payload: JsonRecord): NormalizedReport {
   const data = dataOf(payload);
   const reviewStatus = String(data.review?.status ?? "unknown");

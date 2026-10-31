@@ -8,6 +8,17 @@ import { api, patch, post } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { fmtDate } from "@/lib/format";
 
+type RoofVQuota = {
+  period?: string;
+  included: number;
+  includedUsed: number;
+  includedRemaining: number;
+  creditsBalance: number;
+  creditsPerMeasurement: number;
+  measurementsAvailable: number;
+  resetsAt?: string;
+};
+
 function MeasurementCard({ m, measurementSystem = "metric", locale = "en-IN" }: { m: MeasurementDTO; measurementSystem?: "metric" | "imperial"; locale?: string }) {
   const pending = m.status === "ordered" || m.status === "processing";
   const number = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 });
@@ -66,6 +77,12 @@ export function MeasurementsTab({ jobId }: { jobId: string }) {
     queryFn: () => api<{ items: MeasurementDTO[] }>(`/jobs/${jobId}/measurements`),
     refetchInterval: (q) => (q.state.data?.items.some((m) => m.status === "ordered" || m.status === "processing") ? 15000 : false),
   });
+  const roofvQuota = useQuery({
+    queryKey: ["providers", "roofv", "quota"],
+    queryFn: () => api<{ quota: RoofVQuota }>("/providers/roofv/quota"),
+    enabled: false,
+    retry: false,
+  });
   const order = useMutation({
     mutationFn: () => post<MeasurementDTO>(`/jobs/${jobId}/measurements`, {
       provider,
@@ -102,6 +119,18 @@ export function MeasurementsTab({ jobId }: { jobId: string }) {
         <button className="btn btn-primary" onClick={() => order.mutate()} disabled={order.isPending || busy || (provider === "roofv" && (!roofvConsent || !job.data?.property.coordinates || job.data?.property.country !== "IN"))}><Ruler size={18} aria-hidden /> {busy ? "Report in progress" : provider === "roofv" ? "Request RoofV measurement" : "Generate sample report"}</button>
       </div>
       {provider === "roofv" && <div className="space-y-2 text-sm">
+        <div className="rounded border border-ink-600 p-3">
+          <button className="btn" type="button" onClick={() => void roofvQuota.refetch()} disabled={roofvQuota.isFetching}>
+            {roofvQuota.isFetching ? "Checking free quota…" : "Check RoofV free quota"}
+          </button>
+          <p className="mt-2 text-mist">This free check sends only the server-held API key to RoofV. It does not send this property’s address or order a measurement.</p>
+          {roofvQuota.isError && <p role="alert" className="mt-2 text-bad">{(roofvQuota.error as Error).message}</p>}
+          {roofvQuota.data && <div className="mt-2 space-y-1" aria-live="polite">
+            <p>Included measurements remaining: <strong>{roofvQuota.data.quota.includedRemaining}</strong> of {roofvQuota.data.quota.included}{roofvQuota.data.quota.period ? ` (${roofvQuota.data.quota.period})` : ""}</p>
+            <p>Prepaid credits: <strong>{roofvQuota.data.quota.creditsBalance}</strong> ({roofvQuota.data.quota.creditsPerMeasurement} credits per measurement)</p>
+            <p>Total available measurements: <strong>{roofvQuota.data.quota.measurementsAvailable}</strong></p>
+          </div>}
+        </div>
         {job.data?.property.country !== "IN" && <p className="text-warn">RoofV ordering is currently limited to Indian properties.</p>}
         {!job.data?.property.coordinates && <div className="space-y-2 rounded border border-warn/40 p-3">
           <p className="text-warn">This job has no saved latitude and longitude. Enter the verified map-pin coordinates before ordering.</p>

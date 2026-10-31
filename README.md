@@ -64,3 +64,7 @@ See `docs/INDIA_FIRST_SCOPE.md` for provider, legal/tax, data compatibility, and
 - `pnpm lint` currently opens Next.js's first-time ESLint setup prompt because the repository has no ESLint configuration. It needs a one-time project lint configuration before it can run unattended.
 
 Forgot-password email delivery has not been confirmed through Resend. Local integration tests use the log email provider; verify the sender and Vercel environment configuration before expecting external email delivery.
+
+## RoofV quota preflight
+
+The Measurements tab includes **Check RoofV free quota**. It calls the authenticated `/api/v1/providers/roofv/quota` endpoint, which requests RoofV's free `/me` account summary from the API server and returns only quota fields. This check does not send a property's address or place an order. The RoofV key remains server-side. A successful local mocked test does not confirm that the Preview key is valid; use the staging page to check the live quota before ordering a report.
