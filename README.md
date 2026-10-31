@@ -68,3 +68,5 @@ Forgot-password email delivery has not been confirmed through Resend. Local inte
 ## RoofV quota preflight
 
 The Measurements tab includes **Check RoofV free quota**. It calls the authenticated `/api/v1/providers/roofv/quota` endpoint, which requests RoofV's free `/me` account summary from the API server and returns only quota fields. This check does not send a property's address or place an order. The RoofV key remains server-side. A successful local mocked test does not confirm that the Preview key is valid; use the staging page to check the live quota before ordering a report.
+
+Pending RoofV reports are read by their existing `roof_id`, at most every five minutes while the job is open. If a read times out, use **Check existing RoofV report** to retry the free lookup; it does not place another measurement order.

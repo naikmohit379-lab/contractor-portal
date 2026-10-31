@@ -19,7 +19,7 @@ type RoofVQuota = {
   resetsAt?: string;
 };
 
-function MeasurementCard({ m, measurementSystem = "metric", locale = "en-IN" }: { m: MeasurementDTO; measurementSystem?: "metric" | "imperial"; locale?: string }) {
+function MeasurementCard({ m, measurementSystem = "metric", locale = "en-IN", onRefresh, refreshing = false }: { m: MeasurementDTO; measurementSystem?: "metric" | "imperial"; locale?: string; onRefresh?: (id: string) => void; refreshing?: boolean }) {
   const pending = m.status === "ordered" || m.status === "processing";
   const number = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 });
   const area = (sqFt: number) => measurementSystem === "metric" ? `${number(squareFeetToSquareMeters(sqFt))} m²` : `${number(sqFt)} sq ft`;
@@ -34,6 +34,10 @@ function MeasurementCard({ m, measurementSystem = "metric", locale = "en-IN" }: 
       {m.provider === "roofv" && m.preliminary && <p className="mt-3 rounded-md bg-warn/10 p-3 text-sm text-warn">This RoofV result is preliminary ({m.reviewStatus ?? "not reviewed"}). Verify it on site and do not rely on it as a technician-reviewed report.</p>}
       {pending && <p className="mt-3 text-sm text-mist">Waiting for the provider. This page updates on its own.</p>}
       {m.status === "failed" && <p className="mt-3 text-sm text-bad">{m.error}</p>}
+      {m.provider === "roofv" && m.status === "failed" && onRefresh && <div className="mt-3 space-y-2">
+        <p className="text-sm text-mist">Check the existing RoofV report again. This makes a free read request; it does not order another measurement.</p>
+        <button type="button" className="btn" onClick={() => onRefresh(m.id)} disabled={refreshing}>{refreshing ? "Checking existing report…" : "Check existing RoofV report"}</button>
+      </div>}
       {m.status === "delivered" && m.totals && <>
         <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[["Total area", area(m.totals.areaSqFt)], ...(measurementSystem === "imperial" ? [["Squares", String(m.totals.squares)]] : []), ["Pitch", m.facets[0]?.pitch ?? "-"], ["Waste factor", `${m.totals.wastePct}%`]].map(([k, v]) => <div key={k}><dt className="text-sm text-mist">{k}</dt><dd className="font-display text-2xl font-bold">{v}</dd></div>)}
@@ -75,7 +79,7 @@ export function MeasurementsTab({ jobId }: { jobId: string }) {
   const measurements = useQuery({
     queryKey: ["jobs", jobId, "measurements"],
     queryFn: () => api<{ items: MeasurementDTO[] }>(`/jobs/${jobId}/measurements`),
-    refetchInterval: (q) => (q.state.data?.items.some((m) => m.status === "ordered" || m.status === "processing") ? 15000 : false),
+    refetchInterval: (q) => (q.state.data?.items.some((m) => m.status === "ordered" || m.status === "processing") ? 5 * 60_000 : false),
   });
   const roofvQuota = useQuery({
     queryKey: ["providers", "roofv", "quota"],
@@ -89,6 +93,10 @@ export function MeasurementsTab({ jobId }: { jobId: string }) {
       ...(provider === "roofv" ? { pitch: Number(pitch), roofvConsent } : {}),
     }, { "Idempotency-Key": crypto.randomUUID() }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["jobs", jobId] }),
+  });
+  const refreshExistingRoofV = useMutation({
+    mutationFn: (reportId: string) => post<MeasurementDTO>(`/jobs/${jobId}/measurements/${reportId}/refresh`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["jobs", jobId, "measurements"] }),
   });
   const manual = useMutation({
     mutationFn: () => post<MeasurementDTO>(`/jobs/${jobId}/measurements/manual`, {
@@ -162,6 +170,6 @@ export function MeasurementsTab({ jobId }: { jobId: string }) {
       <button className="btn btn-primary" type="submit" disabled={manual.isPending}>{manual.isPending ? "Saving report…" : "Save measurement report"}</button>
     </form>}
     {measurements.data?.items.length === 0 && <p className="panel p-6 text-mist">No reports yet. Enter a report manually, order a RoofV measurement, or generate sample data for testing.</p>}
-    {measurements.data?.items.map((m) => <MeasurementCard key={m.id} m={m} measurementSystem={measurementSystem} locale={locale} />)}
+    {measurements.data?.items.map((m) => <MeasurementCard key={m.id} m={m} measurementSystem={measurementSystem} locale={locale} onRefresh={m.provider === "roofv" && m.status === "failed" ? (id) => refreshExistingRoofV.mutate(id) : undefined} refreshing={refreshExistingRoofV.isPending} />)}
   </section>;
 }

@@ -46,6 +46,7 @@ async function processReport(reportId: string, address: string) {
     if (!report) return;
     const provider = getProvider(report.provider);
     report.status = "processing";
+    report.providerCheckedAt = new Date();
     await report.save();
 
     const data = await provider.fetchReport(report.providerOrderId!, address, report.providerJobId ?? undefined);
@@ -90,15 +91,46 @@ measurementsRouter.get(
   validate({ params }),
   asyncHandler(async (req, res) => {
     const items = await MeasurementReport.find({ jobId: req.params.jobId }).sort({ createdAt: -1 });
-    // RoofV reads are free. Refresh accepted reports while a user is viewing the job;
-    // the in-process guard prevents duplicate polling from multiple UI requests.
+    // RoofV reads are free. Check pending reports no more often than every five minutes,
+    // as recommended by the provider. The database claim also avoids duplicate reads
+    // across concurrent Vercel function instances.
     for (const item of items) {
       if (item.provider === "roofv" && item.status === "processing" && !refreshing.has(item.id)) {
-        refreshing.add(item.id);
-        setImmediate(() => void processReport(item.id, item.addressSnapshot ?? "").finally(() => refreshing.delete(item.id)));
+        const checkedBefore = new Date(Date.now() - 5 * 60_000);
+        const claimed = await MeasurementReport.updateOne({
+          _id: item._id,
+          status: "processing",
+          $or: [{ providerCheckedAt: { $exists: false } }, { providerCheckedAt: { $lte: checkedBefore } }],
+        }, { $set: { providerCheckedAt: new Date() } });
+        if (claimed.modifiedCount) {
+          refreshing.add(item.id);
+          setImmediate(() => void processReport(item.id, item.addressSnapshot ?? "").finally(() => refreshing.delete(item.id)));
+        }
       }
     }
     res.json({ items: items.map(toDTO) });
+  }),
+);
+
+measurementsRouter.post(
+  "/:reportId/refresh",
+  requirePermission("measurement:order"),
+  validate({ params: z.object({ jobId: z.string().refine(isValidObjectId, "Invalid job id"), reportId: z.string().refine(isValidObjectId, "Invalid report id") }) }),
+  asyncHandler(async (req, res) => {
+    const report = await MeasurementReport.findOne({ _id: req.params.reportId, jobId: req.params.jobId, provider: "roofv" });
+    if (!report) throw notFound("RoofV measurement report");
+    if (!["failed", "processing", "ordered"].includes(report.status)) {
+      throw new AppError(409, "measurement_not_refreshable", "Only a pending or failed RoofV report can be checked again.");
+    }
+    report.status = "processing";
+    report.error = undefined;
+    report.providerCheckedAt = new Date();
+    await report.save();
+    if (!refreshing.has(report.id)) {
+      refreshing.add(report.id);
+      setImmediate(() => void processReport(report.id, report.addressSnapshot ?? "").finally(() => refreshing.delete(report.id)));
+    }
+    res.status(202).json(toDTO(report));
   }),
 );
 

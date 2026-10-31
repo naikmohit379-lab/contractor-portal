@@ -18,19 +18,30 @@ async function roofVRequest(path: string, body?: JsonRecord): Promise<JsonRecord
   if (!env.ROOFV_ENABLED || !env.ROOFV_API_KEY) {
     throw new Error("RoofV is not enabled. Configure ROOFV_ENABLED and ROOFV_API_KEY on the API server.");
   }
-  const response = await fetch(`${env.ROOFV_API_BASE.replace(/\/$/, "")}${path}`, {
-    method: body ? "POST" : "GET",
-    headers: {
-      Authorization: `Bearer ${env.ROOFV_API_KEY}`,
-      Accept: "application/json",
-      "User-Agent": "RoofDesk/1.0",
-      ...(body ? { "Content-Type": "application/json" } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(20_000),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${env.ROOFV_API_BASE.replace(/\/$/, "")}${path}`, {
+      method: body ? "POST" : "GET",
+      headers: {
+        Authorization: `Bearer ${env.ROOFV_API_KEY}`,
+        Accept: "application/json",
+        "User-Agent": "RoofDesk/1.0",
+        ...(body ? { "Content-Type": "application/json" } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(20_000),
+    });
+  } catch (error) {
+    // RoofV reads are free; a timed-out read must remain recoverable and must never
+    // encourage the user to place another measurement order.
+    if (!body && error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name)) {
+      throw new RoofVPendingError();
+    }
+    throw error;
+  }
   const payload = await response.json().catch(() => ({})) as JsonRecord;
   if (!response.ok) {
+    if (!body && [429, 503].includes(response.status)) throw new RoofVPendingError();
     const message = payload?.error?.message ?? payload?.message ?? `RoofV returned HTTP ${response.status}`;
     throw new Error(String(message).slice(0, 300));
   }
@@ -145,10 +156,9 @@ export const roofVProvider: MeasurementProvider = {
     if (!roofId) throw new Error("RoofV accepted no measurement ID. Check the RoofV response and do not retry blindly.");
     return { providerOrderId: String(roofId), providerJobId: data.job?.id ? String(data.job.id) : undefined };
   },
-  async fetchReport(providerOrderId, _address, providerJobId) {
-    const path = providerJobId
-      ? `/jobs/${encodeURIComponent(providerJobId)}/measurements`
-      : `/measurements/${encodeURIComponent(providerOrderId)}`;
-    return normalize(await roofVRequest(path));
+  async fetchReport(providerOrderId) {
+    // RoofV documents this free read as the canonical lookup for the roof_id
+    // returned by POST /measurements. The saved-job endpoint reads a different object.
+    return normalize(await roofVRequest(`/measurements/${encodeURIComponent(providerOrderId)}`));
   },
 };

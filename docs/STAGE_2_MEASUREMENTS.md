@@ -14,9 +14,9 @@ RoofV's support response confirms India coverage and describes the output. The p
 
 Confirmed API facts: base URL `https://roofv.ai/api/public/v1`; API key from RoofV **Settings → API**; `GET /me` is a free authentication/quota check; `POST /measurements` can accept GPS coordinates, address label, and pitch; RoofV supports `measurement.reviewed` webhooks; results carry sqft and metric values. Measurement requests consume the included allowance or credits, so this code must not issue live requests during development checks.
 
-The integration code is now present behind `ROOFV_ENABLED=false` by default. It provides a server-side adapter, India-only ordering, map-coordinate capture on job creation or the Measurements tab, a per-request disclosure and consent checkbox, a pitch field, and background reads while the page is open for pending reports. The API key is read only by the backend from `ROOFV_API_KEY`; it is never sent to the browser. The server stores the RoofV roof/job IDs and reads full job measurements when available. RoofV does not support arbitrary idempotency headers, so the UI warns users not to blindly retry a timed-out request.
+The integration code is present behind `ROOFV_ENABLED=false` by default. It provides a server-side adapter, India-only ordering, map-coordinate capture on job creation or the Measurements tab, a per-request disclosure and consent checkbox, a pitch field, and background reads while the page is open for pending reports. The API key is read only by the backend from `ROOFV_API_KEY`; it is never sent to the browser. New report reads use RoofV's free `GET /measurements/{roof_id}` endpoint and are spaced at least five minutes apart. If a lookup times out, the existing report remains recoverable; the UI offers a free read retry that does not order another measurement. RoofV does not support arbitrary idempotency headers, so the UI warns users not to blindly retry a timed-out order request.
 
-The Measurements tab also has a **Check RoofV free quota** action. It calls RoofV's free `GET /me` endpoint from the server and returns only the sanitized monthly quota/credit fields; account identity and key abilities are not exposed. The check sends no property address or coordinates and does not order a measurement. It requires an authenticated user with `measurement:order` permission.
+The Measurements tab also has a **Check RoofV free quota** action. It calls RoofV's free `GET /me` endpoint from the server and returns only the sanitized monthly quota/credit fields; account identity and key abilities are not exposed. The check sends no property address or coordinates and does not order a measurement. It requires an authenticated user with `measurement:order` permission. A **Check existing RoofV report** action performs only a free GET against the already stored `roof_id`; it cannot create another measurement order.
 
 Before enabling production calls:
 
@@ -32,7 +32,7 @@ Never commit or paste provider credentials into source control or chat. Producti
 - Manual entry is not a RoofV import. The user transcribes values from the vendor's report.
 - The application stores normalized area and lengths in its existing internal units; the UI converts them based on company settings.
 - There is no raw report PDF/image attachment on this measurement record yet.
-- RoofV's signed webhook is not implemented. Pending-report refresh runs only while a user is viewing the Measurements tab; Vercel background execution and scheduled polling are not configured.
+- RoofV's signed webhook is not implemented. Pending-report refresh runs while a user is viewing the Measurements tab; a signed webhook or scheduled job for unattended reports is still not configured.
 - RoofV response normalization handles documented fields but still needs comparison with the account's real response before results are used in estimates. Treat all RoofV outputs as requiring verification.
 - Ambiguous RoofV buildings currently return an error; choosing and resubmitting a candidate is not implemented.
 - The uploaded/original RoofV report PDF is not saved with the measurement record.

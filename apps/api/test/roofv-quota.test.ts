@@ -51,4 +51,52 @@ describe("RoofV free quota endpoint", () => {
     expect(roofVCalls).toHaveLength(1);
     expect(roofVCalls[0]?.[0]).toBe("https://roofv.ai/api/public/v1/me");
   });
+
+  it("refreshes an existing failed report with a free roof_id read, without ordering again", async () => {
+    const owner = await registerCompany(app);
+    const jobId = await (await import("./helpers")).createJob(app, owner);
+    const reportId = new app.mongoose.Types.ObjectId();
+    await app.models.MeasurementReport.collection.insertOne({
+      _id: reportId,
+      companyId: new app.mongoose.Types.ObjectId(owner.companyId),
+      jobId: new app.mongoose.Types.ObjectId(jobId),
+      provider: "roofv",
+      providerOrderId: "roof-sample-id",
+      addressSnapshot: "742 Koramangala Road, Bengaluru, Karnataka 560034, IN",
+      status: "failed",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const { env } = await import("../src/config/env");
+    const priorEnabled = env.ROOFV_ENABLED;
+    env.ROOFV_ENABLED = true;
+    const realFetch = globalThis.fetch;
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).startsWith("https://roofv.ai/")
+        ? Promise.resolve(new Response(JSON.stringify({ data: {
+          status: "measured", roof_id: "roof-sample-id", roof_area_sqft: 2400, pitch: "0",
+          review: { status: "not_reviewed" },
+        } }), { status: 200, headers: { "Content-Type": "application/json" } }))
+        : realFetch(input, init),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const response = await app.call("POST", `/jobs/${jobId}/measurements/${reportId}/refresh`, { token: owner.token, body: {} });
+      expect(response.status).toBe(202);
+
+      await vi.waitFor(async () => {
+        const report = await app.models.MeasurementReport.collection.findOne({ _id: reportId });
+        expect(report?.status).toBe("delivered");
+      }, { timeout: 5_000 });
+
+      const roofVCalls = fetchMock.mock.calls.filter(([input]) => String(input).startsWith("https://roofv.ai/"));
+      expect(roofVCalls).toHaveLength(1);
+      expect(roofVCalls[0]?.[0]).toBe("https://roofv.ai/api/public/v1/measurements/roof-sample-id");
+      expect(roofVCalls[0]?.[1]?.method).toBe("GET");
+    } finally {
+      env.ROOFV_ENABLED = priorEnabled;
+      vi.unstubAllGlobals();
+    }
+  });
 });
