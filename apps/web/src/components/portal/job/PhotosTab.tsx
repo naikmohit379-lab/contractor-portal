@@ -131,7 +131,15 @@ export function PhotosTab({ jobId }: { jobId: string }) {
   async function refreshQueue() {
     if (!user?.id) { setQueue([]); return; }
     const items = await listOfflineUploads(jobId, user.id);
-    setQueue(items.map((item) => ({ ...item, state: "queued" })));
+    setQueue((current) => {
+      const previous = new Map(current.map((item) => [item.id, item]));
+      return items.map((item) => ({
+        ...item,
+        state: "queued",
+        // Keep the last sync error visible after reloading the durable IndexedDB queue.
+        message: previous.get(item.id)?.message,
+      }));
+    });
   }
 
   async function syncQueue() {
