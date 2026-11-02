@@ -5,6 +5,7 @@ import { Briefcase, CreditCard, FileSignature, LayoutDashboard, LogOut, MoreHori
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { Logo } from "@/components/Logo";
 import { LiveEvents } from "./LiveEvents";
 import { NotificationBell } from "./NotificationBell";
@@ -31,6 +32,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [more, setMore] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (status === "anon") router.replace("/login");
@@ -58,8 +60,9 @@ export function Shell({ children }: { children: ReactNode }) {
         <nav className="mt-8 flex-1 space-y-1" aria-label="Portal">
           {availableNav.map(({ href, label, icon: Icon }) => (
             <Link key={href} href={href} aria-current={isActive(href) ? "page" : undefined}
-              className={clsx("flex min-h-[44px] items-center gap-3 rounded-md px-3 text-sm font-medium", isActive(href) ? "bg-ember/15 text-ember" : "text-mist-strong hover:bg-ink-700")}>
-              <Icon size={18} aria-hidden /> {user.role === "operations" && href === "/dashboard" ? t("nav.myWork") : label}
+              className={clsx("relative isolate flex min-h-[44px] items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors", isActive(href) ? "text-ember" : "text-mist-strong hover:bg-ink-700")}>
+              {isActive(href) && <motion.span layoutId="portal-desktop-active" className="absolute inset-0 z-0 rounded-md bg-ember/15" transition={{ type: "spring", stiffness: 420, damping: 35 }} />}
+              <motion.span className="relative z-10 flex items-center gap-3" whileHover={reduceMotion ? undefined : { x: 3 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}><Icon size={18} aria-hidden /> {user.role === "operations" && href === "/dashboard" ? t("nav.myWork") : label}</motion.span>
             </Link>
           ))}
         </nav>
@@ -75,7 +78,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <Logo href="/dashboard" />
           <NotificationBell align="right" />
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 p-5 lg:p-8">{children}</main>
+        <motion.main key={pathname} initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduceMotion ? 0 : 0.24, ease: "easeOut" }} className="mx-auto w-full max-w-6xl flex-1 p-5 lg:p-8">{children}</motion.main>
       </div>
 
       {/* phone: the "More" sheet and bottom bar */}
@@ -95,13 +98,15 @@ export function Shell({ children }: { children: ReactNode }) {
       <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-ink-600 bg-ink-950 pb-[env(safe-area-inset-bottom)] print:hidden lg:hidden" aria-label="Portal">
         {primary.map(({ href, label, short, icon: Icon }) => (
           <Link key={href} href={href} aria-current={isActive(href) ? "page" : undefined}
-            className={clsx("flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px]", isActive(href) ? "text-ember" : "text-mist-strong")}>
-            <Icon size={20} aria-hidden /> {short ?? label}
+            className={clsx("relative isolate flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px]", isActive(href) ? "text-ember" : "text-mist-strong")}>
+            {isActive(href) && <motion.span layoutId="portal-mobile-active" className="absolute inset-x-1 inset-y-1 z-0 rounded-lg bg-ember/10" transition={{ type: "spring", stiffness: 420, damping: 35 }} />}
+            <motion.span className="relative z-10 flex flex-col items-center gap-0.5" whileTap={reduceMotion ? undefined : { scale: 0.92 }}><Icon size={20} aria-hidden /> {short ?? label}</motion.span>
           </Link>
         ))}
         <button aria-expanded={more} onClick={() => setMore((m) => !m)}
-          className={clsx("flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px]", more || moreActive ? "text-ember" : "text-mist-strong")}>
-          <MoreHorizontal size={20} aria-hidden /> {t("common.more")}
+          className={clsx("relative isolate flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px]", more || moreActive ? "text-ember" : "text-mist-strong")}>
+          {more && <motion.span layoutId="portal-mobile-active" className="absolute inset-x-1 inset-y-1 z-0 rounded-lg bg-ember/10" transition={{ type: "spring", stiffness: 420, damping: 35 }} />}
+          <motion.span className="relative z-10 flex flex-col items-center gap-0.5" whileTap={reduceMotion ? undefined : { scale: 0.92 }}><MoreHorizontal size={20} aria-hidden /> {t("common.more")}</motion.span>
         </button>
       </nav>
     </div>
