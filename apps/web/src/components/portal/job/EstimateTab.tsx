@@ -123,7 +123,7 @@ function VersionEditor({ version, onSave, saving, canEdit, priceItems }: { versi
             <label className="label">Deductible</label>
             <NumInput value={settings.deductibleCents} disabled={!editable} format={(c) => centsToDollars(c)} parse={(s) => dollarsToCents(parseFloat(s))} onCommit={(c) => setSettings((s) => ({ ...s, deductibleCents: c }))} />
           </div>}
-          {indiaMode && <p className="col-span-2 text-xs text-mist">Confirm any tax or other charge rate with your accountant before using this quotation. RoofDesk does not determine or certify Indian tax treatment.</p>}
+          {indiaMode && <p className="col-span-2 text-xs text-mist">Confirm any tax or other charge rate with your accountant before using this quotation. Roofora does not determine or certify Indian tax treatment.</p>}
         </div>
 
         <dl className="panel space-y-2 p-4 text-sm">
@@ -272,7 +272,7 @@ export function EstimateTab({ jobId }: { jobId: string }) {
     </section>
     <article className="estimate-print" aria-label="Printable estimate">
       <header className="mb-6 border-b border-gray-300 pb-4">
-        <p className="text-sm uppercase tracking-wide">RoofDesk estimate handoff</p>
+        <p className="text-sm uppercase tracking-wide">Roofora estimate handoff</p>
         <h1 className="my-2 text-3xl font-bold">{KIND_LABEL[version.kind]} · Version {version.versionNo}</h1>
         <p>Job {job.data?.jobNumber ?? jobId} · Prepared {new Date(version.createdAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}</p>
         {job.data && <p>{job.data.customer.name} · {[job.data.property.line1, job.data.property.line2, job.data.property.locality, job.data.property.city, job.data.property.district, job.data.property.state, job.data.property.country === "IN" ? job.data.property.pinCode : job.data.property.zip].filter(Boolean).join(", ")}</p>}
@@ -291,7 +291,7 @@ export function EstimateTab({ jobId }: { jobId: string }) {
           <div key={label as string} className="flex justify-between gap-6"><dt>{label}</dt><dd>{usd(amount as number)}</dd></div>
         )}
       </dl>
-      <p className="mt-8 border-t border-gray-300 pt-3 text-xs">RoofDesk estimate handoff. Verify quantities and local material/labour prices. Confirm any tax treatment and rates with your accountant before sharing this quotation.</p>
+      <p className="mt-8 border-t border-gray-300 pt-3 text-xs">Roofora estimate handoff. Verify quantities and local material/labour prices. Confirm any tax treatment and rates with your accountant before sharing this quotation.</p>
     </article>
     </>
   );

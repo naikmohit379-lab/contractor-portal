@@ -15,7 +15,7 @@ const schema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   // Email: "log" prints to the server console (development); "resend" sends through the Resend HTTP API.
   EMAIL_PROVIDER: z.enum(["log", "resend"]).default("log"),
-  EMAIL_FROM: z.string().default("RoofDesk <no-reply@example.com>"),
+  EMAIL_FROM: z.string().default("Roofora <no-reply@example.com>"),
   RESEND_API_KEY: z.string().optional(),
   // RoofV is opt-in because each new measurement can consume the workspace allowance.
   ROOFV_ENABLED: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),

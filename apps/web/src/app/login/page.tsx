@@ -61,7 +61,7 @@ export default function LoginPage() {
         <button className="btn btn-primary w-full" disabled={isSubmitting}>{isSubmitting ? "Signing in" : "Sign in"}</button>
       </form>
       <p className="mt-5 text-center text-sm text-mist">
-        New to RoofDesk? <Link href="/register" className="font-semibold text-ember hover:underline">Create your company account</Link>
+        New to Roofora? <Link href="/register" className="font-semibold text-ember hover:underline">Create your company account</Link>
       </p>
     </AuthShell>
   );

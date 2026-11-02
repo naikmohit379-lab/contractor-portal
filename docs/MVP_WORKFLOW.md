@@ -1,4 +1,4 @@
-# RoofDesk India-first MVP workflow
+# Roofora India-first MVP workflow
 
 ## Release scope
 
@@ -18,7 +18,7 @@
 2. Add job photos and documents. Assign operational follow-ups to the appropriate team member.
 3. Record site measurements or, when enabled and authorized, request a RoofV measurement using the coordinates and consent flow. Review confidence, outline, caveats, and review status before using quantities.
 4. Maintain a company price list with locally verified material and labour rates. Do not issue an estimate with blank/zero rates.
-5. Prepare a customer quotation and confirm all tax or other charges with the company CA. RoofDesk does not calculate or certify GST.
+5. Prepare a customer quotation and confirm all tax or other charges with the company CA. Roofora does not calculate or certify GST.
 6. Create supplier orders, record delivery dates, attach invoices, and review price variance against the saved order.
 7. Complete assigned follow-up tasks, sync offline photos while online, and review in-app overdue reminders.
 8. Record payment status using mock mode only; do not represent a simulation as money collected.

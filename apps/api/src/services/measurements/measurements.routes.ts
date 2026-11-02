@@ -200,7 +200,7 @@ measurementsRouter.post(
     if (req.body.provider === "roofv") {
       if (!env.ROOFV_ENABLED || !env.ROOFV_API_KEY) throw new AppError(503, "roofv_disabled", "RoofV is not enabled on this server yet. Add the server-side API key and enable it in Preview first.");
       if (!req.body.roofvConsent) throw new AppError(400, "roofv_consent_required", "Confirm that the property location will be sent to RoofV and may use your workspace measurement allowance.");
-      if (property.country !== "IN") throw new AppError(400, "roofv_india_only", "The RoofDesk RoofV integration is currently configured for Indian properties.");
+      if (property.country !== "IN") throw new AppError(400, "roofv_india_only", "The Roofora RoofV integration is currently configured for Indian properties.");
       if (!coordinates) throw new AppError(409, "coordinates_required", "Add verified property coordinates before requesting a RoofV measurement.");
     }
     const pending = await MeasurementReport.findOne({ jobId: job._id, status: { $in: ["ordered", "processing"] } });

@@ -30,7 +30,7 @@ export default function AcceptOperationsInvitePage() {
     }
   }
 
-  return <AuthShell title={done ? "You’re all set" : "Join the operations team"} subtitle={done ? "Your account is ready. Sign in to open your operations workspace." : "Choose a password to accept your RoofDesk Operations Intern invitation."}>
+  return <AuthShell title={done ? "You’re all set" : "Join the operations team"} subtitle={done ? "Your account is ready. Sign in to open your operations workspace." : "Choose a password to accept your Roofora Operations Intern invitation."}>
     {done ? <Link href="/login" className="btn btn-primary w-full text-center">Continue to sign in</Link> : <form onSubmit={submit} className="space-y-4">
       <div><label className="label" htmlFor="new-password">Password (10+ characters)</label><input id="new-password" type="password" autoComplete="new-password" className="field" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={10} maxLength={128} /></div>
       <div><label className="label" htmlFor="confirm-password">Confirm password</label><input id="confirm-password" type="password" autoComplete="new-password" className="field" value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={10} maxLength={128} /></div>

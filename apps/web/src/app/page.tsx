@@ -11,10 +11,10 @@ export const metadata: Metadata = {
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  name: "RoofDesk",
+  name: "Roofora",
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
-  description: "India-first roofing contractor portal for roof measurements, INR estimates, quotations, supplier orders and operations tracking.",
+  description: "Roofora helps Indian roofing contractors manage roof measurements, INR estimates, quotations, supplier orders and operations in one place.",
 };
 
 export default function HomePage() {

@@ -62,7 +62,7 @@ export function Cta() {
 export function Footer() {
   return (
     <footer className="border-t border-white/5 py-8 text-center text-sm text-mist">
-      <p>© {new Date().getFullYear()} RoofDesk. Built for Indian roofing contractors.</p>
+      <p>© {new Date().getFullYear()} Roofora. Built for Indian roofing contractors.</p>
     </footer>
   );
 }

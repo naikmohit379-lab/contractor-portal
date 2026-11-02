@@ -32,7 +32,7 @@ const en = {
   "settings.country": "Market / country", "settings.currency": "Currency", "settings.locale": "Number and date format", "settings.language": "Display language",
   "settings.timezone": "Time zone", "settings.units": "Measurement units", "settings.metric": "Metric (m², m, mm)", "settings.imperial": "Metric (m², m, mm)",
   "settings.english": "English", "settings.hindi": "Hindi", "settings.saved": "Company preferences saved.", "settings.marketLocked": "Country and currency are locked after work or price data is created to protect existing values.",
-  "settings.emailTitle": "Email notifications", "settings.emailHelp": "In-app updates always appear in the RoofDesk bell. Choose what is also emailed to {email}.",
+  "settings.emailTitle": "Email notifications", "settings.emailHelp": "In-app updates always appear in the Roofora bell. Choose what is also emailed to {email}.",
   "settings.companyControls": "Company controls", "settings.savePreferences": "Save preferences", "settings.savingPreferences": "Saving preferences…",
   "validation.timezone": "Enter a valid time zone, such as Asia/Kolkata",
 } as const;
@@ -68,7 +68,7 @@ const hi: Partial<Record<keyof typeof en, string>> = {
   "settings.country": "बाज़ार / देश", "settings.currency": "मुद्रा", "settings.locale": "संख्या और तारीख़ का प्रारूप", "settings.language": "प्रदर्शन भाषा",
   "settings.timezone": "समय क्षेत्र", "settings.units": "माप की इकाइयाँ", "settings.metric": "मीट्रिक (m², m, mm)", "settings.imperial": "मीट्रिक (m², m, mm)",
   "settings.english": "अंग्रेज़ी", "settings.hindi": "हिंदी", "settings.saved": "कंपनी की प्राथमिकताएं सहेजी गईं।", "settings.marketLocked": "मौजूदा मूल्यों की सुरक्षा के लिए काम या मूल्य डेटा बनने के बाद देश और मुद्रा लॉक हो जाते हैं।",
-  "settings.emailTitle": "ईमेल सूचनाएं", "settings.emailHelp": "ऐप की सूचनाएं RoofDesk घंटी में आती रहेंगी। चुनें कि {email} को कौन-सी सूचनाएं ईमेल से भी भेजी जाएं।",
+  "settings.emailTitle": "ईमेल सूचनाएं", "settings.emailHelp": "ऐप की सूचनाएं Roofora घंटी में आती रहेंगी। चुनें कि {email} को कौन-सी सूचनाएं ईमेल से भी भेजी जाएं।",
   "settings.companyControls": "कंपनी नियंत्रण", "settings.savePreferences": "प्राथमिकताएं सहेजें", "settings.savingPreferences": "प्राथमिकताएं सहेजी जा रही हैं…",
 };
 

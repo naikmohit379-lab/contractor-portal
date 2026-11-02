@@ -1,10 +1,10 @@
-# RoofDesk India-First Product Scope
+# Roofora India-First Product Scope
 
 Status: Current product direction for the India launch. This scope supersedes U.S.-focused assumptions in the October 12, 2026 draft PRD and architecture notes.
 
 ## Target users and geography
 
-RoofDesk is for residential and commercial roofing contractors across India, including small and medium-sized businesses. Solar installation is outside the initial scope.
+Roofora is for residential and commercial roofing contractors across India, including small and medium-sized businesses. Solar installation is outside the initial scope.
 
 ## India-first behavior
 
@@ -12,7 +12,7 @@ RoofDesk is for residential and commercial roofing contractors across India, inc
 - New jobs use Indian address fields: address lines, locality/city, district, state or Union Territory, six-digit PIN code, optional landmark, and map coordinates.
 - Job types are residential roofing, commercial roofing, and roof repair.
 - RoofV is the selected measurement provider. Requests are coordinate-first, explicitly consented, and remain disabled until server credentials and the feature flag are configured. Preliminary estimates must be distinguishable from technician-reviewed measurements.
-- Estimates are itemized customer quotations using company-entered, locally verified material and labour rates. RoofDesk does not determine GST or other Indian tax treatment; a chartered accountant must confirm any rates and handling.
+- Estimates are itemized customer quotations using company-entered, locally verified material and labour rates. Roofora does not determine GST or other Indian tax treatment; a chartered accountant must confirm any rates and handling.
 - Payments remain simulated. No live payment gateway is enabled.
 - English/Hindi interface text may fall back to English. Legal forms and tax wording are not treated as approved translations.
 

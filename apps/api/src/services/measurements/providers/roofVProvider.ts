@@ -25,7 +25,7 @@ async function roofVRequest(path: string, body?: JsonRecord): Promise<JsonRecord
       headers: {
         Authorization: `Bearer ${env.ROOFV_API_KEY}`,
         Accept: "application/json",
-        "User-Agent": "RoofDesk/1.0",
+        "User-Agent": "Roofora/1.0",
         ...(body ? { "Content-Type": "application/json" } : {}),
       },
       body: body ? JSON.stringify(body) : undefined,
@@ -63,7 +63,7 @@ export interface RoofVQuota {
 export async function getRoofVQuota(apiKey = env.ROOFV_API_KEY, apiBase = env.ROOFV_API_BASE): Promise<RoofVQuota> {
   if (!apiKey) throw new Error("RoofV API key is not configured on this server.");
   const response = await fetch(`${apiBase.replace(/\/$/, "")}/me`, {
-    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "User-Agent": "RoofDesk/1.0" },
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "User-Agent": "Roofora/1.0" },
     signal: AbortSignal.timeout(20_000),
   });
   const payload = await response.json().catch(() => ({})) as JsonRecord;

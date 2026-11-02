@@ -1,6 +1,6 @@
-# RoofDesk Contractor Portal
+# Roofora — Roofing Contractor Platform
 
-RoofDesk is an India-first job and operations workspace for residential and commercial roofing contractors. The current launch scope supports Indian addresses, INR, English/Hindi, metric units, roof measurements, estimates/quotations, supplier orders, photos, tasks, and simulated payment tracking. Solar installation and live payments are out of scope for this release.
+Roofora is an India-first job and operations workspace for residential and commercial roofing contractors. The current launch scope supports Indian addresses, INR, English/Hindi, metric units, roof measurements, estimates/quotations, supplier orders, photos, tasks, and simulated payment tracking. Solar installation and live payments are out of scope for this release.
 
 See [India-first product scope](docs/INDIA_FIRST_SCOPE.md), [PRD](docs/PRODUCT_REQUIREMENTS.md), [India job workflow](docs/MVP_WORKFLOW.md), and [deployment guide](docs/DEPLOYMENT.md).
 
@@ -71,4 +71,4 @@ The Measurements tab includes **Check RoofV free quota**. It calls the authentic
 
 Pending RoofV reports are read by their existing `roof_id`, at most every five minutes while the job is open. If a read times out, use **Check existing RoofV report** to retry the free lookup; it does not place another measurement order.
 
-Staging validation on 2026-10-31 returned a preliminary, unreviewed RoofV area of 110.93 m² for the Koramangala sample. The 6/12 pitch was the value supplied by the user interface; RoofV does not infer pitch from satellite imagery. Verify the roof and pitch on site before estimating or ordering. The report did not include linear edge lengths or an imagery date, so RoofDesk now labels those as unavailable instead of displaying false zero lengths or today's date.
+Staging validation on 2026-10-31 returned a preliminary, unreviewed RoofV area of 110.93 m² for the Koramangala sample. The 6/12 pitch was the value supplied by the user interface; RoofV does not infer pitch from satellite imagery. Verify the roof and pitch on site before estimating or ordering. The report did not include linear edge lengths or an imagery date, so Roofora now labels those as unavailable instead of displaying false zero lengths or today's date.

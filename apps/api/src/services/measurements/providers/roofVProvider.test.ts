@@ -21,7 +21,7 @@ describe("RoofV quota check", () => {
     const quota = await getRoofVQuota("server-only-test-key", "https://roofv.test/api/public/v1");
 
     expect(fetchMock).toHaveBeenCalledWith("https://roofv.test/api/public/v1/me", expect.objectContaining({
-      headers: expect.objectContaining({ Authorization: "Bearer server-only-test-key", "User-Agent": "RoofDesk/1.0" }),
+      headers: expect.objectContaining({ Authorization: "Bearer server-only-test-key", "User-Agent": "Roofora/1.0" }),
     }));
     expect(quota).toEqual({
       period: "2026-10", included: 30, includedUsed: 4, includedRemaining: 26,

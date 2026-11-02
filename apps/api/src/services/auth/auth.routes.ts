@@ -73,8 +73,8 @@ authRouter.post(
         companyId: user.companyId,
         to: email,
         kind: "auth.password_reset",
-        subject: "Reset your RoofDesk password",
-        intro: `Hello ${user.name}, use the secure link below to choose a new RoofDesk password. It expires in one hour. If you did not request this, you can ignore this email.`,
+        subject: "Reset your Roofora password",
+        intro: `Hello ${user.name}, use the secure link below to choose a new Roofora password. It expires in one hour. If you did not request this, you can ignore this email.`,
         url: `${env.WEB_ORIGIN}/reset-password/${token}`,
       });
     }

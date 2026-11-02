@@ -86,7 +86,7 @@ const propertyAddressSchema = z.object({
       ctx.addIssue({ code: "custom", path: ["pinCode"], message: "Enter a valid 6-digit PIN code" });
     }
   } else {
-    ctx.addIssue({ code: "custom", path: ["country"], message: "RoofDesk currently accepts Indian property addresses only" });
+    ctx.addIssue({ code: "custom", path: ["country"], message: "Roofora currently accepts Indian property addresses only" });
   }
 }).transform((address) => ({ ...address, country: "IN" as const }));
 

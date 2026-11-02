@@ -13,6 +13,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: { default: `${BRAND.name} | Roofing contractor portal`, template: `%s | ${BRAND.name}` },
+  icons: { icon: "/roofora-mark.svg" },
   description:
     "Manage Indian roofing jobs, roof measurements, INR estimates, supplier orders and follow-up tasks in one workspace.",
   openGraph: { type: "website", siteName: BRAND.name, title: `${BRAND.name} | ${BRAND.tagline}` },

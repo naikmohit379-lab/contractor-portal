@@ -213,7 +213,7 @@ export function PhotosTab({ jobId }: { jobId: string }) {
 
       {queue.length > 0 && <section className="panel p-4" aria-label="Offline photo upload queue">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <div><h3 className="font-bold">Pending uploads ({queue.length})</h3><p className="text-xs text-mist">Saved in this browser on this device (up to {mb(MAX_OFFLINE_QUEUE_BYTES)}). Keep RoofDesk open or return while online to sync.</p></div>
+          <div><h3 className="font-bold">Pending uploads ({queue.length})</h3><p className="text-xs text-mist">Saved in this browser on this device (up to {mb(MAX_OFFLINE_QUEUE_BYTES)}). Keep Roofora open or return while online to sync.</p></div>
           <button className="btn btn-ghost" disabled={!online || syncing.current} onClick={() => void syncQueue()}>{online ? "Sync now" : "Waiting for connection"}</button>
         </div>
         <ul className="divide-y divide-ink-600 text-sm" aria-live="polite">

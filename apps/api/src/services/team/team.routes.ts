@@ -57,8 +57,8 @@ teamRouter.post(
         companyId: req.auth!.companyId,
         to: email,
         kind: "team.operations_invite",
-        subject: `Invitation to join ${company?.name ?? "RoofDesk"}`,
-        intro: `Hello ${name}, you have been invited to join ${company?.name ?? "a RoofDesk workspace"} as a ${role === "owner" ? "Company Owner" : role === "pm" ? "Project Manager" : "Operations Intern"}. Set your password using the secure, single-use link below. It expires in 48 hours.`,
+        subject: `Invitation to join ${company?.name ?? "Roofora"}`,
+        intro: `Hello ${name}, you have been invited to join ${company?.name ?? "a Roofora workspace"} as a ${role === "owner" ? "Company Owner" : role === "pm" ? "Project Manager" : "Operations Intern"}. Set your password using the secure, single-use link below. It expires in 48 hours.`,
         url: inviteUrl,
       });
     await audit(req, `team.${role}_invited`, "UserInvite", invite._id, { email, role });
