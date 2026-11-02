@@ -42,7 +42,13 @@ Legacy insurance-claim and waiver code remains for compatibility; it is not repr
 
 ## Password reset
 
-`/login` links to `/forgot-password`. The API responds generically, stores only a hash of a one-hour, single-use token, and revokes active refresh sessions after a successful reset. The local test provider logs the secure link. Actual mail delivery is not verified merely because the API returned success; check the Resend sender, delivery logs, and Preview/Production environment configuration. Never paste API keys into source or chat.
+**Implemented:** `/login` links to `/forgot-password`; users can request a reset and set a new password from a one-hour, single-use link. The API stores only a hash of the token and revokes active refresh sessions after a successful reset. Automated API and browser checks for the reset flow passed in the 2026-10-30 verification below. The local test provider logs the secure link.
+
+**Email delivery status:** The app returning a generic success message does not prove that an email was delivered. Resend delivery must be checked in the Resend logs using a verified sender and the correct Vercel environment variables. Never paste API keys into source or chat.
+
+## Implemented feature status
+
+The current implementation includes India-first company defaults and job addresses, INR/metric formatting, English/Hindi translation fallback, RoofV measurement requests behind server configuration and user consent, estimate and quotation workflows, supplier invoice variance, offline photo queuing and sync, in-app overdue Operations reminders, and mock-only payment flows. See [MVP workflow](docs/MVP_WORKFLOW.md), [Operations workspace](docs/OPERATIONS_WORKSPACE.md), and [staging validation history](docs/OPERATIONS_STAGING_VALIDATION_2026-10-21.md) for boundaries and verification evidence. A feature being implemented does not by itself mean its external provider or production delivery has been validated.
 
 ## Checks
 

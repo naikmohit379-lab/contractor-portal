@@ -1,5 +1,14 @@
 # Operations Staging Validation — 2026-10-21
 
+## Follow-up — 2026-11-02
+
+| Feature | Result | Evidence / remaining boundary |
+| --- | --- | --- |
+| Password reset | **Implemented; automated checks previously passed** | The login/forgot-password/reset flow and single-use token handling are documented in the README and MVP workflow. Resend delivery still requires a successful delivery-log check; the generic API response alone does not prove an email arrived. |
+| Staging reminder endpoint | **Route and authentication gate confirmed; authenticated run not verified** | An unauthenticated `GET /api/v1/cron/reminders` on the staging alias returned JSON `401 Invalid cron authorization`, confirming the URL reaches the API route rather than returning the website HTML. A `CRON_SECRET` value is configured for Vercel Preview, branch `staging`; Vercel shows a Ready Preview deployment for commit `5b6e2c2`. The authenticated reminder request could not be completed from this session, so no reminder count or task delivery is claimed. |
+
+The reminder endpoint is a `GET` request and requires `Authorization: Bearer <Preview staging CRON_SECRET>`. Do not use the Production value or run this endpoint on Production as part of staging validation. A successful authenticated request can create in-app notifications for overdue open/blocked tasks; it does not send email or SMS. Continue testing only with synthetic staging data.
+
 ## Final validation pass — 2026-10-22
 
 This section supersedes the earlier Oct 22 invoice and image-preview results below. All writes used the synthetic QA job and private Preview storage; Production was not touched.
