@@ -71,6 +71,10 @@ See `docs/INDIA_FIRST_SCOPE.md` for provider, legal/tax, data compatibility, and
 
 Forgot-password email delivery has not been confirmed through Resend. Local integration tests use the log email provider; verify the sender and Vercel environment configuration before expecting external email delivery.
 
+## Payment MVP follow-up (2026-11-03)
+
+GitHub CI for `16f1a5c` failed because the lockfile used Next.js 15.5.24 (flagged by dependency audit) and the isolated RoofV quota test loaded unrelated required API environment settings at module import. Follow-up changes pin Next.js 15.5.28 and defer that configuration load until it is needed. The changes are pending a fresh CI run; do not treat them as deployed until CI and the Vercel deployment report success. The Razorpay feature flag remains off and no Razorpay account flow has been validated.
+
 ## RoofV quota preflight
 
 The Measurements tab includes **Check RoofV free quota**. It calls the authenticated `/api/v1/providers/roofv/quota` endpoint, which requests RoofV's free `/me` account summary from the API server and returns only quota fields. This check does not send a property's address or place an order. The RoofV key remains server-side. A successful local mocked test does not confirm that the Preview key is valid; use the staging page to check the live quota before ordering a report.

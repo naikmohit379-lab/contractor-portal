@@ -8,6 +8,8 @@ None of this has been run end to end yet. Do the first deployment on a throwaway
 - A Linux server (Ubuntu 24.04 is assumed) with Docker and the Docker Compose plugin installed.
 - A domain name, with an `A` record pointing at the server.
 - This code in a GitHub repository.
+- Keep the Next.js dependency on a patched release in the 15.5 line. The lockfile currently
+  pins 15.5.28; GitHub dependency-audit results are the release gate for security advisories.
 - Payment simulation is the default (`PAYMENT_PROVIDER=mock`). For India, the optional contractor-owned Razorpay Link MVP does not need a Roofora Razorpay API key: a contractor creates the link in its own Razorpay account. Keep `RAZORPAY_LINKS_ENABLED=false` until staging validation; enabling it permits creating payment requests using external links and manual status recording, not automatic verification or refunds. Legacy Stripe settings apply only to the existing Stripe provider path.
 
 ## Vercel scheduled reminders
@@ -47,6 +49,13 @@ The first time, start things by hand so you can watch them: `docker compose -f d
 2. Each contractor creates a Razorpay Payment Link in its own account for the exact INR amount and pastes its secure short link (`https://rzp.io/i/...`) while requesting payment. The payer page identifies the contractor as service provider and opens Razorpay; funds go directly to that contractor.
 3. An Owner/Admin checks Razorpay Dashboard for **Captured**, the exact amount/currency, and the Payment ID, then records it in Roofora with step-up password confirmation. Roofora cannot verify that assertion automatically.
 4. Refunds and link deactivation must be done directly in Razorpay. External refunds will not update Roofora's ledger or payment reports. Automatic webhooks, refunds, reconciliation, and external link cancellation are not implemented. Test this full flow with Razorpay test mode before considering production.
+
+## Release verification status (2026-11-03)
+
+- Commit `16f1a5c` added the feature-gated contractor-owned Razorpay Payment Link MVP and was pushed to `main`.
+- Its GitHub CI run failed: dependency audit flagged the pinned Next.js 15.5.24 release, and the isolated RoofV quota test failed during import because it parsed unrelated required API environment values.
+- The follow-up changes pin Next.js to 15.5.28 and defer API environment loading until the provider needs it. These changes are not verified or deployed until the next GitHub CI/deployment run reports success.
+- Keep `RAZORPAY_LINKS_ENABLED=false`; no live Razorpay account flow has been validated.
 
 ### Legacy Stripe provider path
 1. In Stripe test mode, set `PAYMENT_PROVIDER=stripe`, `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`.

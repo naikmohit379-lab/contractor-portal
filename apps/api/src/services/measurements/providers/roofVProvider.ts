@@ -1,4 +1,3 @@
-import { env } from "../../../config/env";
 import type { MeasurementProvider, NormalizedReport } from "./types";
 
 type JsonRecord = Record<string, any>;
@@ -15,6 +14,7 @@ function dataOf(payload: JsonRecord): JsonRecord {
 }
 
 async function roofVRequest(path: string, body?: JsonRecord): Promise<JsonRecord> {
+  const { env } = await import("../../../config/env");
   if (!env.ROOFV_ENABLED || !env.ROOFV_API_KEY) {
     throw new Error("RoofV is not enabled. Configure ROOFV_ENABLED and ROOFV_API_KEY on the API server.");
   }
@@ -60,7 +60,16 @@ export interface RoofVQuota {
 }
 
 /** Free account check used before a measurement so users can avoid unexpected credit use. */
-export async function getRoofVQuota(apiKey = env.ROOFV_API_KEY, apiBase = env.ROOFV_API_BASE): Promise<RoofVQuota> {
+export async function getRoofVQuota(apiKey?: string, apiBase?: string): Promise<RoofVQuota> {
+  // Keep the pure, explicitly configured quota path usable in unit tests and local tooling
+  // without eagerly parsing unrelated application secrets. Production routes call this with
+  // no arguments and use the validated API server configuration.
+  if (arguments.length === 0) {
+    const { env } = await import("../../../config/env");
+    apiKey = env.ROOFV_API_KEY;
+    apiBase = env.ROOFV_API_BASE;
+  }
+  apiBase ??= "https://roofv.ai/api/public/v1";
   if (!apiKey) throw new Error("RoofV API key is not configured on this server.");
   const response = await fetch(`${apiBase.replace(/\/$/, "")}/me`, {
     headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "User-Agent": "Roofora/1.0" },
