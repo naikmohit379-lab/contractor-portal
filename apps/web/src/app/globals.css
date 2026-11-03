@@ -16,7 +16,7 @@
   .btn:active:not(:disabled) { transform: translateY(0) scale(.97); }
   .btn-primary { @apply text-white; background-color: #c2410c; }
   .btn-primary:hover:not(:disabled) { background-color: #9a3412; }
-  .btn-primary:disabled { @apply bg-ink-600 text-mist-strong; }
+  .btn-primary:disabled { background-color: #163d59 !important; color: #d8e6f0 !important; opacity: 1 !important; }
   .btn-ghost { @apply border border-ink-500 text-white hover:bg-ink-700; }
   .field { @apply min-h-[44px] w-full rounded-md border border-ink-500 bg-ink-800 px-3 text-white placeholder:text-mist/60 transition-[border-color,box-shadow] duration-200 focus:border-ember focus:shadow-[0_0_0_3px_rgba(255,107,53,0.12)]; }
   .label { @apply mb-1.5 block text-sm font-medium text-mist-strong; }
