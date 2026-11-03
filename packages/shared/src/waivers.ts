@@ -51,7 +51,7 @@ export const templateUpdateSchema = z.object({ body: z.string().trim().min(80, "
 
 export const signSchema = z.object({
   signerName: z.string().trim().min(2, "Type your full legal name").max(120),
-  consent: z.literal(true, { errorMap: () => ({ message: "Confirm that you agree to sign electronically" }) }),
+  consent: z.literal(true, { error: "Confirm that you agree to sign electronically" }),
   // PNG data URL drawn on the signature pad. Capped so a document cannot be bloated.
   signatureImage: z.string().max(200_000).regex(/^data:image\/png;base64,/, "Signature must be a PNG image").optional(),
 });
