@@ -143,7 +143,7 @@ export function PaymentsTab({ jobId }: { jobId: string }) {
         <h2 className="text-2xl font-bold">Payments</h2>
         <p className="text-sm text-mist">Collected so far <span className="font-display text-2xl font-bold text-white">{usd(q.data?.collectedCents ?? 0)}</span></p>
       </div>
-      {q.data?.provider === "mock" && <p className="rounded-md bg-warn/10 p-3 text-sm text-warn">Test mode: payments are simulated and no real money moves. Set PAYMENT_PROVIDER=stripe on the server to use Stripe.</p>}
+      {q.data?.provider === "mock" && <p className="rounded-md bg-warn/10 p-3 text-sm text-warn">Test mode: payments are simulated and no real money moves. Razorpay is the planned India payment provider and is not connected yet.</p>}
 
       <div className="space-y-3">
         <h3 className="text-xl font-bold">Ready to bill</h3>
