@@ -15,7 +15,11 @@ test.describe("signed-in app", () => {
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       expect(await overflowsHorizontally(page), `${path} scrolls sideways`).toBe(false);
       const serious = (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze()).violations.filter((v) => v.impact === "serious" || v.impact === "critical");
-      expect(serious.map((v) => `${path} ${v.id}`)).toEqual([]);
+      expect(serious.map((v) => ({
+        path,
+        id: v.id,
+        nodes: v.nodes.map((node) => ({ target: node.target, failureSummary: node.failureSummary })),
+      }))).toEqual([]);
     }
   });
 

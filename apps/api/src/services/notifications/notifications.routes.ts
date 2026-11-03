@@ -59,7 +59,7 @@ notificationsRouter.get(
 
 notificationsRouter.put(
   "/preferences",
-  validate({ body: z.object({ emailGroups: z.record(z.enum(groups as [NotificationGroup, ...NotificationGroup[]]), z.boolean()) }) }),
+  validate({ body: z.object({ emailGroups: z.partialRecord(z.enum(groups as [NotificationGroup, ...NotificationGroup[]]), z.boolean()) }) }),
   asyncHandler(async (req, res) => {
     const u = await User.findById(req.auth!.userId);
     if (!u) throw notFound("User");

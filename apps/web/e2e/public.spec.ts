@@ -22,7 +22,11 @@ test.describe("public pages", () => {
       await page.goto(path);
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
       const serious = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
-      expect(serious.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+      expect(serious.map((v) => ({
+        id: v.id,
+        help: v.help,
+        nodes: v.nodes.map((node) => ({ target: node.target, failureSummary: node.failureSummary })),
+      }))).toEqual([]);
     });
   }
 

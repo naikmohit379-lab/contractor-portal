@@ -54,7 +54,9 @@ The first time, start things by hand so you can watch them: `docker compose -f d
 
 - Commit `16f1a5c` added the feature-gated contractor-owned Razorpay Payment Link MVP and was pushed to `main`.
 - Its GitHub CI run failed: dependency audit flagged the pinned Next.js 15.5.24 release, and the isolated RoofV quota test failed during import because it parsed unrelated required API environment values.
-- The follow-up changes pin Next.js to 15.5.28 and defer API environment loading until the provider needs it. These changes are not verified or deployed until the next GitHub CI/deployment run reports success.
+- Follow-up changes pin Next.js to 15.5.28, defer API environment loading until the provider needs it, upgrade Zod to 4.6.7, and lock body-parser to 1.20.9. The local `pnpm audit --prod --audit-level=high` reports no high/critical vulnerabilities (two moderate advisories remain).
+- GitHub CI for commit `53c3f47` passed typecheck, shared/API tests, and production build; its audit still failed because it ran before the Zod/body-parser follow-up. The updated dependency set is not verified or deployed until a fresh GitHub CI/deployment run reports success.
+- The browser suite for `53c3f47` also found serious color-contrast violations on the public landing/login/register pages and authenticated screens. The E2E assertions now include failing element selectors and summaries to guide a UI fix; this remains an open CI failure.
 - Keep `RAZORPAY_LINKS_ENABLED=false`; no live Razorpay account flow has been validated.
 
 ### Legacy Stripe provider path

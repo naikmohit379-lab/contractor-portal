@@ -73,7 +73,7 @@ Forgot-password email delivery has not been confirmed through Resend. Local inte
 
 ## Payment MVP follow-up (2026-11-03)
 
-GitHub CI for `16f1a5c` failed because the lockfile used Next.js 15.5.24 (flagged by dependency audit) and the isolated RoofV quota test loaded unrelated required API environment settings at module import. Follow-up changes pin Next.js 15.5.28 and defer that configuration load until it is needed. The changes are pending a fresh CI run; do not treat them as deployed until CI and the Vercel deployment report success. The Razorpay feature flag remains off and no Razorpay account flow has been validated.
+GitHub CI for `16f1a5c` failed because the lockfile used Next.js 15.5.24 and the isolated RoofV quota test loaded unrelated required API environment settings at module import. Commit `53c3f47` fixed those issues; GitHub CI passed its typecheck, shared/API tests, and production build. Its dependency audit then identified high-severity Zod and body-parser advisories. The follow-up upgrades Zod to 4.6.7, adapts the optional notification-group schema, and pins body-parser to 1.20.9. Local `pnpm audit --prod --audit-level=high` now passes with two moderate advisories remaining. Browser CI also found color-contrast failures on public and signed-in screens; E2E output now includes failing selectors and summaries. UI remediation, fresh CI and deployment checks are pending; the Razorpay feature flag remains off and no Razorpay account flow has been validated.
 
 ## RoofV quota preflight
 
