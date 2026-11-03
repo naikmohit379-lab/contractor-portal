@@ -26,7 +26,7 @@ export function Hero() {
             Capture roof measurements, prepare customer quotations, track materials and coordinate your roofing work from one job record.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/register" className="btn btn-primary group shadow-xl shadow-ember/20">Start free trial <span aria-hidden className="inline-block transition-transform duration-300 group-hover:translate-x-1.5">→</span></Link>
+            <Link href="/register" className="btn btn-primary group">Start free trial <span aria-hidden className="inline-block transition-transform duration-300 group-hover:translate-x-1.5">→</span></Link>
             <a href="#services" className="btn border border-white/50 bg-white/10 text-white backdrop-blur-md hover:bg-white/20">See our services <span aria-hidden>↓</span></a>
           </div>
           <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium text-white/90">
