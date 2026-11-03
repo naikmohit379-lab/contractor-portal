@@ -13,8 +13,8 @@ Roofora is for residential and commercial roofing contractors across India, incl
 - Job types are residential roofing, commercial roofing, and roof repair.
 - RoofV is the selected measurement provider. Requests are coordinate-first, explicitly consented, and remain disabled until server credentials and the feature flag are configured. Preliminary estimates must be distinguishable from technician-reviewed measurements.
 - Estimates are itemized customer quotations using company-entered, locally verified material and labour rates. Roofora does not determine GST or other Indian tax treatment; a chartered accountant must confirm any rates and handling.
-- Payments remain simulated. No live payment gateway is enabled.
-- Razorpay is the selected gateway. The agreed model is Roofora platform collection with contractor proceeds routed through Razorpay Route linked accounts. Route approval/onboarding and test credentials remain pending. The project owner deferred the Roofora fee amount/percentage on November 3, 2026; do not hard-code the fee or enable live collection until that rule is approved.
+- Payments default to simulation; no Razorpay API integration or live-payment enablement is configured by default.
+- Payment MVP: each contractor creates a Payment Link in its own Razorpay account; the contractor is the payee and receives funds directly. Roofora does not collect, split, or route funds. Route and a platform commission are out of scope for this model.
 - English/Hindi interface text may fall back to English. Legal forms and tax wording are not treated as approved translations.
 
 ## Existing data and U.S.-specific history
@@ -31,5 +31,6 @@ Keep tenant isolation, role checks, audit logging, password hashing, single-use 
 - RoofV credentialed requests and reviewed-result lifecycle still require staging verification with the vendor account.
 - INR unit prices must be entered and checked by each contractor. No default price list is certified for India.
 - Forgot-password links can be tested with the local log email provider. Actual Resend delivery needs a verified sender and configured production/preview environment values.
-- Payment processing remains mock-only. A Razorpay Route integration is not implemented; the fee amount is intentionally undecided and Route access is unresolved.
-- The payment screen must not direct India-first users to enable Stripe; Razorpay remains a future integration and the current mock-mode message is explicit.
+- Mock payments remain the default. A feature-flagged contractor-owned Razorpay Link flow is implemented and typechecked; `RAZORPAY_LINKS_ENABLED` defaults to `false`. Shared validation and API integration tests pass (2026-11-03); hands-on Razorpay account validation is pending.
+- When enabled, authorized staff manually record a payment only after verifying captured status and matching amount/currency in Razorpay. This is not automatic verification: webhooks, refunds, link deactivation, and provider reconciliation are not implemented. Handle refunds and deactivate links directly in the contractor's Razorpay account; refunds will not automatically update Roofora's ledger or payment reports.
+- Keep the feature flag off until staging tests with Razorpay test-mode links are complete. Do not treat a payer return or entered Payment ID as provider-verified proof; the authorized operator is attesting that Razorpay shows captured status and the matching amount.

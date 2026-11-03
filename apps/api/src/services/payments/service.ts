@@ -104,6 +104,7 @@ export async function applyProviderEvent(evt: NormalizedEvent): Promise<EventOut
             p.status = "succeeded";
             p.paidAt = new Date();
             p.failureReason = undefined;
+            if (p.flag === "amount_mismatch") p.flag = undefined;
             if (evt.paymentIntentId) p.providerPaymentIntentId = evt.paymentIntentId;
             await p.save({ session });
             await post(session, p, "payment_received", paymentReceivedLines(p.amountCents), `Payment received: ${p.description}`);

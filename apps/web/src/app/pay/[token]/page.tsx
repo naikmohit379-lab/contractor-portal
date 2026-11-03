@@ -49,9 +49,14 @@ function PayPage() {
               {p.status === "pending" && <p role="status" className="rounded-md bg-sky-400/10 p-3 text-sm text-sky-300">Your payment is being processed. Bank payments can take a few days to confirm.</p>}
               {returned && p.status === "requested" && <p role="status" className="rounded-md bg-warn/10 p-3 text-sm text-warn">Checking your payment with the bank. This page updates on its own.</p>}
               {p.status === "failed" && <p role="alert" className="rounded-md bg-bad/10 p-3 text-sm text-bad">The last attempt did not go through. You can try again.</p>}
-              {checkout.isError && <p role="alert" className="text-sm text-bad">{(checkout.error as Error).message}</p>}
-              <button className="btn btn-primary w-full" disabled={checkout.isPending || p.status === "pending"} onClick={() => checkout.mutate()}>{checkout.isPending ? "Opening secure checkout" : p.status === "failed" ? "Try again" : "Pay securely"}</button>
-              <p className="flex items-start gap-2 text-xs text-mist"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-ember" aria-hidden /> You enter your card or bank details on the payment processor's secure page. {p.company} and this site never see or store them.</p>
+              {p.externalPaymentUrl ? <>
+                <a className="btn btn-primary block w-full text-center" href={p.externalPaymentUrl} target="_blank" rel="noreferrer">Continue to Razorpay</a>
+                <p className="flex items-start gap-2 text-xs text-mist"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-ember" aria-hidden /> {p.company} is the service provider and receives payment directly in its Razorpay account. Roofora does not collect or split these funds. After paying, contact the contractor if the request still appears unpaid; status is updated manually.</p>
+              </> : <>
+                {checkout.isError && <p role="alert" className="text-sm text-bad">{(checkout.error as Error).message}</p>}
+                <button className="btn btn-primary w-full" disabled={checkout.isPending || p.status === "pending"} onClick={() => checkout.mutate()}>{checkout.isPending ? "Opening secure checkout" : p.status === "failed" ? "Try again" : "Pay securely"}</button>
+                <p className="flex items-start gap-2 text-xs text-mist"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-ember" aria-hidden /> You enter your card or bank details on the payment processor's secure page. {p.company} and this site never see or store them.</p>
+              </>}
             </div>
           )}
         </div>

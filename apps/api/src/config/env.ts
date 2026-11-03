@@ -11,6 +11,8 @@ const schema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().default(30),
   // Payments: "mock" simulates a gateway locally; "stripe" uses hosted Stripe Checkout.
   PAYMENT_PROVIDER: z.enum(["mock", "stripe"]).default("mock"),
+  // Enables contractor-owned Razorpay Payment Links for India. No platform collection or API keys.
+  RAZORPAY_LINKS_ENABLED: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   // Email: "log" prints to the server console (development); "resend" sends through the Resend HTTP API.

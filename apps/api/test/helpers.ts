@@ -15,7 +15,7 @@ export type Call = (method: string, path: string, o?: { token?: string; body?: u
  * Starts the real API against a real MongoDB (an in-memory replica set, which supports the transactions
  * payments use). Environment is set BEFORE the app is imported, because the app reads it at import time.
  */
-export async function startTestApp() {
+export async function startTestApp(options: { razorpayLinksEnabled?: boolean } = {}) {
   const repl = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   const uri = repl.getUri();
   const storageDir = fs.mkdtempSync(path.join(os.tmpdir(), "rd-test-files-"));
@@ -25,6 +25,7 @@ export async function startTestApp() {
     JWT_ACCESS_SECRET: "integration-test-secret-integration-test-secret",
     WEB_ORIGIN: "http://localhost:3000",
     PAYMENT_PROVIDER: "mock",
+    RAZORPAY_LINKS_ENABLED: options.razorpayLinksEnabled ? "true" : "false",
     STRIPE_WEBHOOK_SECRET: STRIPE_SECRET,
     CRON_SECRET: "integration-cron-secret-for-reminders",
     STORAGE_DRIVER: "local",

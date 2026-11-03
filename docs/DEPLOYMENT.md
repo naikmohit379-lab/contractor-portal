@@ -8,7 +8,7 @@ None of this has been run end to end yet. Do the first deployment on a throwaway
 - A Linux server (Ubuntu 24.04 is assumed) with Docker and the Docker Compose plugin installed.
 - A domain name, with an `A` record pointing at the server.
 - This code in a GitHub repository.
-- For real use: a Resend account (email) and a Stripe account (payments). You can rehearse everything first with `PAYMENT_PROVIDER=mock` and `EMAIL_PROVIDER=log`.
+- Payment simulation is the default (`PAYMENT_PROVIDER=mock`). For India, the optional contractor-owned Razorpay Link MVP does not need a Roofora Razorpay API key: a contractor creates the link in its own Razorpay account. Keep `RAZORPAY_LINKS_ENABLED=false` until staging validation; enabling it permits creating payment requests using external links and manual status recording, not automatic verification or refunds. Legacy Stripe settings apply only to the existing Stripe provider path.
 
 ## Vercel scheduled reminders
 
@@ -41,7 +41,14 @@ Merge to `main`. CI runs the tests, then the Deploy workflow builds the images, 
 
 The first time, start things by hand so you can watch them: `docker compose -f docker-compose.prod.yml up -d && docker compose -f docker-compose.prod.yml logs -f`.
 
-## 4. Turn on payments (when ready)
+## 4. Payment flows
+### India contractor-owned Razorpay Payment Links
+1. Keep `PAYMENT_PROVIDER=mock`; set `RAZORPAY_LINKS_ENABLED=true` only in a non-production environment after review. No Razorpay API key is stored by Roofora for this MVP.
+2. Each contractor creates a Razorpay Payment Link in its own account for the exact INR amount and pastes its secure short link (`https://rzp.io/i/...`) while requesting payment. The payer page identifies the contractor as service provider and opens Razorpay; funds go directly to that contractor.
+3. An Owner/Admin checks Razorpay Dashboard for **Captured**, the exact amount/currency, and the Payment ID, then records it in Roofora with step-up password confirmation. Roofora cannot verify that assertion automatically.
+4. Refunds and link deactivation must be done directly in Razorpay. External refunds will not update Roofora's ledger or payment reports. Automatic webhooks, refunds, reconciliation, and external link cancellation are not implemented. Test this full flow with Razorpay test mode before considering production.
+
+### Legacy Stripe provider path
 1. In Stripe test mode, set `PAYMENT_PROVIDER=stripe`, `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`.
 2. In the Stripe dashboard add a webhook to `https://<domain>/api/v1/webhooks/stripe` for: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `payment_intent.payment_failed`, `charge.refunded`, `charge.dispute.created`. Copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
 3. Run a test payment, a failed card, and a refund. Check the Payments page reconciliation. Only then use live keys.

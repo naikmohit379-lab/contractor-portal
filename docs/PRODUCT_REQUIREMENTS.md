@@ -17,7 +17,7 @@ Roofora is a job and operations platform for residential and commercial roofing 
 **Currency:** INR for new Indian companies and transactions.
 **Measurement preference:** Metric for new Indian companies; preserve stored historical values and show them using the owning company's settings.
 **Roof measurement provider:** RoofV is the required aerial measurement provider for the India MVP. The application must support manual site measurements as a fallback and require users to review provider output before relying on it.
-**Payments:** Razorpay is the selected future gateway target. Current payment behavior remains simulated; Razorpay is not yet integrated and live payments must not be enabled without testing and explicit authorization.
+**Payments:** Default behavior remains simulated. The India MVP may use a contractor-owned Razorpay Payment Link, with payment recording performed manually after checking the Razorpay dashboard. Roofora does not collect or route contractor funds. The feature is disabled by default and needs staging validation before use.
 
 ## 2. Target users
 
@@ -48,7 +48,7 @@ An Operations Intern role exists in the current application. Whether this role r
 - U.S. insurance-claim workflows, U.S. statutory waivers, Texas forms, or U.S.-specific price formats.
 - Automated Indian tax advice, GST determination, or legally authoritative contract/waiver generation.
 - Rooftop-solar installation workflows.
-- Live payments before the Razorpay integration and payment-recipient model are tested and approved.
+- Enabling contractor-owned Razorpay links before the flow is staging-tested and explicitly enabled; Roofora platform collection or routing of contractor funds is out of this MVP.
 - A global Roofora Platform Admin with unrestricted access to every company's records until that role and its safeguards are separately approved.
 
 ## 4. India-first company, customer, and property requirements
@@ -132,10 +132,10 @@ Status terms: **Implemented** means code exists; **Partially implemented** means
 ### 6.5 Payments and refunds
 
 - **REQ-PAY-1 — Current behavior:** Keep payments in mock mode; show clear messaging that simulations are not real transactions. **Implemented.**
-- **REQ-PAY-2 — Selected future provider:** Razorpay is the selected integration target for India. **Not integrated.** Do not claim that Razorpay is connected or accept live payments yet.
-- **REQ-PAY-3 — Merchant/funds model:** Roofora will collect customer payments through its Razorpay platform account and route contractor proceeds through Razorpay Route linked accounts. **Product decision confirmed; Razorpay Route approval/onboarding and each contractor's linked-account setup are pending.** The platform commission/split rule remains open.
-- **REQ-PAY-4 — Razorpay test integration:** Implement Route-enabled test-mode checkout, server-side secret storage, INR/paise-safe amounts, signed webhook verification, idempotent event handling, refunds/reversals, and reconciliation. **Pending; requires Route access, test credentials, an approved split rule, and staging testing.**
-- **REQ-PAY-5 — Live payment activation:** Requires end-to-end test-mode validation, business/account onboarding, relevant CA/counsel review, and explicit authorization. **Disabled.**
+- **REQ-PAY-2 — Merchant/funds model:** Each contractor creates a Payment Link in its own Razorpay account and is disclosed as the payee/service provider. Roofora does not collect, split, or route funds. **MVP decision approved.**
+- **REQ-PAY-3 — Contractor-owned link MVP:** A gated India-only flow accepts a Razorpay short link (`https://rzp.io/i/...`), displays it to the payer, and lets an authorized Owner/Admin manually record a payment after checking captured status, Payment ID, amount, and currency. Step-up password, amount/currency match, audit log and ledger event path are used. **Implemented and typechecked; `RAZORPAY_LINKS_ENABLED` defaults to false. Shared validation and API integration tests pass (2026-11-03); no live/test Razorpay account validation has been performed.** Manual checking is an operator attestation, not verified Razorpay API/webhook integration.
+- **REQ-PAY-4 — Automated Razorpay integration:** API-created links, signed webhook verification, automatic status updates, automatic refunds, and provider reconciliation are **not implemented**. The contractor handles refunds and link deactivation in Razorpay; external refunds do not update Roofora's ledger or payment reports and must be accounted for separately.
+- **REQ-PAY-5 — Enablement:** Keep the feature flag off until hands-on staging tests with Razorpay test-mode links pass and the business completes its Razorpay onboarding. Do not enable production or represent this manual MVP as automated payment processing without explicit approval. Current deployment/build status: awaiting CI/Vercel after the commit; the local Windows build compiled but failed standalone trace copying because Windows denied symlink creation (`EPERM`).
 
 ### 6.6 Admin and reporting
 
@@ -175,13 +175,13 @@ Status terms: **Implemented** means code exists; **Partially implemented** means
 
 - India-first company and job setup, INR/metric display, English/Hindi interface.
 - Manual site measurement, job files/photos, estimates, CSV/PDF quotations, supplier orders/invoice variance, tasks, and in-app reminders.
-- Payment workflow stays simulated.
+- Payments remain simulated by default; the optional contractor-owned Razorpay link path is gated and off until validated.
 - RoofV is the required aerial measurement provider; preserve manual measurement entry as a fallback.
-- Razorpay integration is a future target and cannot go live before the decisions and checks in REQ-PAY-3 through REQ-PAY-5.
+- Payments default to simulation; the optional contractor-owned Razorpay link feature remains disabled by default until the checks in REQ-PAY-5 are complete.
 
 ### Later, subject to approval and resources
 
-- Razorpay test-mode integration after the merchant/funds model is settled.
+- Automated Razorpay API/webhook integration, refunds and reconciliation, if justified after the manual link MVP is validated.
 - Supplier API/EDI and invoice-line extraction.
 - Stronger offline/PWA support and additional document lifecycle tools.
 - Global search, public partner APIs/webhooks, accounting integrations, and background report exports.
@@ -192,10 +192,9 @@ Status terms: **Implemented** means code exists; **Partially implemented** means
 1. Confirm the company role design: one accountable Owner, optional delegated sub-owner/company admin, and Project Manager permissions. The current system does not enforce a single Owner.
 2. Decide whether a global Platform Admin should be built and define the permitted access, approvals, audit history, and emergency-access rules.
 3. Confirm whether the Operations Intern role should remain a supported product role.
-4. Decide the Roofora platform fee amount or percentage before implementing Route transfer calculations. **Intentionally deferred by the project owner on November 3, 2026; do not hard-code a fee.**
-5. Obtain Razorpay Route approval and confirm its onboarding and operating requirements with Razorpay.
-6. Define CA/counsel-approved tax, privacy, terms, and document requirements before claiming compliance.
-7. Decide future reporting, supplier, and offline/PWA priorities.
+4. Validate the contractor-owned Razorpay Link flow in staging using Razorpay test mode; Route approval and a platform-fee decision are not required for this MVP model.
+5. Define CA/counsel-approved tax, privacy, terms, and document requirements before claiming compliance.
+6. Decide future reporting, supplier, and offline/PWA priorities.
 
 ## 11. Historical U.S. compatibility
 

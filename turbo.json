@@ -39,6 +39,7 @@
         "ROOFV_API_KEY",
         "ROOFV_API_BASE",
         "PAYMENT_PROVIDER",
+        "RAZORPAY_LINKS_ENABLED",
         "STRIPE_SECRET_KEY",
         "STRIPE_WEBHOOK_SECRET"
       ]

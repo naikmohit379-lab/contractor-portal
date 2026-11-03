@@ -1,6 +1,6 @@
 # Roofora — Roofing Contractor Platform
 
-Roofora is an India-first job and operations workspace for residential and commercial roofing contractors. The current launch scope supports Indian addresses, INR, English/Hindi, metric units, roof measurements, estimates/quotations, supplier orders, photos, tasks, and simulated payment tracking. Solar installation and live payments are out of scope for this release.
+Roofora is an India-first job and operations workspace for residential and commercial roofing contractors. The current launch scope supports Indian addresses, INR, English/Hindi, metric units, roof measurements, estimates/quotations, supplier orders, photos, tasks, and simulated payment tracking. An optional, disabled-by-default India MVP supports a contractor-owned Razorpay Payment Link with manual payment confirmation; Roofora does not collect or route those funds. Solar installation and automatic payment verification/refunds are out of scope for this release.
 
 See [India-first product scope](docs/INDIA_FIRST_SCOPE.md), [PRD](docs/PRODUCT_REQUIREMENTS.md), [India job workflow](docs/MVP_WORKFLOW.md), and [deployment guide](docs/DEPLOYMENT.md).
 
@@ -32,7 +32,7 @@ The web app is served on port 3000 and API on port 4000. For local password-rese
 3. Enter site measurements or request a RoofV report only when the server flag and credential are configured and the user consents. Review the report and its caveats.
 4. Build an estimate from verified quantities and the company price list. Add and confirm local material/labour prices before sharing a quotation. Ask a CA to confirm tax treatment; the app does not certify GST.
 5. Coordinate suppliers, photos, assignments, follow-up tasks, and invoice variance from the job.
-6. Payments are simulated. Do not treat the mock result as a real payment.
+6. Payment defaults to simulation. The gated Razorpay Link option is off by default; when enabled, the contractor collects directly into its own Razorpay account and an authorized user must manually check a captured payment before recording it. Do not treat a pasted link or payer return as proof of payment.
 
 ## Market/data compatibility
 
@@ -48,7 +48,7 @@ Legacy insurance-claim and waiver code remains for compatibility; it is not repr
 
 ## Implemented feature status
 
-The current implementation includes India-first company defaults and job addresses, INR/metric formatting, English/Hindi translation fallback, RoofV measurement requests behind server configuration and user consent, estimate and quotation workflows, supplier invoice variance, offline photo queuing and sync, in-app overdue Operations reminders, and mock-only payment flows. See [MVP workflow](docs/MVP_WORKFLOW.md), [Operations workspace](docs/OPERATIONS_WORKSPACE.md), and [staging validation history](docs/OPERATIONS_STAGING_VALIDATION_2026-10-21.md) for boundaries and verification evidence. A feature being implemented does not by itself mean its external provider or production delivery has been validated.
+The current implementation includes India-first company defaults and job addresses, INR/metric formatting, English/Hindi translation fallback, RoofV measurement requests behind server configuration and user consent, estimate and quotation workflows, supplier invoice variance, offline photo queuing and sync, in-app overdue Operations reminders, mock payments, and the gated contractor-owned Razorpay Link MVP. The Razorpay MVP is typechecked and covered by shared/API tests (including synthetic integration tests); the `RAZORPAY_LINKS_ENABLED` flag remains off by default. Local Next.js compilation succeeded, but Windows standalone tracing could not create symlinks, so the full production build still needs its Linux CI/Vercel result. The feature has not been exercised against a Razorpay account. See [MVP workflow](docs/MVP_WORKFLOW.md), [Operations workspace](docs/OPERATIONS_WORKSPACE.md), and [staging validation history](docs/OPERATIONS_STAGING_VALIDATION_2026-10-21.md) for boundaries and verification evidence. A feature being implemented does not by itself mean its external provider or production delivery has been validated.
 
 ## Checks
 

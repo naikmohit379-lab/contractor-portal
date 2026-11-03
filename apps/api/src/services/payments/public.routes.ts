@@ -39,6 +39,7 @@ publicPaymentsRouter.get(
       status: p.status as any,
       payerName: p.payerName,
       provider: p.provider ?? env.PAYMENT_PROVIDER,
+      externalPaymentUrl: p.externalPaymentUrl ?? undefined,
       paidAt: p.paidAt?.toISOString(),
     };
     res.json(dto);
@@ -50,6 +51,7 @@ publicPaymentsRouter.post(
   asyncHandler(async (req, res) => {
     const p = await byToken(req.params.token!);
     if (!["requested", "pending", "failed"].includes(p.status)) throw new AppError(409, "not_payable", `This payment is ${p.status}`);
+    if (p.provider === "razorpay-link") throw new AppError(409, "external_checkout", "Continue using the contractor's Razorpay Payment Link shown on the payment page");
 
     // A new attempt gets a new idempotency key, so a retry after an expired session is not answered with the old session.
     p.checkoutAttempts += 1;
@@ -82,6 +84,7 @@ publicPaymentsRouter.post(
   asyncHandler(async (req, res) => {
     if (env.PAYMENT_PROVIDER !== "mock") throw notFound("Route");
     const p = await byToken(req.params.token!);
+    if ((p.provider ?? env.PAYMENT_PROVIDER) !== "mock") throw notFound("Route");
     const outcome = await applyProviderEvent({
       eventId: `mock_evt_${randomUUID()}`,
       provider: "mock",

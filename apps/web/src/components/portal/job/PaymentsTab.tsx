@@ -19,7 +19,7 @@ const TONE: Record<string, string> = {
   canceled: "bg-ink-600 text-mist",
 };
 
-interface PaymentsResponse { provider: string; payments: PaymentDTO[]; refunds: RefundDTO[]; collectedCents: number }
+interface PaymentsResponse { provider: string; paymentOptions?: { razorpayLinksEnabled: boolean; companyCountry: string; propertyCountry: string; currency: string }; payments: PaymentDTO[]; refunds: RefundDTO[]; collectedCents: number }
 
 function LinkBox({ url, emailedTo, onClose }: { url: string; emailedTo?: string; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
@@ -72,9 +72,19 @@ function PaymentRow({ jobId, p, refunds }: { jobId: string; p: PaymentDTO; refun
   const qc = useQueryClient();
   const [link, setLink] = useState<{ url: string; emailedTo?: string } | null>(null);
   const [refunding, setRefunding] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [razorpayPaymentId, setRazorpayPaymentId] = useState("");
+  const [paidAmountCents, setPaidAmountCents] = useState(p.amountCents);
+  const [password, setPassword] = useState("");
+  const [confirmedCaptured, setConfirmedCaptured] = useState(false);
   const refresh = () => qc.invalidateQueries({ queryKey: ["jobs", jobId] });
   const resend = useMutation({ mutationFn: () => post<{ payUrl: string; emailedTo?: string }>(`/jobs/${jobId}/payments/${p.id}/resend`), onSuccess: (r) => { setLink({ url: r.payUrl, emailedTo: r.emailedTo }); refresh(); } });
   const cancel = useMutation({ mutationFn: () => post(`/jobs/${jobId}/payments/${p.id}/cancel`), onSuccess: refresh });
+  const record = useMutation({
+    mutationFn: () => post(`/jobs/${jobId}/payments/${p.id}/record-razorpay-payment`, { razorpayPaymentId, amountCents: paidAmountCents, currency: p.currency ?? "INR", password, confirmedCaptured }),
+    onSuccess: () => { setRecording(false); refresh(); },
+    onError: refresh,
+  });
   const refundable = (p.status === "succeeded" || p.status === "partially_refunded") && p.refundedCents < p.amountCents;
 
   return (
@@ -86,14 +96,28 @@ function PaymentRow({ jobId, p, refunds }: { jobId: string; p: PaymentDTO; refun
           {p.failureReason && <p className="text-bad">{p.failureReason}</p>}
           {p.flag && <p className="text-warn">Needs review: {p.flag.replace("_", " ")}</p>}
           {p.disputed && <p className="text-warn">A dispute is open on this payment.</p>}
+          {p.provider === "razorpay-link" && p.status === "canceled" && <p className="text-xs text-warn">The Roofora request is canceled. Also deactivate the Razorpay link in Razorpay to prevent further payment.</p>}
         </div>
         <span className={clsx("rounded px-2 py-1 text-xs font-semibold", TONE[p.status])}>{PAYMENT_STATUS_LABELS[p.status]}</span>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
+        {p.externalPaymentUrl && <a className="btn btn-ghost h-9 min-h-0 px-3" href={p.externalPaymentUrl} target="_blank" rel="noreferrer">Open Razorpay link</a>}
+        {p.provider === "razorpay-link" && ["requested", "pending", "failed", "canceled"].includes(p.status) && can("payment:approve") && !recording && <button className="btn btn-ghost h-9 min-h-0 px-3" onClick={() => setRecording(true)}>Record Razorpay payment</button>}
         {["requested", "pending", "failed"].includes(p.status) && can("payment:request") && <button className="btn btn-ghost h-9 min-h-0 px-3" disabled={resend.isPending} onClick={() => resend.mutate()}>New link</button>}
-        {["requested", "failed"].includes(p.status) && can("payment:request") && <button className="btn btn-ghost h-9 min-h-0 px-3" onClick={() => cancel.mutate()}>Cancel</button>}
-        {refundable && can("payment:refund") && !refunding && <button className="btn btn-ghost h-9 min-h-0 px-3" onClick={() => setRefunding(true)}>Refund</button>}
+        {["requested", "failed"].includes(p.status) && p.provider !== "razorpay-link" && can("payment:request") && <button className="btn btn-ghost h-9 min-h-0 px-3" onClick={() => cancel.mutate()}>Cancel</button>}
+        {refundable && p.provider !== "razorpay-link" && can("payment:refund") && !refunding && <button className="btn btn-ghost h-9 min-h-0 px-3" onClick={() => setRefunding(true)}>Refund</button>}
       </div>
+      {recording && <div className="mt-3 space-y-3 rounded-md border border-warn/40 bg-warn/5 p-4">
+        <p className="text-sm text-warn">First open Razorpay and verify this payment is captured (not just created or authorized), and that its Payment ID and amount match. RoofDesk cannot verify Razorpay automatically.</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div><label className="label" htmlFor={`razorpay-id-${p.id}`}>Razorpay Payment ID</label><input id={`razorpay-id-${p.id}`} className="field" value={razorpayPaymentId} onChange={(e) => setRazorpayPaymentId(e.target.value)} /></div>
+          <div><label className="label">Actual amount captured ({p.currency ?? "INR"})</label><NumInput value={paidAmountCents} format={(c) => centsToDollars(c)} parse={(s) => dollarsToCents(parseFloat(s))} onCommit={setPaidAmountCents} /><p className="mt-1 text-xs text-mist">Expected: {usd(p.amountCents, { currency: p.currency, locale: "en-IN" })}</p></div>
+        </div>
+        <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={confirmedCaptured} onChange={(e) => setConfirmedCaptured(e.target.checked)} /><span>I checked Razorpay and confirmed this payment is captured for the exact amount above.</span></label>
+        <div className="max-w-xs"><label className="label" htmlFor={`razorpay-password-${p.id}`}>Your password</label><input id={`razorpay-password-${p.id}`} type="password" autoComplete="current-password" className="field" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+        {record.isError && <p role="alert" className="text-sm text-bad">{(record.error as Error).message}</p>}
+        <div className="flex gap-2"><button className="btn btn-primary" disabled={record.isPending || !confirmedCaptured || !razorpayPaymentId.trim() || paidAmountCents < 1 || !password} onClick={() => record.mutate()}>{record.isPending ? "Recording" : "Confirm captured payment"}</button><button className="btn btn-ghost" onClick={() => setRecording(false)}>Cancel</button></div>
+      </div>}
       {link && <div className="mt-3"><LinkBox url={link.url} emailedTo={link.emailedTo} onClose={() => setLink(null)} /></div>}
       {refunding && <RefundForm jobId={jobId} p={p} onDone={() => setRefunding(false)} />}
       {refunds.length > 0 && (
@@ -105,13 +129,14 @@ function PaymentRow({ jobId, p, refunds }: { jobId: string; p: PaymentDTO; refun
   );
 }
 
-function RequestPayment({ jobId, m, onDone }: { jobId: string; m: MilestoneDTO; onDone: (l: { url: string; emailedTo?: string }) => void }) {
+function RequestPayment({ jobId, m, onDone, useRazorpay }: { jobId: string; m: MilestoneDTO; onDone: (l: { url: string; emailedTo?: string }) => void; useRazorpay: boolean }) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [amount, setAmount] = useState<number | null>(null);
+  const [razorpayPaymentUrl, setRazorpayPaymentUrl] = useState("");
   const req = useMutation({
-    mutationFn: () => post<{ payUrl: string; emailedTo?: string }>(`/jobs/${jobId}/payments`, { milestoneId: m.id, payerName: name, payerEmail: email, amountCents: amount ?? undefined }),
+    mutationFn: () => post<{ payUrl: string; emailedTo?: string }>(`/jobs/${jobId}/payments`, { milestoneId: m.id, payerName: name, payerEmail: email, amountCents: amount ?? undefined, ...(useRazorpay ? { razorpayPaymentUrl } : {}) }),
     onSuccess: (r) => { qc.invalidateQueries({ queryKey: ["jobs", jobId] }); onDone({ url: r.payUrl, emailedTo: r.emailedTo }); },
   });
   return (
@@ -121,8 +146,9 @@ function RequestPayment({ jobId, m, onDone }: { jobId: string; m: MilestoneDTO; 
         <div><label className="label" htmlFor={`pe-${m.id}`}>Payer email</label><input id={`pe-${m.id}`} type="email" inputMode="email" className="field" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
         <div><label className="label">Amount (blank = all that is owed)</label><NumInput value={amount ?? 0} format={(c) => (amount === null ? "" : centsToDollars(c))} parse={(s) => dollarsToCents(parseFloat(s))} onCommit={setAmount} placeholder={centsToDollars(m.expectedAmountCents)} /></div>
       </div>
+      {useRazorpay && <div><label className="label" htmlFor={`razorpay-link-${m.id}`}>Your Razorpay Payment Link</label><input id={`razorpay-link-${m.id}`} type="url" inputMode="url" placeholder="https://rzp.io/i/..." className="field" value={razorpayPaymentUrl} onChange={(e) => setRazorpayPaymentUrl(e.target.value)} /><p className="mt-1 text-xs text-mist">Create this link in your company’s Razorpay account in INR for the same amount. The customer pays your company directly; Roofora does not collect or route the money.</p></div>}
       {req.isError && <p role="alert" className="text-sm text-bad">{(req.error as Error).message}</p>}
-      <button className="btn btn-primary" disabled={req.isPending || name.trim().length < 2} onClick={() => req.mutate()}>{req.isPending ? "Creating link" : "Create payment link"}</button>
+      <button className="btn btn-primary" disabled={req.isPending || name.trim().length < 2 || (useRazorpay && !razorpayPaymentUrl.trim())} onClick={() => req.mutate()}>{req.isPending ? "Creating link" : "Create payment link"}</button>
     </div>
   );
 }
@@ -143,7 +169,8 @@ export function PaymentsTab({ jobId }: { jobId: string }) {
         <h2 className="text-2xl font-bold">Payments</h2>
         <p className="text-sm text-mist">Collected so far <span className="font-display text-2xl font-bold text-white">{usd(q.data?.collectedCents ?? 0)}</span></p>
       </div>
-      {q.data?.provider === "mock" && <p className="rounded-md bg-warn/10 p-3 text-sm text-warn">Test mode: payments are simulated and no real money moves. Razorpay is the planned India payment provider and is not connected yet.</p>}
+      {q.data?.provider === "mock" && !q.data.paymentOptions?.razorpayLinksEnabled && <p className="rounded-md bg-warn/10 p-3 text-sm text-warn">Test mode: payments are simulated and no real money moves. Contractor-owned Razorpay links are currently disabled.</p>}
+      {q.data?.paymentOptions?.razorpayLinksEnabled && q.data.paymentOptions.companyCountry === "IN" && q.data.paymentOptions.propertyCountry === "IN" && q.data.paymentOptions.currency === "INR" && <p className="rounded-md bg-sky-400/10 p-3 text-sm text-sky-200">India payment: your company’s Razorpay account receives the payment directly. Roofora does not collect or split funds. Staff must verify captured payments in Razorpay and record them here. Process refunds in Razorpay; they will not be reflected in Roofora automatically.</p>}
 
       <div className="space-y-3">
         <h3 className="text-xl font-bold">Ready to bill</h3>
@@ -154,7 +181,7 @@ export function PaymentsTab({ jobId }: { jobId: string }) {
               <div><p className="font-medium">{m.label}</p><p className="text-sm text-mist">Expected {usd(m.expectedAmountCents)}</p></div>
               {can("payment:request") && <button className="btn btn-primary" onClick={() => { setOpen(open === m.id ? null : m.id); setLink(null); }}>Request payment</button>}
             </div>
-            {open === m.id && !link && <RequestPayment jobId={jobId} m={m} onDone={setLink} />}
+            {open === m.id && !link && <RequestPayment jobId={jobId} m={m} onDone={setLink} useRazorpay={Boolean(q.data?.paymentOptions?.razorpayLinksEnabled && q.data.paymentOptions.companyCountry === "IN" && q.data.paymentOptions.propertyCountry === "IN" && q.data.paymentOptions.currency === "INR")} />}
             {open === m.id && link && <div className="mt-3"><LinkBox url={link.url} emailedTo={link.emailedTo} onClose={() => { setLink(null); setOpen(null); }} /></div>}
           </article>
         ))}

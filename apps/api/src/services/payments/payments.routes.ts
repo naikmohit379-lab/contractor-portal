@@ -7,6 +7,8 @@ import {
   checkPaymentLedger,
   outstandingCents,
   paymentRequestSchema,
+  isRazorpayPaymentLink,
+  recordExternalPaymentSchema,
   refundApproveSchema,
   refundNeedsApproval,
   refundRejectSchema,
@@ -31,7 +33,7 @@ import { Payment } from "../../models/Payment";
 import { PaymentMilestone } from "../../models/PaymentMilestone";
 import { Refund } from "../../models/Refund";
 import { User } from "../../models/User";
-import { executeRefund } from "./service";
+import { applyProviderEvent, executeRefund } from "./service";
 
 const jobParam = z.object({ jobId: z.string().refine(isValidObjectId, "Invalid job id") });
 const payParam = jobParam.extend({ paymentId: z.string().refine(isValidObjectId, "Invalid payment id") });
@@ -52,6 +54,8 @@ export const toPaymentDTO = (p: any): PaymentDTO => ({
   payerName: p.payerName,
   payerEmail: p.payerEmail ?? undefined,
   provider: p.provider ?? env.PAYMENT_PROVIDER,
+  externalPaymentUrl: p.externalPaymentUrl ?? undefined,
+  providerReference: p.providerPaymentIntentId ?? undefined,
   failureReason: p.failureReason ?? undefined,
   refundedCents: p.refundedCents,
   disputed: p.disputed,
@@ -86,14 +90,17 @@ paymentsRouter.get(
   requirePermission("job:read"),
   validate({ params: jobParam }),
   asyncHandler(async (req, res) => {
-    const [payments, refunds, ledger] = await Promise.all([
+    const [payments, refunds, ledger, job, company] = await Promise.all([
       Payment.find({ jobId: req.params.jobId }).sort({ createdAt: -1 }),
       Refund.find({ jobId: req.params.jobId }).sort({ createdAt: -1 }),
       LedgerEntry.find({ jobId: req.params.jobId }),
+      Job.findById(req.params.jobId),
+      Company.findById(req.auth!.companyId),
     ]);
     const lines = ledger.map((l) => ({ account: l.account as any, direction: l.direction as any, amountCents: l.amountCents }));
     res.json({
       provider: env.PAYMENT_PROVIDER,
+      paymentOptions: { razorpayLinksEnabled: env.RAZORPAY_LINKS_ENABLED, companyCountry: company?.settings?.country ?? "US", propertyCountry: job?.property?.country ?? "US", currency: company?.settings?.currency ?? "USD" },
       payments: payments.map(toPaymentDTO),
       refunds: refunds.map(toRefundDTO),
       collectedCents: accountBalance(lines, "cash"),
@@ -127,6 +134,16 @@ paymentsRouter.post(
 
     const propertyLine1 = job.property?.line1;
     if (!propertyLine1) throw new AppError(409, "property_missing", "Add a property address before requesting payment");
+    const useRazorpayLink = Boolean(req.body.razorpayPaymentUrl);
+    if (useRazorpayLink && (!env.RAZORPAY_LINKS_ENABLED || company?.settings?.country !== "IN" || job.property?.country !== "IN" || currency !== "INR")) {
+      throw new AppError(422, "razorpay_link_unavailable", "Contractor-owned Razorpay links are not enabled for this India payment");
+    }
+    if (useRazorpayLink && !isRazorpayPaymentLink(req.body.razorpayPaymentUrl)) {
+      throw new AppError(422, "invalid_razorpay_link", "Use the secure short link copied from your contractor Razorpay account (https://rzp.io/i/...)");
+    }
+    if (env.RAZORPAY_LINKS_ENABLED && company?.settings?.country === "IN" && job.property?.country === "IN" && !useRazorpayLink) {
+      throw new AppError(422, "razorpay_link_required", "Paste a contractor-owned Razorpay Payment Link for this India payment");
+    }
     const token = newRefreshToken();
     const p = await Payment.create({
       jobId: job._id,
@@ -136,7 +153,8 @@ paymentsRouter.post(
       currency,
       payerName: req.body.payerName,
       payerEmail: req.body.payerEmail || undefined,
-      provider: env.PAYMENT_PROVIDER,
+      provider: useRazorpayLink ? "razorpay-link" : env.PAYMENT_PROVIDER,
+      externalPaymentUrl: useRazorpayLink ? req.body.razorpayPaymentUrl : undefined,
       tokenHash: hashToken(token),
       requestedBy: req.auth!.userId,
     });
@@ -151,6 +169,41 @@ paymentsRouter.post(
       url: payUrl(token),
     })) ? p.payerEmail : undefined;
     res.status(201).json({ payment: toPaymentDTO(p), payUrl: payUrl(token), emailedTo });
+  }),
+);
+
+paymentsRouter.post(
+  "/:paymentId/record-razorpay-payment",
+  moneyLimiter,
+  requirePermission("payment:approve"),
+  validate({ params: payParam, body: recordExternalPaymentSchema }),
+  asyncHandler(async (req, res) => {
+    await confirmPassword(req.auth!.userId, req.body.password);
+    const p = await Payment.findOne({ _id: req.params.paymentId, jobId: req.params.jobId });
+    if (!p) throw notFound("Payment");
+    if (p.provider !== "razorpay-link" || !p.externalPaymentUrl) throw new AppError(409, "wrong_provider", "This is not a contractor-owned Razorpay Payment Link");
+    if (!(["requested", "pending", "failed", "canceled"] as string[]).includes(p.status)) throw new AppError(409, "payment_closed", `This payment is ${p.status}`);
+    if (req.body.amountCents !== p.amountCents || req.body.currency !== p.currency) {
+      p.flag = "amount_mismatch";
+      await p.save();
+      await userAudit(req, "payment.external_amount_mismatch", "Payment", p._id, { expectedAmountCents: p.amountCents, reportedAmountCents: req.body.amountCents, expectedCurrency: p.currency, reportedCurrency: req.body.currency });
+      throw new AppError(422, "payment_mismatch", "The Razorpay payment amount or currency does not match this request. It was flagged for review and was not marked paid.");
+    }
+    const duplicatePayment = await Payment.findOne({ providerPaymentIntentId: req.body.razorpayPaymentId, _id: { $ne: p._id } });
+    if (duplicatePayment) throw new AppError(409, "razorpay_payment_reused", "That Razorpay Payment ID has already been recorded against another Roofora payment");
+    const outcome = await applyProviderEvent({
+      eventId: `manual-razorpay-${p.id}-${req.body.razorpayPaymentId}`,
+      provider: "razorpay-link",
+      type: "payment_succeeded",
+      paymentId: p.id,
+      paymentIntentId: req.body.razorpayPaymentId,
+      amountCents: req.body.amountCents,
+      currency: req.body.currency,
+    });
+    if (outcome === "unmatched") throw new AppError(404, "payment_not_found", "Payment request was not found");
+    await userAudit(req, "payment.razorpay_manually_confirmed", "Payment", p._id, { razorpayPaymentId: req.body.razorpayPaymentId, amountCents: req.body.amountCents, currency: req.body.currency });
+    touchJob(req.auth!.companyId, req.params.jobId, "payments", "milestones");
+    res.json({ payment: toPaymentDTO((await Payment.findById(p._id))!), outcome });
   }),
 );
 
@@ -186,6 +239,7 @@ paymentsRouter.post(
   asyncHandler(async (req, res) => {
     const p = await Payment.findOne({ _id: req.params.paymentId, jobId: req.params.jobId });
     if (!p) throw notFound("Payment");
+    if (p.provider === "razorpay-link") throw new AppError(409, "external_link_cancel", "Deactivate this payment link in the contractor Razorpay account first. Roofora cannot disable it automatically.");
     // A payment the gateway is already processing cannot be withdrawn from here.
     if (!["requested", "failed"].includes(p.status)) throw new AppError(409, "cannot_cancel", `A ${p.status} payment cannot be canceled`);
     p.status = "canceled";
@@ -206,6 +260,7 @@ paymentsRouter.post(
     await confirmPassword(req.auth!.userId, req.body.password);
     const p = await Payment.findOne({ _id: req.params.paymentId, jobId: req.params.jobId });
     if (!p) throw notFound("Payment");
+    if (p.provider === "razorpay-link") throw new AppError(409, "manual_refund_required", "Process the refund in the contractor Razorpay account; Roofora cannot process or reconcile it automatically.");
     if (!["succeeded", "partially_refunded"].includes(p.status)) throw new AppError(409, "not_refundable", "Only paid payments can be refunded");
 
     // Refunds waiting for approval already claim part of the money.
