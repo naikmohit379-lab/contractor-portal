@@ -27,14 +27,15 @@ Status date: 2026-11-05
 - **Unit tested:** `razorpay.test.ts` — 4 passed (AES-GCM encryption/tamper detection, Payment Link request construction, raw signature check, requested event normalization).
 - **Integration tested:** `razorpay-test-mode.test.ts` — 4 passed with local MongoDB access; it covers encrypted credential storage and status-only responses, INR link creation, signed success webhook and duplicate delivery, invalid signatures, tenant boundaries, and role restrictions.
 - **Broader tests:** full API suite — 115 passed across 21 files; shared package — 39 passed across 9 files; estimate engine — 5 passed.
-- **Web production build:** Next.js compilation, type/lint phase, and static page generation completed, but standalone trace packaging failed on Windows with `EPERM` while creating dependency symlinks. A successful Linux CI/Vercel build remains pending.
+- **Web production build:** Next.js compilation, type/lint phase, and static page generation completed, but standalone trace packaging failed on Windows with `EPERM` while creating dependency symlinks. GitHub CI #61 subsequently passed the production build on Linux.
 - **External provider validation:** pending. No credentials were provided to or entered into Roofora in this session; no Razorpay network call was made.
-- **Deployment:** not deployed. No commit or push was made.
+- **CI and staging deployment:** GitHub CI #61 passed on commit `8ec6cb5` (types/tests/build, dependency audit, and browser jobs; browser summary: 33 passed, 3 skipped). Vercel Preview deployment `AeHgqSnMQPuZc7MuDDusLfpK8x59` for branch `staging`, commit `8ec6cb5`, reached **Ready** at https://contractor-portal-git-staging-mohith-c47e.vercel.app/.
+- **Preview configuration / account test:** no Razorpay credentials or encryption key were added to Vercel. `RAZORPAY_API_ENABLED` remains off by default until Preview configuration is deliberately completed. No Test Mode payment link or webhook has been exercised against the user's Razorpay account.
 
 ## Known limits and follow-up before broader use
 
 - Refund processing and link cancellation remain manual in the contractor's Razorpay account; only the configured refund event can reflect a refund in Roofora. The app does not issue refunds through the API or reconcile full Razorpay statements.
 - The Test-mode SaaS arrangement and each merchant's website/activation requirements still need Razorpay confirmation. Do not assume that one Roofora site can be registered across all contractor merchant accounts.
 - Check Razorpay's actual Test webhook payloads in staging. Events that cannot be safely correlated to a stored payment are acknowledged as `unmatched` and do not change the ledger. Verify `payment.failed` and `refund.processed` correlation against delivered payloads before relying on those status updates.
-- Run/confirm the Linux CI and Vercel build for the published staging revision, then configure staging-only Test Mode environment settings and run the provider's end-to-end payment and webhook flow. Production and Live keys require a separate explicit approval.
+- Configure Preview-only `RAZORPAY_API_ENABLED`, a server-only `RAZORPAY_CREDENTIALS_ENCRYPTION_KEY`, and `PUBLIC_API_URL`; then connect the contractor's Test Key ID/Secret and webhook secret in Roofora Settings. Validate successful/failed payments, duplicate/delayed webhooks, and refund events with synthetic staging data. Production and Live keys require separate explicit approval.
 - The displayed INR amounts remain in the existing minor-unit integer field historically named `amountCents`; a future storage rename is out of scope for this increment.
