@@ -10,7 +10,7 @@ None of this has been run end to end yet. Do the first deployment on a throwaway
 - This code in a GitHub repository.
 - Keep the Next.js dependency on a patched release in the 15.5 line. The lockfile currently
   pins 15.5.28; GitHub dependency-audit results are the release gate for security advisories.
-- Payment simulation is the default (`PAYMENT_PROVIDER=mock`). For India, the optional contractor-owned Razorpay Link MVP does not need a Roofora Razorpay API key: a contractor creates the link in its own Razorpay account. Keep `RAZORPAY_LINKS_ENABLED=false` until staging validation; enabling it permits creating payment requests using external links and manual status recording, not automatic verification or refunds. Legacy Stripe settings apply only to the existing Stripe provider path.
+- Payment simulation is the default (`PAYMENT_PROVIDER=mock`). The manual contractor-owned Razorpay link option and new API-created Razorpay Test Mode option are both disabled by default. Do not set `RAZORPAY_API_ENABLED=true` in Production; the new Test Mode integration is not externally validated or deployed. Each contractor account receives its own payments directly; Roofora does not collect or split funds. Legacy Stripe settings apply only to the existing Stripe provider path.
 
 ## Vercel scheduled reminders
 
@@ -50,6 +50,16 @@ The first time, start things by hand so you can watch them: `docker compose -f d
 3. An Owner/Admin checks Razorpay Dashboard for **Captured**, the exact amount/currency, and the Payment ID, then records it in Roofora with step-up password confirmation. Roofora cannot verify that assertion automatically.
 4. Refunds and link deactivation must be done directly in Razorpay. External refunds will not update Roofora's ledger or payment reports. Automatic webhooks, refunds, reconciliation, and external link cancellation are not implemented. Test this full flow with Razorpay test mode before considering production.
 
+### Razorpay API-created Test Mode links (new; not yet deployed)
+
+This implementation is source-only and must remain disabled until a dedicated staging test is approved. See [Razorpay Test Mode setup and status](RAZORPAY_TEST_MODE.md) for the complete flow.
+
+1. Keep `PAYMENT_PROVIDER=mock` and `RAZORPAY_LINKS_ENABLED=false`. In a staging environment only, set `RAZORPAY_API_ENABLED=true`, `RAZORPAY_CREDENTIALS_ENCRYPTION_KEY` (secure random 32-byte Base64 value), and `PUBLIC_API_URL` (public HTTPS API origin). Never put the encryption key in source control or the browser.
+2. Each Indian company Owner/Admin connects that company's Razorpay Test Key ID (`rzp_test_...`), Test Key Secret, and Test webhook secret in Settings. Secrets are encrypted per company and not returned after save.
+3. Add a Razorpay Test Mode webhook to the per-company URL displayed in Roofora Settings, for `payment_link.paid`, `payment.failed`, `refund.processed`, and `payment.captured`.
+4. Run success, failure, duplicate/delayed webhook, amount mismatch, refund notification, and tenant isolation checks with synthetic staging data. A payment is marked paid only after a valid signed event. Refunds and link deactivation remain manual in Razorpay; API refunds and full provider reconciliation are not implemented.
+5. Local API/web typechecks, the full API suite (115 tests), shared package tests (39), estimate-engine tests (5), and Razorpay Mongo-backed integration tests (4) passed on 2026-11-05. The Next.js build compiled and generated static pages, but Windows standalone trace packaging failed on a denied symlink (`EPERM`); verify the Linux CI/Vercel build before relying on the deployment. External Test Mode account validation remains pending. Do not enable Live keys.
+
 ## Release verification status (2026-11-03)
 
 - Commit `16f1a5c` added the feature-gated contractor-owned Razorpay Payment Link MVP and was pushed to `main`.
@@ -59,7 +69,7 @@ The first time, start things by hand so you can watch them: `docker compose -f d
 - Local pnpm 9.12 checks with the updated dependencies: typecheck passed; shared/estimate tests passed (44); API tests passed (107); high-severity production audit passed (two moderate advisories remain).
 - The local web build with Next.js 15.5.28 compiled and generated all static pages, but standalone trace packaging failed because Windows denied symlink creation (`EPERM`). The API production bundle built successfully. Use the Linux CI build as the packaging verification.
 - The browser suite for `53c3f47`, `6368067`, `0e7852b`, `77ca5f5`, and `f9e8a6b` found color-contrast violations. CI for `f9e8a6b` passed install, typecheck, shared/API tests, production build, and dependency audit; browser E2E passed 32 tests but found one disabled-primary-button contrast failure. The current follow-up sets an explicit slate background, light text, and full opacity for disabled primary buttons. Await fresh CI before deployment. Local typecheck was blocked because available pnpm is 11 rather than the pinned 9.12 and workspace symlink creation was denied (`EPERM`).
-- Keep `RAZORPAY_LINKS_ENABLED=false`; no live Razorpay account flow has been validated.
+- Keep `RAZORPAY_LINKS_ENABLED=false` and `RAZORPAY_API_ENABLED=false`; no Razorpay Test Mode account flow has been validated in Roofora and no Live Razorpay flow is approved.
 
 ### Legacy Stripe provider path
 1. In Stripe test mode, set `PAYMENT_PROVIDER=stripe`, `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`.

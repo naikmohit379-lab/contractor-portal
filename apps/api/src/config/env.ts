@@ -13,6 +13,10 @@ const schema = z.object({
   PAYMENT_PROVIDER: z.enum(["mock", "stripe"]).default("mock"),
   // Enables contractor-owned Razorpay Payment Links for India. No platform collection or API keys.
   RAZORPAY_LINKS_ENABLED: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  // API-created links and per-company encrypted Test credentials remain opt-in and Test Mode only.
+  RAZORPAY_API_ENABLED: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  RAZORPAY_CREDENTIALS_ENCRYPTION_KEY: z.string().optional(),
+  PUBLIC_API_URL: z.string().url().optional(),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   // Email: "log" prints to the server console (development); "resend" sends through the Resend HTTP API.
@@ -46,9 +50,17 @@ if (isProd) {
   if (/change-me|example|secret/i.test(env.JWT_ACCESS_SECRET)) problems.push("JWT_ACCESS_SECRET is still a placeholder");
   if (!env.WEB_ORIGIN.startsWith("https://")) problems.push("WEB_ORIGIN must be an https:// address in production");
   if (env.PAYMENT_PROVIDER === "stripe" && (!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET)) problems.push("Stripe is selected but STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET is missing");
+  if (env.RAZORPAY_API_ENABLED && (!env.RAZORPAY_CREDENTIALS_ENCRYPTION_KEY || !/^[A-Za-z0-9+/]{43}=$/.test(env.RAZORPAY_CREDENTIALS_ENCRYPTION_KEY))) problems.push("RAZORPAY_API_ENABLED requires a base64 32-byte RAZORPAY_CREDENTIALS_ENCRYPTION_KEY");
   if (env.EMAIL_PROVIDER === "resend" && !env.RESEND_API_KEY) problems.push("Resend is selected but RESEND_API_KEY is missing");
   if (env.ROOFV_ENABLED && !env.ROOFV_API_KEY) problems.push("ROOFV_API_KEY is required when ROOFV_ENABLED=true");
   if (env.STORAGE_DRIVER === "local") console.warn("STORAGE_DRIVER=local: files live on this server's disk. Keep STORAGE_DIR on a persistent, backed-up volume, or use s3.");
   if (env.STORAGE_DRIVER === "vercel-blob" && !env.BLOB_READ_WRITE_TOKEN) problems.push("BLOB_READ_WRITE_TOKEN is required when STORAGE_DRIVER=vercel-blob");
   if (problems.length) throw new Error(`Unsafe production configuration:\n - ${problems.join("\n - ")}`);
+}
+
+if (env.RAZORPAY_CREDENTIALS_ENCRYPTION_KEY && !/^[A-Za-z0-9+/]{43}=$/.test(env.RAZORPAY_CREDENTIALS_ENCRYPTION_KEY)) {
+  throw new Error("RAZORPAY_CREDENTIALS_ENCRYPTION_KEY must be a base64-encoded 32-byte key");
+}
+if (env.RAZORPAY_API_ENABLED && !env.RAZORPAY_CREDENTIALS_ENCRYPTION_KEY) {
+  throw new Error("RAZORPAY_CREDENTIALS_ENCRYPTION_KEY is required when RAZORPAY_API_ENABLED=true");
 }

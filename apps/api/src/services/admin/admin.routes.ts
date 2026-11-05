@@ -14,11 +14,57 @@ import { Waiver } from "../../models/Waiver";
 import { Company } from "../../models/Company";
 import { PriceList } from "../../models/PriceList";
 import { Supplier } from "../../models/Supplier";
+import { encryptRazorpaySecret } from "../payments/razorpay";
+import { env } from "../../config/env";
 import { companyMarketSettingsSchema, jobStageLabelsSchema, normalizeMarketSettings } from "@roofdesk/shared";
 import { normalizeStageLabels } from "../jobs/stages";
 
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requirePermission("user:manage"));
+
+const razorpayTestCredentialsSchema = z.object({
+  keyId: z.string().trim().min(12).max(100).regex(/^rzp_test_[A-Za-z0-9]+$/, "Use a Razorpay Test Mode Key ID (starts with rzp_test_)") ,
+  keySecret: z.string().min(8).max(300),
+  webhookSecret: z.string().min(8).max(300),
+});
+
+adminRouter.get("/razorpay-test", asyncHandler(async (req, res) => {
+  const company = await Company.findById(req.auth!.companyId).select("+settings.razorpayTest.encryptedKeySecret +settings.razorpayTest.encryptedWebhookSecret");
+  if (!company) return res.status(404).json({ error: { code: "not_found", message: "Company not found" } });
+  res.json({
+    enabled: env.RAZORPAY_API_ENABLED,
+    configured: Boolean(company.settings?.razorpayTest?.keyId && company.settings?.razorpayTest?.encryptedKeySecret && company.settings?.razorpayTest?.encryptedWebhookSecret),
+    keyIdHint: company.settings?.razorpayTest?.keyId ? `${company.settings.razorpayTest.keyId.slice(0, 12)}…` : undefined,
+    webhookUrl: env.PUBLIC_API_URL ? `${env.PUBLIC_API_URL.replace(/\/$/, "")}/api/v1/webhooks/razorpay/${company.id}` : `/api/v1/webhooks/razorpay/${company.id}`,
+  });
+}));
+
+adminRouter.put("/razorpay-test", validate({ body: razorpayTestCredentialsSchema }), asyncHandler(async (req, res) => {
+  if (!env.RAZORPAY_API_ENABLED || !env.RAZORPAY_CREDENTIALS_ENCRYPTION_KEY) {
+    return res.status(503).json({ error: { code: "razorpay_test_disabled", message: "Razorpay Test API connections are disabled by the server configuration" } });
+  }
+  const company = await Company.findById(req.auth!.companyId);
+  if (!company) return res.status(404).json({ error: { code: "not_found", message: "Company not found" } });
+  if (company.settings?.country !== "IN" || company.settings?.currency !== "INR") {
+    return res.status(409).json({ error: { code: "india_only", message: "Connect a Razorpay account only to an India/INR workspace" } });
+  }
+  company.set("settings.razorpayTest.keyId", req.body.keyId);
+  company.set("settings.razorpayTest.encryptedKeySecret", encryptRazorpaySecret(req.body.keySecret));
+  company.set("settings.razorpayTest.encryptedWebhookSecret", encryptRazorpaySecret(req.body.webhookSecret));
+  company.set("settings.razorpayTest.configuredAt", new Date());
+  await company.save();
+  await AuditLog.create({ actorId: req.auth!.userId, action: "company.razorpay_test_connected", entity: "Company", entityId: company._id, meta: { mode: "test" } });
+  res.json({ configured: true, keyIdHint: `${req.body.keyId.slice(0, 12)}…`, webhookUrl: env.PUBLIC_API_URL ? `${env.PUBLIC_API_URL.replace(/\/$/, "")}/api/v1/webhooks/razorpay/${company.id}` : `/api/v1/webhooks/razorpay/${company.id}` });
+}));
+
+adminRouter.delete("/razorpay-test", asyncHandler(async (req, res) => {
+  const company = await Company.findById(req.auth!.companyId);
+  if (!company) return res.status(404).json({ error: { code: "not_found", message: "Company not found" } });
+  company.set("settings.razorpayTest", undefined);
+  await company.save();
+  await AuditLog.create({ actorId: req.auth!.userId, action: "company.razorpay_test_disconnected", entity: "Company", entityId: company._id, meta: { mode: "test" } });
+  res.json({ configured: false });
+}));
 
 adminRouter.get(
   "/settings",

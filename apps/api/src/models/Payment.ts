@@ -15,7 +15,7 @@ const paymentSchema = new Schema(
     payerEmail: String,
 
     provider: String,
-    // Contractor-owned Razorpay short link. Roofora does not collect funds or verify it automatically.
+    // Hosted Razorpay link. In Test Mode it is created in the connected contractor account; settlement remains direct.
     externalPaymentUrl: String,
     providerSessionId: String,
     providerPaymentIntentId: { type: String, index: true, sparse: true },

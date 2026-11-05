@@ -134,8 +134,8 @@ Status terms: **Implemented** means code exists; **Partially implemented** means
 - **REQ-PAY-1 — Current behavior:** Keep payments in mock mode; show clear messaging that simulations are not real transactions. **Implemented.**
 - **REQ-PAY-2 — Merchant/funds model:** Each contractor creates a Payment Link in its own Razorpay account and is disclosed as the payee/service provider. Roofora does not collect, split, or route funds. **MVP decision approved.**
 - **REQ-PAY-3 — Contractor-owned link MVP:** A gated India-only flow accepts a Razorpay short link (`https://rzp.io/i/...`), displays it to the payer, and lets an authorized Owner/Admin manually record a payment after checking captured status, Payment ID, amount, and currency. Step-up password, amount/currency match, audit log and ledger event path are used. **Implemented and typechecked; `RAZORPAY_LINKS_ENABLED` defaults to false. Shared validation and API integration tests pass (2026-11-03); no live/test Razorpay account validation has been performed.** Manual checking is an operator attestation, not verified Razorpay API/webhook integration.
-- **REQ-PAY-4 — Automated Razorpay integration:** API-created links, signed webhook verification, automatic status updates, automatic refunds, and provider reconciliation are **not implemented**. The contractor handles refunds and link deactivation in Razorpay; external refunds do not update Roofora's ledger or payment reports and must be accounted for separately.
-- **REQ-PAY-5 — Enablement:** Keep the feature flag off until hands-on staging tests with Razorpay test-mode links pass and the business completes its Razorpay onboarding. Do not enable production or represent this manual MVP as automated payment processing without explicit approval. Current deployment/build status: awaiting CI/Vercel after the commit; the local Windows build compiled but failed standalone trace copying because Windows denied symlink creation (`EPERM`).
+- **REQ-PAY-4 — Automated Razorpay Test Mode integration:** Per-company encrypted Test credentials, INR Test Payment Link creation, raw-body signed webhook verification, automatic payment state/ledger updates and event deduplication have been implemented in source behind `RAZORPAY_API_ENABLED=false`. Refund notifications are accepted; Roofora still does not initiate refunds or link cancellations. Full provider reconciliation is not implemented. On 2026-11-05, API and web TypeScript checks passed and focused helper tests passed (4/4). The MongoDB-backed integration suite was added but could not run because sandbox loopback access was denied (`EACCES`). No live Razorpay account check or Vercel deployment has occurred. See [Razorpay Test Mode setup and status](RAZORPAY_TEST_MODE.md).
+- **REQ-PAY-5 — Enablement:** Keep both Razorpay feature flags off until the new integration tests run, staging checks use actual Test Mode payloads for all four requested webhook events, and Razorpay confirms that each contractor account may use this multi-company SaaS connection model. Do not enable Production or use Live keys without explicit approval. The Test Mode API implementation remains undeployed and externally unvalidated.
 
 ### 6.6 Admin and reporting
 
@@ -175,13 +175,13 @@ Status terms: **Implemented** means code exists; **Partially implemented** means
 
 - India-first company and job setup, INR/metric display, English/Hindi interface.
 - Manual site measurement, job files/photos, estimates, CSV/PDF quotations, supplier orders/invoice variance, tasks, and in-app reminders.
-- Payments remain simulated by default; the optional contractor-owned Razorpay link path is gated and off until validated.
+- Payments remain simulated by default; the manual Razorpay link option and the new API-created Test Mode link option are gated and off until validated.
 - RoofV is the required aerial measurement provider; preserve manual measurement entry as a fallback.
-- Payments default to simulation; the optional contractor-owned Razorpay link feature remains disabled by default until the checks in REQ-PAY-5 are complete.
+- Payments default to simulation; both Razorpay options remain disabled by default until the checks in REQ-PAY-5 are complete.
 
 ### Later, subject to approval and resources
 
-- Automated Razorpay API/webhook integration, refunds and reconciliation, if justified after the manual link MVP is validated.
+- Razorpay API refunds, link cancellation and full provider reconciliation remain later work; the current Test Mode integration is not deployed or externally validated.
 - Supplier API/EDI and invoice-line extraction.
 - Stronger offline/PWA support and additional document lifecycle tools.
 - Global search, public partner APIs/webhooks, accounting integrations, and background report exports.

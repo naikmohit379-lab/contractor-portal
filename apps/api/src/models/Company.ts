@@ -22,6 +22,12 @@ const companySchema = new Schema(
         of: { type: String, trim: true, maxlength: 40 },
         default: () => Object.fromEntries(JOB_STAGES.map((stage) => [stage, STAGE_LABELS[stage]])),
       },
+      razorpayTest: {
+        keyId: { type: String },
+        encryptedKeySecret: { type: String, select: false },
+        encryptedWebhookSecret: { type: String, select: false },
+        configuredAt: Date,
+      },
     },
   },
   { timestamps: true },

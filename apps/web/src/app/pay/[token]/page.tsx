@@ -51,7 +51,7 @@ function PayPage() {
               {p.status === "failed" && <p role="alert" className="rounded-md bg-bad/10 p-3 text-sm text-bad">The last attempt did not go through. You can try again.</p>}
               {p.externalPaymentUrl ? <>
                 <a className="btn btn-primary block w-full text-center" href={p.externalPaymentUrl} target="_blank" rel="noreferrer">Continue to Razorpay</a>
-                <p className="flex items-start gap-2 text-xs text-mist"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-ember" aria-hidden /> {p.company} is the service provider and receives payment directly in its Razorpay account. Roofora does not collect or split these funds. After paying, contact the contractor if the request still appears unpaid; status is updated manually.</p>
+                <p className="flex items-start gap-2 text-xs text-mist"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-ember" aria-hidden /> {p.company} is the service provider and receives payment directly in its Razorpay account. Roofora does not collect or split these funds. {p.provider === "razorpay-test" ? "This is a Test Mode payment; no real money moves. Payment status is confirmed by a signed Razorpay webhook." : "After paying, contact the contractor if the request still appears unpaid; status is updated manually."}</p>
               </> : <>
                 {checkout.isError && <p role="alert" className="text-sm text-bad">{(checkout.error as Error).message}</p>}
                 <button className="btn btn-primary w-full" disabled={checkout.isPending || p.status === "pending"} onClick={() => checkout.mutate()}>{checkout.isPending ? "Opening secure checkout" : p.status === "failed" ? "Try again" : "Pay securely"}</button>

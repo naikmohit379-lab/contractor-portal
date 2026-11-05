@@ -27,7 +27,7 @@ import { ordersRouter } from "./services/orders/orders.routes";
 import { publicRouter } from "./services/orders/public.routes";
 import { companyPaymentsRouter, paymentsRouter } from "./services/payments/payments.routes";
 import { publicPaymentsRouter } from "./services/payments/public.routes";
-import { stripeWebhookHandler } from "./services/payments/webhook.routes";
+import { razorpayWebhookHandler, stripeWebhookHandler } from "./services/payments/webhook.routes";
 import { suppliersRouter } from "./services/suppliers/suppliers.routes";
 import { milestonesRouter } from "./services/waivers/milestones.routes";
 import { partiesRouter } from "./services/waivers/parties.routes";
@@ -50,6 +50,7 @@ export function createApp() {
   app.use(pinoHttp({ logger }));
   // The gateway signs the raw bytes, so this route must be registered before the JSON parser.
   app.post("/api/v1/webhooks/stripe", express.raw({ type: "application/json", limit: "1mb" }), stripeWebhookHandler);
+  app.post("/api/v1/webhooks/razorpay/:companyId", express.raw({ type: "application/json", limit: "1mb" }), razorpayWebhookHandler);
 
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser());

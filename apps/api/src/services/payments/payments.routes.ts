@@ -34,6 +34,7 @@ import { PaymentMilestone } from "../../models/PaymentMilestone";
 import { Refund } from "../../models/Refund";
 import { User } from "../../models/User";
 import { applyProviderEvent, executeRefund } from "./service";
+import { createRazorpayTestPaymentLink, decryptRazorpaySecret } from "./razorpay";
 
 const jobParam = z.object({ jobId: z.string().refine(isValidObjectId, "Invalid job id") });
 const payParam = jobParam.extend({ paymentId: z.string().refine(isValidObjectId, "Invalid payment id") });
@@ -95,12 +96,19 @@ paymentsRouter.get(
       Refund.find({ jobId: req.params.jobId }).sort({ createdAt: -1 }),
       LedgerEntry.find({ jobId: req.params.jobId }),
       Job.findById(req.params.jobId),
-      Company.findById(req.auth!.companyId),
+      Company.findById(req.auth!.companyId).select("+settings.razorpayTest.encryptedKeySecret +settings.razorpayTest.encryptedWebhookSecret"),
     ]);
     const lines = ledger.map((l) => ({ account: l.account as any, direction: l.direction as any, amountCents: l.amountCents }));
     res.json({
       provider: env.PAYMENT_PROVIDER,
-      paymentOptions: { razorpayLinksEnabled: env.RAZORPAY_LINKS_ENABLED, companyCountry: company?.settings?.country ?? "US", propertyCountry: job?.property?.country ?? "US", currency: company?.settings?.currency ?? "USD" },
+      paymentOptions: {
+        razorpayLinksEnabled: env.RAZORPAY_LINKS_ENABLED,
+        razorpayApiEnabled: env.RAZORPAY_API_ENABLED,
+        razorpayApiConfigured: Boolean(env.RAZORPAY_API_ENABLED && company?.settings?.razorpayTest?.keyId && company?.settings?.razorpayTest?.encryptedKeySecret && company?.settings?.razorpayTest?.encryptedWebhookSecret),
+        companyCountry: company?.settings?.country ?? "US",
+        propertyCountry: job?.property?.country ?? "US",
+        currency: company?.settings?.currency ?? "USD",
+      },
       payments: payments.map(toPaymentDTO),
       refunds: refunds.map(toRefundDTO),
       collectedCents: accountBalance(lines, "cash"),
@@ -116,7 +124,7 @@ paymentsRouter.post(
     if (!isValidObjectId(req.body.milestoneId)) throw new AppError(422, "invalid_payment", "Choose a payment");
     const [job, m, company] = await Promise.all([
       Job.findById(req.params.jobId), PaymentMilestone.findOne({ _id: req.body.milestoneId, jobId: req.params.jobId }),
-      Company.findById(req.auth!.companyId),
+      Company.findById(req.auth!.companyId).select("+settings.razorpayTest.encryptedKeySecret +settings.razorpayTest.encryptedWebhookSecret"),
     ]);
     if (!job) throw notFound("Job");
     if (!m) throw notFound("Payment");
@@ -135,14 +143,28 @@ paymentsRouter.post(
     const propertyLine1 = job.property?.line1;
     if (!propertyLine1) throw new AppError(409, "property_missing", "Add a property address before requesting payment");
     const useRazorpayLink = Boolean(req.body.razorpayPaymentUrl);
+    const useRazorpayApi = Boolean(env.RAZORPAY_API_ENABLED && company?.settings?.razorpayTest?.keyId && company?.settings?.razorpayTest?.encryptedKeySecret && company?.settings?.razorpayTest?.encryptedWebhookSecret);
+    const indiaPayment = company?.settings?.country === "IN" && job.property?.country === "IN" && currency === "INR";
+    if ((useRazorpayLink || useRazorpayApi) && !indiaPayment) {
+      throw new AppError(422, "razorpay_link_unavailable", "Razorpay is available only for India workspaces and INR payments");
+    }
+    if (useRazorpayLink && useRazorpayApi) {
+      throw new AppError(422, "razorpay_link_unavailable", "Use the connected Razorpay Test Mode account to create this link");
+    }
+    if (useRazorpayApi && amountCents < 10000) {
+      throw new AppError(422, "razorpay_minimum_amount", "Razorpay Payment Links require at least ₹100.00");
+    }
     if (useRazorpayLink && (!env.RAZORPAY_LINKS_ENABLED || company?.settings?.country !== "IN" || job.property?.country !== "IN" || currency !== "INR")) {
       throw new AppError(422, "razorpay_link_unavailable", "Contractor-owned Razorpay links are not enabled for this India payment");
     }
     if (useRazorpayLink && !isRazorpayPaymentLink(req.body.razorpayPaymentUrl)) {
       throw new AppError(422, "invalid_razorpay_link", "Use the secure short link copied from your contractor Razorpay account (https://rzp.io/i/...)");
     }
-    if (env.RAZORPAY_LINKS_ENABLED && company?.settings?.country === "IN" && job.property?.country === "IN" && !useRazorpayLink) {
+    if (env.RAZORPAY_LINKS_ENABLED && company?.settings?.country === "IN" && job.property?.country === "IN" && !useRazorpayLink && !useRazorpayApi) {
       throw new AppError(422, "razorpay_link_required", "Paste a contractor-owned Razorpay Payment Link for this India payment");
+    }
+    if (env.RAZORPAY_API_ENABLED && !useRazorpayApi && !useRazorpayLink && company?.settings?.country === "IN" && currency === "INR") {
+      throw new AppError(409, "razorpay_test_account_missing", "Connect this company’s Razorpay Test Mode account in Settings before creating a payment link");
     }
     const token = newRefreshToken();
     const p = await Payment.create({
@@ -153,11 +175,27 @@ paymentsRouter.post(
       currency,
       payerName: req.body.payerName,
       payerEmail: req.body.payerEmail || undefined,
-      provider: useRazorpayLink ? "razorpay-link" : env.PAYMENT_PROVIDER,
+      provider: useRazorpayApi ? "razorpay-test" : useRazorpayLink ? "razorpay-link" : env.PAYMENT_PROVIDER,
       externalPaymentUrl: useRazorpayLink ? req.body.razorpayPaymentUrl : undefined,
       tokenHash: hashToken(token),
       requestedBy: req.auth!.userId,
     });
+    if (useRazorpayApi) {
+      try {
+        const connection = company!.settings!.razorpayTest!;
+        const createdLink = await createRazorpayTestPaymentLink({
+          keyId: connection.keyId!, keySecret: decryptRazorpaySecret(connection.encryptedKeySecret!),
+          amountPaise: amountCents, referenceId: p.id, description: p.description, customerName: p.payerName,
+          customerEmail: p.payerEmail ?? undefined, companyId: req.auth!.companyId, jobId: job.id, paymentId: p.id,
+        });
+        p.providerSessionId = createdLink.id;
+        p.externalPaymentUrl = createdLink.url;
+        await p.save();
+      } catch (err) {
+        await Payment.deleteOne({ _id: p._id, companyId: req.auth!.companyId });
+        throw new AppError(502, "razorpay_link_failed", err instanceof Error ? err.message : "Razorpay Test Mode could not create the payment link");
+      }
+    }
     await userAudit(req, "payment.requested", "Payment", p._id, { amountCents });
     touchJob(req.auth!.companyId, job.id, "payments", "milestones");
     const emailedTo = p.payerEmail && (await sendLinkEmail({
@@ -239,7 +277,7 @@ paymentsRouter.post(
   asyncHandler(async (req, res) => {
     const p = await Payment.findOne({ _id: req.params.paymentId, jobId: req.params.jobId });
     if (!p) throw notFound("Payment");
-    if (p.provider === "razorpay-link") throw new AppError(409, "external_link_cancel", "Deactivate this payment link in the contractor Razorpay account first. Roofora cannot disable it automatically.");
+    if (p.provider === "razorpay-link" || p.provider === "razorpay-test") throw new AppError(409, "external_link_cancel", "Deactivate this payment link in the contractor Razorpay account first. Roofora cannot disable it automatically.");
     // A payment the gateway is already processing cannot be withdrawn from here.
     if (!["requested", "failed"].includes(p.status)) throw new AppError(409, "cannot_cancel", `A ${p.status} payment cannot be canceled`);
     p.status = "canceled";
@@ -260,7 +298,7 @@ paymentsRouter.post(
     await confirmPassword(req.auth!.userId, req.body.password);
     const p = await Payment.findOne({ _id: req.params.paymentId, jobId: req.params.jobId });
     if (!p) throw notFound("Payment");
-    if (p.provider === "razorpay-link") throw new AppError(409, "manual_refund_required", "Process the refund in the contractor Razorpay account; Roofora cannot process or reconcile it automatically.");
+    if (p.provider === "razorpay-link" || p.provider === "razorpay-test") throw new AppError(409, "manual_refund_required", "Process the refund in the contractor Razorpay account; Roofora cannot process or reconcile it automatically.");
     if (!["succeeded", "partially_refunded"].includes(p.status)) throw new AppError(409, "not_refundable", "Only paid payments can be refunded");
 
     // Refunds waiting for approval already claim part of the money.

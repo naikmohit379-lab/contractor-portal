@@ -51,7 +51,7 @@ publicPaymentsRouter.post(
   asyncHandler(async (req, res) => {
     const p = await byToken(req.params.token!);
     if (!["requested", "pending", "failed"].includes(p.status)) throw new AppError(409, "not_payable", `This payment is ${p.status}`);
-    if (p.provider === "razorpay-link") throw new AppError(409, "external_checkout", "Continue using the contractor's Razorpay Payment Link shown on the payment page");
+    if (p.provider === "razorpay-link" || p.provider === "razorpay-test") throw new AppError(409, "external_checkout", "Continue using the contractor's Razorpay Payment Link shown on the payment page");
 
     // A new attempt gets a new idempotency key, so a retry after an expired session is not answered with the old session.
     p.checkoutAttempts += 1;

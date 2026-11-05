@@ -6,6 +6,7 @@ import { GROUP_LABELS, JOB_STAGES, NOTIFICATION_GROUPS, STAGE_LABELS, type JobSt
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
+import { RazorpayTestSettings } from "@/components/portal/settings/RazorpayTestSettings";
 
 const GROUPS = Object.keys(NOTIFICATION_GROUPS) as NotificationGroup[];
 
@@ -119,6 +120,7 @@ export default function SettingsPage() {
           {saveCompany.isError && <p role="alert" className="text-sm text-bad">{(saveCompany.error as Error).message}</p>}
         </form>}
       </section>}
+      {can("user:manage") && companySettings.data && <RazorpayTestSettings country={companySettings.data.settings.country} />}
     </div>
   );
 }
