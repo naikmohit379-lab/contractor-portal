@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { PAYMENT_STATUS_LABELS, type MilestoneDTO, type PaymentDTO, type RefundDTO } from "@roofdesk/shared";
+import { MILESTONE_TYPES, PAYMENT_STATUS_LABELS, type MilestoneDTO, type MilestoneType, type PaymentDTO, type RefundDTO } from "@roofdesk/shared";
 import { NumInput } from "@/components/NumInput";
 import { ApiError, api, post } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -156,12 +156,14 @@ function RequestPayment({ jobId, m, onDone, useRazorpay, useRazorpayApi }: { job
 export function PaymentsTab({ jobId }: { jobId: string }) {
   const [open, setOpen] = useState<string | null>(null);
   const [link, setLink] = useState<{ url: string; emailedTo?: string } | null>(null);
+  const [addingMilestone, setAddingMilestone] = useState(false);
   const q = useQuery({ queryKey: ["jobs", jobId, "payments"], queryFn: () => api<PaymentsResponse>(`/jobs/${jobId}/payments`) });
   const ms = useQuery({ queryKey: ["jobs", jobId, "milestones"], queryFn: () => api<{ items: MilestoneDTO[] }>(`/jobs/${jobId}/milestones`) });
   const { can } = useAuth();
 
   const ready = ms.data?.items.filter((m) => m.status === "ready") ?? [];
   const waiting = ms.data?.items.filter((m) => m.status === "pending") ?? [];
+  const indiaWorkspace = q.data?.paymentOptions?.companyCountry === "IN" && q.data.paymentOptions.propertyCountry === "IN" && q.data.paymentOptions.currency === "INR";
 
   return (
     <section aria-label="Payments" className="space-y-6">
@@ -174,9 +176,19 @@ export function PaymentsTab({ jobId }: { jobId: string }) {
       {q.data?.paymentOptions?.razorpayApiConfigured && q.data.paymentOptions.companyCountry === "IN" && q.data.paymentOptions.propertyCountry === "IN" && q.data.paymentOptions.currency === "INR" && <p className="rounded-md bg-sky-400/10 p-3 text-sm text-sky-200">Razorpay Test Mode: links are created in your company’s connected Test account. Signed webhooks update payment state. No real money moves; refunds and link deactivation are still handled in Razorpay.</p>}
       {!q.data?.paymentOptions?.razorpayApiConfigured && q.data?.paymentOptions?.razorpayLinksEnabled && q.data.paymentOptions.companyCountry === "IN" && q.data.paymentOptions.propertyCountry === "IN" && q.data.paymentOptions.currency === "INR" && <p className="rounded-md bg-sky-400/10 p-3 text-sm text-sky-200">India payment: your company’s Razorpay account receives the payment directly. Roofora does not collect or split funds. Staff must verify captured payments in Razorpay and record them here. Process refunds in Razorpay; they will not be reflected in Roofora automatically.</p>}
 
+      {indiaWorkspace && can("payment:request") && <section className="space-y-3" aria-label="India payment milestones">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h3 className="text-xl font-bold">Payment milestones</h3><p className="text-sm text-mist">Set the amount due for a deposit, progress payment, or final payment. Indian milestones do not use the legacy U.S. lien-waiver step.</p></div>
+          {!addingMilestone && <button className="btn btn-primary" onClick={() => setAddingMilestone(true)}>Add payment milestone</button>}
+        </div>
+        {addingMilestone && <IndiaMilestoneForm jobId={jobId} onDone={() => setAddingMilestone(false)} />}
+        {waiting.map((m) => <IndiaPendingMilestone key={m.id} jobId={jobId} milestone={m} />)}
+        {!addingMilestone && ms.data?.items.length === 0 && <p className="panel p-4 text-sm text-mist">No payment milestones yet. Add one here to begin the payment workflow.</p>}
+      </section>}
+
       <div className="space-y-3">
         <h3 className="text-xl font-bold">Ready to bill</h3>
-        {ready.length === 0 && <p className="panel p-4 text-sm text-mist">Nothing is ready to bill. On the Waivers tab, collect the waivers and mark a payment ready first.{waiting.length > 0 && ` ${waiting.length} payment${waiting.length > 1 ? "s are" : " is"} still waiting on waivers.`}</p>}
+        {ready.length === 0 && <p className="panel p-4 text-sm text-mist">{indiaWorkspace ? "No payment milestone is ready to bill yet. Mark an eligible milestone ready above." : `Nothing is ready to bill. On the Waivers tab, collect the waivers and mark a payment ready first.${waiting.length > 0 ? ` ${waiting.length} payment${waiting.length > 1 ? "s are" : " is"} still waiting on waivers.` : ""}`}</p>}
         {ready.map((m) => (
           <article key={m.id} className="panel p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -198,4 +210,48 @@ export function PaymentsTab({ jobId }: { jobId: string }) {
       </div>
     </section>
   );
+}
+
+function IndiaMilestoneForm({ jobId, onDone }: { jobId: string; onDone: () => void }) {
+  const qc = useQueryClient();
+  const [label, setLabel] = useState("");
+  const [type, setType] = useState<MilestoneType>("deposit");
+  const [amountPaise, setAmountPaise] = useState(0);
+  const [dueDate, setDueDate] = useState("");
+  const add = useMutation({
+    mutationFn: () => post(`/jobs/${jobId}/milestones`, { label, type, expectedAmountCents: amountPaise, dueDate: dueDate || undefined, requireWaivers: false }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["jobs", jobId, "milestones"] });
+      qc.invalidateQueries({ queryKey: ["jobs", jobId, "payments"] });
+      onDone();
+    },
+  });
+
+  return <div className="panel space-y-4 p-4">
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div><label className="label" htmlFor="india-payment-label">Payment name</label><input id="india-payment-label" className="field" placeholder="Deposit, progress payment, final payment" value={label} onChange={(event) => setLabel(event.target.value)} /></div>
+      <div><label className="label" htmlFor="india-payment-type">Type</label><select id="india-payment-type" className="field" value={type} onChange={(event) => setType(event.target.value as MilestoneType)}>{MILESTONE_TYPES.map((item) => <option key={item} value={item}>{item[0]!.toUpperCase() + item.slice(1)}</option>)}</select></div>
+      <div><label className="label" htmlFor="india-payment-amount">Expected amount (INR)</label><NumInput id="india-payment-amount" value={amountPaise} format={(paise) => centsToDollars(paise)} parse={(rupees) => dollarsToCents(Number(rupees.replace(/,/g, "")))} onCommit={setAmountPaise} /></div>
+      <div><label className="label" htmlFor="india-payment-due">Due date (optional)</label><input id="india-payment-due" type="date" className="field" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></div>
+    </div>
+    <p className="text-xs text-mist">Amounts are saved in paise. The legacy U.S. lien-waiver requirement is not applied to this India payment milestone. Razorpay Test Mode links require at least ₹100.</p>
+    {add.isError && <p role="alert" className="text-sm text-bad">{(add.error as Error).message}</p>}
+    <div className="flex gap-3"><button className="btn btn-primary" disabled={add.isPending || label.trim().length < 2 || amountPaise < 1} onClick={() => add.mutate()}>{add.isPending ? "Saving…" : "Save milestone"}</button><button className="btn btn-ghost" onClick={onDone}>Cancel</button></div>
+  </div>;
+}
+
+function IndiaPendingMilestone({ jobId, milestone }: { jobId: string; milestone: MilestoneDTO }) {
+  const qc = useQueryClient();
+  const ready = useMutation({
+    mutationFn: () => post(`/jobs/${jobId}/milestones/${milestone.id}/mark-ready`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["jobs", jobId, "milestones"] });
+      qc.invalidateQueries({ queryKey: ["jobs", jobId, "payments"] });
+    },
+  });
+  return <article className="panel flex flex-wrap items-center justify-between gap-3 p-4">
+    <div><p className="font-medium">{milestone.label}</p><p className="text-sm text-mist">{usd(milestone.expectedAmountCents, { currency: "INR", locale: "en-IN" })}{milestone.dueDate ? ` · due ${fmtDate(milestone.dueDate, { timezone: "Asia/Kolkata", locale: "en-IN" })}` : ""}</p></div>
+    {milestone.requireWaivers ? <span className="text-sm text-warn">This payment still requires waiver review.</span> : <button className="btn btn-ghost" disabled={ready.isPending || !milestone.readiness.ready} onClick={() => ready.mutate()}>{ready.isPending ? "Marking ready…" : "Mark ready to bill"}</button>}
+    {ready.isError && <p role="alert" className="w-full text-sm text-bad">{(ready.error as Error).message}</p>}
+  </article>;
 }
