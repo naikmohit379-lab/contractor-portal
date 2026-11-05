@@ -91,3 +91,7 @@ The `Production monitor` GitHub Actions workflow checks the production site, API
 - One server, one API process. Live updates and rate limits are kept in that process's memory; running several API servers needs Redis first (see the README).
 - GitHub Actions availability checks do not replace a dedicated uptime provider or Atlas alerting. Configure Atlas alerts for database availability, storage thresholds and backup failures when the cluster tier supports managed backups.
 - The Docker images and compose file have not been built or run in the environment this was written in.
+
+## CI follow-up — 2026-11-05
+
+The pasted browser-test output for `400a577` showed 4 failures, 29 passed, and 3 skipped. Failures were axe contrast scans on `/jobs` (primary button) and `/` (marketing signup button) in desktop and phone projects. The reported foreground/background values varied across retries, consistent with scans sampling an in-progress color transition. E2E scans now request reduced motion, move the pointer away, and briefly wait before axe runs. The web TypeScript check (`apps/web/node_modules/.bin/tsc.cmd --noEmit -p apps/web/tsconfig.json`) and `git diff --check` passed. Browser E2E and a new CI run remain unverified; local E2E requires MongoDB/Docker, pinned pnpm 9.12 is missing, and GitHub CLI is unauthenticated. This change has not been pushed or deployed.

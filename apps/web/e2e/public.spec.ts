@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { overflowsHorizontally } from "./helpers";
+import { overflowsHorizontally, prepareAccessibilityScan } from "./helpers";
 
 test.describe("public pages", () => {
   test("the landing page shows the product and fits the screen", async ({ page }) => {
@@ -20,6 +20,7 @@ test.describe("public pages", () => {
   for (const path of ["/", "/login", "/register"]) {
     test(`no serious accessibility problems on ${path}`, async ({ page }) => {
       await page.goto(path);
+      await prepareAccessibilityScan(page);
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
       const serious = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
       expect(serious.map((v) => ({

@@ -19,3 +19,13 @@ export async function registerViaUi(page: Page, company = "E2E Roofing") {
 /** True if the page scrolls sideways, which on a phone means something is spilling off the screen. */
 export const overflowsHorizontally = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+
+/**
+ * Disable motion and move off interactive controls before axe reads computed
+ * colors, avoiding contrast checks against an in-between animation frame.
+ */
+export async function prepareAccessibilityScan(page: Page) {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.mouse.move(1, 1);
+  await page.waitForTimeout(50);
+}

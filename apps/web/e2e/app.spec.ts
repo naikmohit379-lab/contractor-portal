@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { overflowsHorizontally, registerViaUi } from "./helpers";
+import { overflowsHorizontally, prepareAccessibilityScan, registerViaUi } from "./helpers";
 
 test.describe("signed-in app", () => {
   test("redirects a signed-out visitor to the login page", async ({ page }) => {
@@ -14,6 +14,7 @@ test.describe("signed-in app", () => {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       expect(await overflowsHorizontally(page), `${path} scrolls sideways`).toBe(false);
+      await prepareAccessibilityScan(page);
       const serious = (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze()).violations.filter((v) => v.impact === "serious" || v.impact === "critical");
       expect(serious.map((v) => ({
         path,
