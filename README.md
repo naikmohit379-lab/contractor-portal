@@ -34,6 +34,10 @@ The web app is served on port 3000 and API on port 4000. For local password-rese
 5. Coordinate suppliers, photos, assignments, follow-up tasks, and invoice variance from the job.
 6. Payment defaults to simulation. The existing Razorpay manual-link option and the new Test Mode API option are off by default. The Test Mode API option creates links in each contractor's own account, stores test credentials encrypted per company, and uses a signed webhook to update the app. It must be enabled only for staging tests; no Live keys or Production enablement are included.
 
+## Global search
+
+The Portal's Search page finds jobs by job number, customer name/contact details, or property address, and finds job files by filename, caption, or tag. Results stay within the signed-in company; Operations users only see jobs assigned to them. Search requires at least two characters and returns up to eight matching jobs and eight files. This first version uses tenant-filtered MongoDB queries; for very large company datasets, evaluate indexed or Atlas Search before scaling.
+
 ## Market/data compatibility
 
 New jobs accept Indian addresses only. Legacy U.S. jobs and financial records remain in storage and are not converted. Historical USD values must not be read as INR. If a company already contains U.S. financial history, use a separate India workspace unless an explicitly reviewed migration is prepared.
@@ -60,6 +64,15 @@ pnpm build
 ```
 
 See `docs/INDIA_FIRST_SCOPE.md` for provider, legal/tax, data compatibility, and release limitations.
+
+## Verification on 2026-11-06
+
+Against staging base commit 3e059a6, after adding company-scoped global search:
+
+- npx --yes pnpm@9.12.0 typecheck: passed for all four workspace packages.
+- npx --yes pnpm@9.12.0 test: passed: 118 API tests, 39 shared tests, and 5 estimate-engine tests (162 total). The API suite includes three global-search integration cases for validation, document/job search, tenant isolation, and Operations assignment scope.
+- npx --yes pnpm@9.12.0 --filter @roofdesk/web exec playwright test: 34 passed and 4 skipped across desktop and phone. The new search E2E passed; the existing layout/accessibility checks passed.
+- npx --yes pnpm@9.12.0 build: API production bundle passed; Next.js compiled, lint/type checks and static page generation passed, but the overall command failed in standalone tracing when Windows denied dependency symlink creation (EPERM). This is an environment packaging limitation; the complete production build is not recorded as passing.
 
 ## Verification on 2026-10-30
 

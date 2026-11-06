@@ -143,13 +143,13 @@ Status terms: **Implemented** means code exists; **Partially implemented** means
 - **REQ-ADM-2 — Direct admin editing:** Editing records, changing team roles, and approving financial actions from the Admin Panel is **not implemented**; those actions use their existing authorized workspaces.
 - **REQ-ADM-3 — Global Platform Admin:** Cross-company search and editing are **not part of this approved PRD revision**. Treat as a separate, pending security and product decision.
 - **REQ-RPT-1 — Company reports:** Basic operational and payment summaries exist. **Partially implemented.**
-- **REQ-RPT-2 — Global search:** Search across jobs, customers, and documents is **not implemented**.
+- **REQ-RPT-2 — Global search:** Search jobs/customer details and job documents within the active company. Operations users see only assigned jobs and their documents. **Implemented; searches are capped at eight jobs and eight files per query.**
 - **REQ-RPT-3 — Export jobs:** Large reporting exports as background jobs are **not implemented**.
 
 ### 6.7 Localization and notifications
 
 - **REQ-LOC-1 — Locale defaults:** New Indian companies use INR, English (India), Asia/Kolkata, and metric settings; Hindi is available with English fallback. **Implemented.**
-- **REQ-LOC-2 — Interface translation coverage:** Core translations exist; complete Hindi coverage and professional review remain **pending**.
+- **REQ-LOC-2 — Interface translation coverage:** Every current English interface key has a Hindi entry with English fallback for future keys. Hindi strings still need review by a fluent product reviewer before public launch.
 - **REQ-LOC-3 — Email:** Resend is available for transactional email. Password reset and invitation emails require verified sender/configuration and delivery checks in the target Vercel environment. **Implementation exists; production delivery verification should be recorded.**
 - **REQ-LOC-4 — SMS:** SMS provider and delivery workflows are **not implemented**.
 
@@ -184,7 +184,7 @@ Status terms: **Implemented** means code exists; **Partially implemented** means
 - Razorpay API refunds, link cancellation and full provider reconciliation remain later work. The Test Mode integration is deployed to Preview but its account-level end-to-end flow remains unvalidated.
 - Supplier API/EDI and invoice-line extraction.
 - Stronger offline/PWA support and additional document lifecycle tools.
-- Global search, public partner APIs/webhooks, accounting integrations, and background report exports.
+- Public partner APIs/webhooks, accounting integrations, and background report exports.
 - Broader administration features, including any cross-company Platform Admin, only after role boundaries and safeguards are agreed.
 
 ## 10. Open decisions

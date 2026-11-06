@@ -10,7 +10,7 @@ test.describe("signed-in app", () => {
 
   test("every main screen fits the screen and passes the accessibility scan", async ({ page }) => {
     await registerViaUi(page);
-    for (const path of ["/dashboard", "/jobs", "/payments", "/prices", "/settings", "/suppliers", "/waivers"]) {
+    for (const path of ["/dashboard", "/jobs", "/search", "/payments", "/prices", "/settings", "/suppliers", "/waivers"]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       expect(await overflowsHorizontally(page), `${path} scrolls sideways`).toBe(false);
@@ -45,6 +45,24 @@ test("password reset request is reachable and confirms generically", async ({ pa
 });
 
 test.describe("India-first job flow", () => {
+  test("global search finds a company job by customer name", async ({ page, isMobile }) => {
+    test.skip(isMobile, "job setup is tested on desktop; phone layout is covered by the main-screen checks");
+    await registerViaUi(page);
+    await page.goto("/jobs");
+    await page.getByRole("button", { name: "New job" }).click();
+    await page.getByLabel("Customer name").fill("Global Search Bengaluru Customer");
+    await page.getByLabel("Address line 1").fill("14 Palace Road");
+    await page.getByLabel("City / town / locality").fill("Bengaluru");
+    await page.getByLabel("District").fill("Bengaluru Urban");
+    await page.getByLabel("State / Union Territory").fill("Karnataka");
+    await page.getByLabel("PIN code").fill("560001");
+    await page.getByRole("button", { name: "Create job" }).click();
+
+    await page.goto("/search");
+    await page.getByRole("searchbox", { name: "Search" }).fill("Global Search Bengaluru");
+    await expect(page.getByRole("link", { name: /Global Search Bengaluru Customer/ })).toBeVisible();
+  });
+
   test("keeps a photo on device while offline and syncs it after reconnecting", async ({ page, context, isMobile }) => {
     test.skip(isMobile, "the offline upload flow is run on desktop; the phone project covers layout above");
     await registerViaUi(page);

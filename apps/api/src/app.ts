@@ -19,6 +19,7 @@ import { eventsRouter } from "./services/notifications/events.routes";
 import { notificationsRouter } from "./services/notifications/notifications.routes";
 import { cronRouter } from "./services/notifications/cron.routes";
 import { reportsRouter } from "./services/reports/reports.routes";
+import { searchRouter } from "./services/search/search.routes";
 import { claimsRouter } from "./services/claims/claims.routes";
 import { estimatesRouter } from "./services/estimates/estimates.routes";
 import { measurementsRouter } from "./services/measurements/measurements.routes";
@@ -93,6 +94,7 @@ export function createApp() {
   v1.use("/notifications", notificationsRouter);
   v1.use("/cron", cronRouter);
   v1.use("/reports", reportsRouter);
+  v1.use("/search", searchRouter);
   v1.use("/operations", operationsRouter);
   v1.use("/team", teamRouter);
   v1.use("/admin", adminRouter);

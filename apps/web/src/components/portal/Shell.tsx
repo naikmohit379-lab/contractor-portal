@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Briefcase, CreditCard, FileSignature, LayoutDashboard, LogOut, MoreHorizontal, Settings, Shield, Store, Tags, Users, type LucideIcon } from "lucide-react";
+import { Briefcase, CreditCard, FileSignature, LayoutDashboard, LogOut, MoreHorizontal, Search, Settings, Shield, Store, Tags, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -17,6 +17,7 @@ import type { Permission } from "@roofdesk/shared";
 const NAV: { href: string; label: I18nKey; short?: I18nKey; icon: LucideIcon; primary?: boolean; permission?: Permission }[] = [
   { href: "/dashboard", label: "nav.dashboard", short: "nav.home", icon: LayoutDashboard, primary: true },
   { href: "/jobs", label: "nav.jobs", icon: Briefcase, primary: true },
+  { href: "/search", label: "nav.search", icon: Search },
   { href: "/payments", label: "nav.payments", icon: CreditCard, primary: true, permission: "payment:request" },
   { href: "/suppliers", label: "nav.suppliers", icon: Store, permission: "order:send" },
   { href: "/prices", label: "nav.priceList", icon: Tags, permission: "estimate:write" },
