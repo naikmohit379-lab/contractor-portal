@@ -18,12 +18,12 @@ During a staging-only synthetic webhook probe, the Vercel API request logger ser
 - `apps/api/node_modules/.bin/vitest.cmd run src/core/logger.test.ts` — **passed, 1 test**, with local test environment placeholders.
 - `apps/api/node_modules/.bin/tsc.cmd --noEmit -p apps/api/tsconfig.json` — **passed**.
 - `git diff --check` — **passed**; Git emitted only line-ending normalization warnings.
-- **Release state when this note was prepared:** the fix had not yet been committed, pushed, or deployed. This note will be updated with the actual staging commit and deployment result. Production settings and deployments were not changed.
+- Commit `1620a10` was pushed to `staging`; its Vercel Preview reached **Ready**. GitHub Actions CI run #64 failed because the new test imported `logger.ts`, which parses required application environment variables during module initialization. The other 22 API test files passed (118 tests); the focused logger test failed before running its assertion. The dependency audit passed. A local follow-up moves the pure serializer into `apps/api/src/core/requestLogger.ts`, so the regression test no longer imports application configuration. The focused test and API typecheck pass after this change; the follow-up is not yet committed or deployed. Production settings and deployments were not changed.
 - Do not resume webhook tests until the fix is deployed. The relay's 4.5-second timeout remains shorter than Razorpay's 5-second acknowledgment requirement; response time must be addressed before relying on signed webhook delivery.
 
 ## Next steps
 
-1. Commit and push the isolated logger change, regression test, and this status note to `staging`.
-2. Confirm the resulting Vercel Preview is Ready and that the logger fix is present.
+1. Commit and push the follow-up serializer/test fix and this updated status note to `staging`.
+2. Confirm the resulting GitHub CI run passes and the Vercel Preview is Ready.
 3. Review the webhook request path and latency, then resume the Razorpay Test webhook and validate a signed event against synthetic staging data.
 4. Confirm Roofora's payment state changed from that signed event. Do not create another payment without separate approval.

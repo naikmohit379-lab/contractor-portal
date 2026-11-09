@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { serializeRequestForLog } from "./logger";
+import { serializeRequestForLog } from "./requestLogger";
 
 describe("serializeRequestForLog", () => {
   it("omits all request headers from structured logs", () => {
