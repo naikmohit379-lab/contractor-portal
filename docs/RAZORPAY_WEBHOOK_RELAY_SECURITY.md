@@ -18,12 +18,12 @@ During a staging-only synthetic webhook probe, the Vercel API request logger ser
 - `apps/api/node_modules/.bin/vitest.cmd run src/core/logger.test.ts` — **passed, 1 test**, with local test environment placeholders.
 - `apps/api/node_modules/.bin/tsc.cmd --noEmit -p apps/api/tsconfig.json` — **passed**.
 - `git diff --check` — **passed**; Git emitted only line-ending normalization warnings.
-- Commit `1620a10` was pushed to `staging`; its Vercel Preview reached **Ready**. GitHub Actions CI run #64 failed because the new test imported `logger.ts`, which parses required application environment variables during module initialization. The other 22 API test files passed (118 tests); the focused logger test failed before running its assertion. The dependency audit passed. A local follow-up moves the pure serializer into `apps/api/src/core/requestLogger.ts`, so the regression test no longer imports application configuration. The focused test and API typecheck pass after this change; the follow-up is not yet committed or deployed. Production settings and deployments were not changed.
+- Commit `1620a10` was pushed to `staging`; its Vercel Preview reached **Ready**. GitHub Actions CI run #64 failed because the new test imported `logger.ts`, which parses required application environment variables during module initialization. The other 22 API test files passed (118 tests); the focused logger test failed before running its assertion. The dependency audit passed. The follow-up moved the pure serializer into `apps/api/src/core/requestLogger.ts`, so the regression test no longer imports application configuration.
+- **Current staging release:** commit `b15c809` is pushed to `staging`; Vercel Preview [`contractor-portal-lqtswjl4o-mohith-c47e.vercel.app`](https://contractor-portal-lqtswjl4o-mohith-c47e.vercel.app/) reached **Ready**. GitHub Actions run [42617531576](https://github.com/naikmohit379-lab/contractor-portal/actions/runs/42617531576) completed successfully: typecheck, shared tests, API unit/integration tests, production build, dependency audit, and browser tests all passed. Production was not changed.
 - Do not resume webhook tests until the fix is deployed. The relay's 4.5-second timeout remains shorter than Razorpay's 5-second acknowledgment requirement; response time must be addressed before relying on signed webhook delivery.
 
 ## Next steps
 
-1. Commit and push the follow-up serializer/test fix and this updated status note to `staging`.
-2. Confirm the resulting GitHub CI run passes and the Vercel Preview is Ready.
-3. Review the webhook request path and latency, then resume the Razorpay Test webhook and validate a signed event against synthetic staging data.
-4. Confirm Roofora's payment state changed from that signed event. Do not create another payment without separate approval.
+1. Keep the Razorpay Test webhook paused while checking the relay's response time and confirming request headers are absent from staging logs.
+2. If the relay returns a timely response, resume the Test webhook and validate a signed event using existing synthetic staging data.
+3. Confirm Roofora's payment state changed from that signed event. Do not create another payment without separate approval.
