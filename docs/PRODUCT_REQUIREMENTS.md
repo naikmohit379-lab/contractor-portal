@@ -181,7 +181,7 @@ Status terms: **Implemented** means code exists; **Partially implemented** means
 
 ### Later, subject to approval and resources
 
-- Razorpay API refunds, link cancellation and full provider reconciliation remain later work. The Test Mode integration is deployed to Preview but its account-level end-to-end flow remains unvalidated.
+- Razorpay API refunds, link cancellation and full provider reconciliation remain later work. One ₹100 synthetic staging Test Mode payment completed end to end on 2026-11-11, including the app's signed-webhook payment-state update. This is a single-account happy-path check, not production approval; failure/refund/retry/duplicate and multi-company eligibility checks remain open.
 - Supplier API/EDI and invoice-line extraction.
 - Stronger offline/PWA support and additional document lifecycle tools.
 - Public partner APIs/webhooks, accounting integrations, and background report exports.
@@ -192,7 +192,7 @@ Status terms: **Implemented** means code exists; **Partially implemented** means
 1. Confirm the company role design: one accountable Owner, optional delegated sub-owner/company admin, and Project Manager permissions. The current system does not enforce a single Owner.
 2. Decide whether a global Platform Admin should be built and define the permitted access, approvals, audit history, and emergency-access rules.
 3. Confirm whether the Operations Intern role should remain a supported product role.
-4. Validate the contractor-owned Razorpay Link flow in staging using Razorpay test mode; Route approval and a platform-fee decision are not required for this MVP model.
+4. Complete remaining contractor-owned Razorpay Link validation in staging, including failure/refund/retry/duplicate events, delivery logs, and written confirmation of the multi-company merchant-account model; Route approval and a platform-fee decision are not required for this MVP model.
 5. Define CA/counsel-approved tax, privacy, terms, and document requirements before claiming compliance.
 6. Decide future reporting, supplier, and offline/PWA priorities.
 
