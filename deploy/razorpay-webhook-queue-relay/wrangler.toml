@@ -1,0 +1,25 @@
+name = "roofora-razorpay-staging-relay"
+main = "src/index.ts"
+compatibility_date = "2026-11-07"
+preview_urls = true
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+
+[vars]
+ROOFDESK_STAGING_API_ORIGIN = "https://contractor-portal-git-staging-mohith-c47e.vercel.app"
+
+[[queues.producers]]
+binding = "RAZORPAY_WEBHOOK_QUEUE"
+queue = "roofora-razorpay-staging-webhooks"
+
+[[queues.consumers]]
+queue = "roofora-razorpay-staging-webhooks"
+max_batch_size = 1
+max_batch_timeout = 1
+max_retries = 10
+retry_delay = 30
+dead_letter_queue = "roofora-razorpay-staging-webhooks-dlq"
