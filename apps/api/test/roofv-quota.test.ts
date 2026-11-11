@@ -62,6 +62,7 @@ describe("RoofV free quota endpoint", () => {
       jobId: new app.mongoose.Types.ObjectId(jobId),
       provider: "roofv",
       providerOrderId: "roof-sample-id",
+      createdBy: new app.mongoose.Types.ObjectId(owner.userId),
       addressSnapshot: "742 Koramangala Road, Bengaluru, Karnataka 560034, IN",
       imageryDate: new Date(),
       status: "failed",
@@ -90,6 +91,18 @@ describe("RoofV free quota endpoint", () => {
         const report = await app.models.MeasurementReport.collection.findOne({ _id: reportId });
         expect(report?.status).toBe("delivered");
         expect(report?.imageryDate).toBeUndefined();
+
+        // processReport runs after the request response. Wait for its final database
+        // side effects too, so app.close() cannot disconnect Mongo while it is still
+        // updating the job or creating the in-app notification.
+        const job = await app.models.Job.findById(jobId).setOptions({ skipTenant: true });
+        expect(job?.stage).toBe("measured");
+        const { Notification } = await import("../src/models/Notification");
+        const notifications = await Notification.countDocuments({
+          userId: owner.userId,
+          kind: "measurement.delivered",
+        }).setOptions({ skipTenant: true });
+        expect(notifications).toBeGreaterThan(0);
       }, { timeout: 5_000 });
 
       const roofVCalls = fetchMock.mock.calls.filter(([input]) => String(input).startsWith("https://roofv.ai/"));
