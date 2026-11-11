@@ -5,9 +5,9 @@
 
 ## Current release evidence
 
-- The latest work is on the `staging` branch: `a370807` (payment verification), `44e43ab` (Mongoose security update), and `45db18b` (status documentation).
-- GitHub CI run [#70](https://github.com/naikmohit379-lab/contractor-portal/actions/runs/42984787171) passed for `45db18b`. CI run [#69](https://github.com/naikmohit379-lab/contractor-portal/actions/runs/42983450104) passed the full code workflow for `44e43ab`: types/tests/build, dependency audit, and browser tests (34 passed, 4 skipped).
-- Vercel Preview for `45db18b` was Ready at [the staging deployment](https://contractor-portal-7wmzqyf2z-mohith-c47e.vercel.app/). These commits did not deploy to Production or change Live payment settings.
+- The latest work is on the `staging` branch: `ac921ae` implements automatic RoofV PDF retrieval with no manual PDF-upload control, `87f979c` fixes a quota-test cleanup race, and `d48e596` records the resulting CI status in project docs.
+- GitHub CI run [#71](https://github.com/naikmohit379-lab/contractor-portal/actions/runs/43003306078) passed for the feature code. Follow-up run [#74](https://github.com/naikmohit379-lab/contractor-portal/actions/runs/43007288357) passed Types/tests/build, dependency audit, and browser tests (34 passed, 4 skipped). The preceding run #73 failed on the test race and was superseded by #74.
+- The staging app alias at [the Roofora Preview](https://contractor-portal-git-staging-mohith-c47e.vercel.app/) served the Measurements page and automatic PDF section during manual inspection. Vercel's exact Ready deployment commit was not independently verified because the dashboard session is signed out. No Production deployment or Live payment setting was changed.
 - Local checks recorded for `44e43ab`: API 125 tests across 24 files; shared package 39 tests across 9 files; estimate engine 5 tests; API and web typechecks; queue relay TypeScript check. Production dependency audit reported two moderate advisories and no high/critical advisories.
 - The working tree has a pre-existing untracked `deploy/razorpay-webhook-relay/` folder. It was preserved and is not the active queue-backed relay.
 
