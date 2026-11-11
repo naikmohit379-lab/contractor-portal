@@ -25,6 +25,15 @@ const measurementSchema = new Schema(
       rake: { type: Number, default: 0 },
     },
     totals: { areaSqFt: Number, squares: Number, wastePct: Number },
+    sourcePdf: {
+      source: { type: String, enum: ["roofv", "manual"] },
+      filename: String,
+      sizeBytes: Number,
+      sha256: String,
+      storageKey: String,
+      uploadedBy: { type: Schema.Types.ObjectId, ref: "User" },
+      uploadedAt: Date,
+    },
     // Manual corrections are append-only so original provider values stay auditable.
     overrides: [
       { _id: false, field: String, from: Schema.Types.Mixed, to: Schema.Types.Mixed, reason: String, by: Schema.Types.ObjectId, at: Date },

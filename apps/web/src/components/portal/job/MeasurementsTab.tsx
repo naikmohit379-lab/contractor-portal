@@ -1,10 +1,10 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Ruler, X } from "lucide-react";
+import { ArrowDownToLine, Plus, Ruler, X } from "lucide-react";
 import { useState } from "react";
 import { feetToMeters, squareFeetToSquareMeters, type JobDTO, type MeasurementDTO } from "@roofdesk/shared";
-import { api, patch, post } from "@/lib/api";
+import { api, downloadFile, patch, post } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { fmtDate } from "@/lib/format";
 
@@ -19,8 +19,9 @@ type RoofVQuota = {
   resetsAt?: string;
 };
 
-function MeasurementCard({ m, measurementSystem = "metric", locale = "en-IN", onRefresh, refreshing = false }: { m: MeasurementDTO; measurementSystem?: "metric" | "imperial"; locale?: string; onRefresh?: (id: string) => void; refreshing?: boolean }) {
+function MeasurementCard({ m, jobId, measurementSystem = "metric", locale = "en-IN", onRefresh, refreshing = false }: { m: MeasurementDTO; jobId: string; measurementSystem?: "metric" | "imperial"; locale?: string; onRefresh?: (id: string) => void; refreshing?: boolean }) {
   const pending = m.status === "ordered" || m.status === "processing";
+  const [downloadError, setDownloadError] = useState("");
   const number = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 });
   const area = (sqFt: number) => measurementSystem === "metric" ? `${number(squareFeetToSquareMeters(sqFt))} m²` : `${number(sqFt)} sq ft`;
   const length = (ft: number) => measurementSystem === "metric" ? `${number(feetToMeters(ft))} m` : `${number(ft)} ft`;
@@ -51,6 +52,14 @@ function MeasurementCard({ m, measurementSystem = "metric", locale = "en-IN", on
         <p className="mt-4 text-sm text-mist">Ridge {m.linear.ridge > 0 ? length(m.linear.ridge) : "not provided"} | Hip {m.linear.hip > 0 ? length(m.linear.hip) : "not provided"} | Valley {m.linear.valley > 0 ? length(m.linear.valley) : "not provided"} | Eave {m.linear.eave > 0 ? length(m.linear.eave) : "not provided"} | Rake {m.linear.rake > 0 ? length(m.linear.rake) : "not provided"}{m.imageryDate && ` | Imagery from ${fmtDate(m.imageryDate)}`}</p>
         {m.sourceNote && <p className="mt-2 text-sm text-mist">Source note: {m.sourceNote}</p>}
       </>}
+      {m.provider === "roofv" && <div className="mt-4 rounded border border-ink-600 p-3">
+        <h4 className="font-semibold">Original RoofV report PDF</h4>
+        {m.sourcePdf ? <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+          <span className="break-all text-mist">{m.sourcePdf.filename} · {(m.sourcePdf.sizeBytes / (1024 * 1024)).toFixed(2)} MB · {m.sourcePdf.source === "roofv" ? "retrieved from RoofV" : "manually attached"} {fmtDate(m.sourcePdf.uploadedAt)}</span>
+          <button type="button" className="btn" onClick={() => { setDownloadError(""); void downloadFile(`/jobs/${jobId}/measurements/${m.id}/source-pdf`, m.sourcePdf!.filename).catch((error: Error) => setDownloadError(error.message)); }}><ArrowDownToLine size={16} aria-hidden /> Download PDF</button>
+        </div> : <p className="mt-1 text-sm text-mist">No source PDF attached.</p>}
+        {downloadError && <p role="alert" className="mt-2 text-sm text-bad">{downloadError}</p>}
+      </div>}
     </article>
   );
 }
@@ -170,6 +179,6 @@ export function MeasurementsTab({ jobId }: { jobId: string }) {
       <button className="btn btn-primary" type="submit" disabled={manual.isPending}>{manual.isPending ? "Saving report…" : "Save measurement report"}</button>
     </form>}
     {measurements.data?.items.length === 0 && <p className="panel p-6 text-mist">No reports yet. Enter a report manually, order a RoofV measurement, or generate sample data for testing.</p>}
-    {measurements.data?.items.map((m) => <MeasurementCard key={m.id} m={m} measurementSystem={measurementSystem} locale={locale} onRefresh={m.provider === "roofv" && ["failed", "delivered"].includes(m.status) ? (id) => refreshExistingRoofV.mutate(id) : undefined} refreshing={refreshExistingRoofV.isPending} />)}
+    {measurements.data?.items.map((m) => <MeasurementCard key={m.id} m={m} jobId={jobId} measurementSystem={measurementSystem} locale={locale} onRefresh={m.provider === "roofv" && ["failed", "delivered"].includes(m.status) ? (id) => refreshExistingRoofV.mutate(id) : undefined} refreshing={refreshExistingRoofV.isPending} />)}
   </section>;
 }

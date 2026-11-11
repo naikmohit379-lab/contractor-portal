@@ -2,6 +2,8 @@
 
 Status date: 2026-11-11
 
+For current CI, staging deployment, payment readiness, and outstanding gates, see [Implementation Status](IMPLEMENTATION_STATUS.md). The entries below retain dated probe details and should be read as historical evidence.
+
 ## Scope
 
 During a staging-only synthetic webhook probe, the Vercel API request logger serialized request headers, including the deployment-protection bypass header. The probe had an intentionally invalid Razorpay signature; the API rejected it with HTTP 400. Cloudflare's relay timed out after 4.5 seconds and returned HTTP 502. No payment was created or marked paid by this probe.

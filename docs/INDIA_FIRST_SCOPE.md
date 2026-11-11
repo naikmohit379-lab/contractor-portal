@@ -2,6 +2,8 @@
 
 Status: Current product direction for the India launch. This scope supersedes U.S.-focused assumptions in the October 12, 2026 draft PRD and architecture notes.
 
+For current implementation, validation, deployment, and open launch gates, see [Implementation Status](IMPLEMENTATION_STATUS.md). Historical verification snapshots below do not supersede that consolidated status.
+
 ## Target users and geography
 
 Roofora is for residential and commercial roofing contractors across India, including small and medium-sized businesses. Solar installation is outside the initial scope.
@@ -28,12 +30,10 @@ Keep tenant isolation, role checks, audit logging, password hashing, single-use 
 ## Current implementation limitations
 
 - The internal estimate engine and legacy U.S. claims/waiver APIs remain in the codebase for data compatibility. They are not an approved Indian insurance/legal workflow.
-- RoofV credentialed requests and reviewed-result lifecycle still require staging verification with the vendor account.
+- RoofV integration code and one authorized Koramangala sample report exist. The sample was preliminary/unreviewed and needs onsite verification; account limits, provider terms, and production enablement remain to be confirmed.
 - INR unit prices must be entered and checked by each contractor. No default price list is certified for India.
-- Forgot-password links can be tested with the local log email provider. Actual Resend delivery needs a verified sender and configured production/preview environment values.
-- Mock payments remain the default. The contractor-owned manual-link flow (`RAZORPAY_LINKS_ENABLED=false` by default) and API-created Test Mode link flow (`RAZORPAY_API_ENABLED=false` by default in source) are implemented. The India milestone creation/readiness path is included in staging commit `505b224`; GitHub CI #63 passed and its Vercel Preview is Ready. On 2026-11-06 the focused Razorpay unit/integration suites passed 15/15, the full API suite passed 121 tests across 22 files, and API typecheck passed. One staging company has Test credentials saved. On 2026-11-11, a ₹100 synthetic Test Mode payment updated Roofora to Paid through the signature-verifying webhook handler; the Test webhook was disabled again after the test. The individual webhook delivery HTTP response was not separately inspected. The additional payment test coverage and relay work are local and not included in CI #63. See [Razorpay Test Mode setup and status](RAZORPAY_TEST_MODE.md).
-- In the new Test Mode flow, payment success is recorded only from a valid signed webhook. API refunds and link deactivation are not implemented; contractors perform those in their Razorpay account. Full provider reconciliation and actual payload verification remain pending. A payer return is never treated as proof of payment.
-- `RAZORPAY_API_ENABLED` is on only for the staging Preview deployment; keep it off in Production. Hands-on validation is still pending: connect a contractor's Test credentials, verify all four configured events, and confirm with Razorpay whether the same Roofora SaaS/web app can be used with multiple contractor merchant accounts before considering a broader release. No Live keys are enabled.
+- Password-reset email was reported working after domain verification; production sender/delivery-log confirmation is not recorded in the current status document.
+- Mock payments remain the default. The contractor-owned manual-link and API-created Test Mode flows are implemented; the API Test Mode flag is enabled only in staging Preview. One successful ₹100 synthetic test payment verified the signed paid-event path. Other manual payment scenarios, Razorpay's delivery response log, Partnership Program clarification, and Live enablement remain pending. See [Razorpay Test Mode setup](RAZORPAY_TEST_MODE.md) and [Implementation Status](IMPLEMENTATION_STATUS.md).
 
 ### CI follow-up — 2026-11-05
 

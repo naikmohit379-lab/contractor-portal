@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { createHash } from "node:crypto";
 import { isValidObjectId } from "mongoose";
 import { z } from "zod";
 import { measurementOrderSchema, manualMeasurementSchema, metersToFeet, squareMetersToSquareFeet, type MeasurementDTO } from "@roofdesk/shared";
@@ -10,9 +11,14 @@ import { AppError, notFound } from "../../core/errors";
 import { asyncHandler, requirePermission, validate } from "../../core/http";
 import { Job } from "../../models/Job";
 import { MeasurementReport } from "../../models/MeasurementReport";
+import { AuditLog } from "../../models/AuditLog";
 import { env } from "../../config/env";
 import { getProvider } from "./providers";
 import { RoofVPendingError } from "./providers/roofVProvider";
+import { detectFileType } from "../documents/fileType";
+import { getStorage } from "../documents/storageFactory";
+import { newStorageKey } from "../documents/storage";
+import { fetchRoofVReportPdf } from "./providers/roofVProvider";
 
 export const measurementsRouter = Router({ mergeParams: true });
 measurementsRouter.use(requireAuth);
@@ -31,6 +37,13 @@ const toDTO = (m: any): MeasurementDTO => ({
   facets: (m.facets ?? []).map((f: any) => ({ id: f.id, areaSqFt: f.areaSqFt, pitch: f.pitch })),
   linear: { ridge: m.linear.ridge, hip: m.linear.hip, valley: m.linear.valley, eave: m.linear.eave, rake: m.linear.rake },
   totals: m.totals?.areaSqFt ? { areaSqFt: m.totals.areaSqFt, squares: m.totals.squares, wastePct: m.totals.wastePct } : undefined,
+  sourcePdf: m.sourcePdf?.storageKey ? {
+    source: m.sourcePdf.source ?? "manual",
+    filename: m.sourcePdf.filename,
+    sizeBytes: m.sourcePdf.sizeBytes,
+    sha256: m.sourcePdf.sha256,
+    uploadedAt: m.sourcePdf.uploadedAt.toISOString(),
+  } : undefined,
   error: m.error,
   sourceNote: m.sourceNote,
   createdAt: m.createdAt.toISOString(),
@@ -52,6 +65,40 @@ async function processReport(reportId: string, address: string) {
     const data = await provider.fetchReport(report.providerOrderId!, address, report.providerJobId ?? undefined);
     Object.assign(report, data, { status: "delivered" });
     await report.save();
+
+    // RoofV publishes the original PDF on the saved job. Fetch it server-side so the
+    // provider credential and provider URL never reach the browser. A missing PDF does
+    // not invalidate the measurements; a later free refresh can retry this step.
+    if (report.provider === "roofv" && report.providerJobId && !report.sourcePdf?.storageKey) {
+      try {
+        const pdf = await fetchRoofVReportPdf(report.providerJobId);
+        if (pdf) {
+          const type = detectFileType(pdf.bytes);
+          if (type?.contentType !== "application/pdf") throw new Error("RoofV report response was not a supported PDF");
+          const storageKey = newStorageKey(String(report.companyId), String(report.jobId), "pdf");
+          await getStorage().put(storageKey, pdf.bytes, "application/pdf");
+          report.set("sourcePdf", {
+            source: "roofv",
+            filename: pdf.filename,
+            sizeBytes: pdf.bytes.length,
+            sha256: createHash("sha256").update(pdf.bytes).digest("hex"),
+            storageKey,
+            uploadedBy: report.createdBy,
+            uploadedAt: new Date(),
+          });
+          try { await report.save(); }
+          catch (err) { await getStorage().delete(storageKey).catch(() => undefined); throw err; }
+          await AuditLog.create({
+            action: "measurement.source_pdf_retrieved",
+            entity: "MeasurementReport",
+            entityId: report._id,
+            meta: { filename: pdf.filename, bytes: pdf.bytes.length },
+          });
+        }
+      } catch (err) {
+        logger.warn({ err, reportId: report.id }, "could not retrieve the RoofV report PDF; measurements remain available");
+      }
+    }
 
     // First delivered report moves a fresh lead to "measured".
     await Job.updateOne({ _id: report.jobId, stage: "lead" }, { stage: "measured" });
@@ -109,6 +156,27 @@ measurementsRouter.get(
       }
     }
     res.json({ items: items.map(toDTO) });
+  }),
+);
+
+measurementsRouter.get(
+  "/:reportId/source-pdf",
+  requirePermission("job:read"),
+  validate({ params: z.object({ jobId: z.string().refine(isValidObjectId, "Invalid job id"), reportId: z.string().refine(isValidObjectId, "Invalid report id") }) }),
+  asyncHandler(async (req, res) => {
+    const report = await MeasurementReport.findOne({ _id: req.params.reportId, jobId: req.params.jobId, provider: "roofv" });
+    if (!report?.sourcePdf?.storageKey) throw notFound("RoofV report PDF");
+    const bytes = await getStorage().get(report.sourcePdf.storageKey);
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Length": String(bytes.length),
+      "Content-Disposition": `attachment; filename="${encodeURIComponent(report.sourcePdf.filename || "roofv-report.pdf")}"`,
+      "Content-Security-Policy": "default-src 'none'; sandbox",
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "private, no-store",
+      "Cross-Origin-Resource-Policy": "same-origin",
+    });
+    res.send(bytes);
   }),
 );
 

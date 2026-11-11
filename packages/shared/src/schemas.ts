@@ -182,6 +182,7 @@ export interface MeasurementDTO {
   facets: { id: string; areaSqFt: number; pitch: string }[];
   linear: { ridge: number; hip: number; valley: number; eave: number; rake: number };
   totals?: { areaSqFt: number; squares: number; wastePct: number };
+  sourcePdf?: { source: "roofv" | "manual"; filename: string; sizeBytes: number; sha256: string; uploadedAt: string };
   error?: string;
   sourceNote?: string;
   createdAt: string;

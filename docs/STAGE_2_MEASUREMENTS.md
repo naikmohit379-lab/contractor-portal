@@ -1,5 +1,7 @@
 # Stage 2: India measurement workflow
 
+For the current project-wide implementation status and next priorities, see [Implementation Status](IMPLEMENTATION_STATUS.md).
+
 ## Implemented foundation
 
 - A user with the existing `measurement:order` permission can enter values from a third-party roof report or verified site measurement.
@@ -37,5 +39,5 @@ Never commit or paste provider credentials into source control or chat. Producti
 - RoofV's signed webhook is not implemented. Pending-report refresh runs while a user is viewing the Measurements tab; a signed webhook or scheduled job for unattended reports is still not configured.
 - RoofV response normalization handles documented fields but still needs comparison with the account's real response before results are used in estimates. Treat all RoofV outputs as requiring verification.
 - Ambiguous RoofV buildings currently return an error; choosing and resubmitting a candidate is not implemented.
-- The uploaded/original RoofV report PDF is not saved with the measurement record.
-- The updated India-first Preview is deployed from staging. A real RoofV `/me` quota check and measurement have not yet been made; use the UI quota check before any measurement request.
+- **Original RoofV report PDF retrieval implemented in source:** After fetching RoofV measurement data, the server automatically requests the PDF from RoofV's saved-job report endpoint when a RoofV job ID is available. It validates the PDF signature and 15 MB limit, stores it privately with SHA-256 and retrieval metadata, and records an audit event. Authorized users download it through the authenticated Measurements tab. Manual PDF upload is intentionally excluded. If RoofV has not published the PDF yet or no saved-job ID was returned, the measurement stays usable without a PDF; a later free refresh can retry retrieval. Measurement values are unchanged. Local API tests, shared/estimate tests, API/web typechecks, and API build passed on 2026-11-11. Browser/CI/staging validation and deployment remain pending. The Windows web build compiled and generated pages but failed during standalone trace copying because Windows denied symlink creation.
+- A real RoofV `/me` check and one authorized Koramangala sample order were performed on 2026-10-31. The report returned 110.93 m² and `not_reviewed`; its 6/12 pitch was supplied by Roofora and was not inferred from imagery. No imagery date or edge lengths were supplied. The report is preliminary and needs onsite verification. Check the provider account for current quota/plan status before another request; do not order another report just to retest.

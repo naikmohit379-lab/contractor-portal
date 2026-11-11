@@ -2,6 +2,8 @@
 
 This runbook is for the current production topology: the web/API project on Vercel and MongoDB Atlas. The local `docker-compose.prod.yml` backup container is for a separate self-hosted deployment and does not back up the Vercel database.
 
+For the current release gates and verified CI/deployment status, see [Implementation Status](IMPLEMENTATION_STATUS.md). This runbook documents procedures; it does not mean the backup restore drill or every production control has been completed.
+
 ## Availability monitoring
 
 The `Production monitor` workflow checks these production URLs every 15 minutes after the workflow is on the repository's default branch:

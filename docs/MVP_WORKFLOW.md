@@ -1,5 +1,7 @@
 # Roofora India-first MVP workflow
 
+For current implementation, test, deployment, and production-readiness status, see [Implementation Status](IMPLEMENTATION_STATUS.md).
+
 ## Release scope
 
 - Geography: Pan-India.
@@ -9,7 +11,7 @@
 - Market defaults for new companies: India, INR, English (India), Asia/Kolkata, metric; Hindi is available.
 - Measurement provider: RoofV, gated behind server-side credentials, feature flag, coordinates, and explicit user consent. Manual/site-measured values remain available.
 - Estimate export: line-item CSV and printable PDF for customer quotation review; this is not a vendor-native estimating-project format.
-- Payments: mock mode only.
+- Payments: mock by default; Razorpay API Test Mode is enabled only in staging Preview. Live payments remain disabled.
 - Operations Intern workspace: included.
 
 ## Job workflow
@@ -21,7 +23,7 @@
 5. Prepare a customer quotation and confirm all tax or other charges with the company CA. Roofora does not calculate or certify GST.
 6. Create supplier orders, record delivery dates, attach invoices, and review price variance against the saved order.
 7. Complete assigned follow-up tasks, sync offline photos while online, and review in-app overdue reminders.
-8. Record payment status using mock mode only; do not represent a simulation as money collected.
+8. Use mock payments by default. If validating the Razorpay integration, use only the staging Test Mode flow and synthetic data; do not represent a simulation or Test Mode payment as real customer funds.
 
 ## Legacy records and legal review
 
