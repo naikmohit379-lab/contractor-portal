@@ -10,7 +10,7 @@ import { ZodError } from "zod";
 import { env } from "./config/env";
 import { AppError, notFound } from "./core/errors";
 import { logger } from "./core/logger";
-import { serializeRequestForLog } from "./core/requestLogger";
+import { serializeRequestForLog, serializeResponseForLog } from "./core/requestLogger";
 import { sanitize } from "./core/sanitize";
 import { authRouter } from "./services/auth/auth.routes";
 import { jobsRouter } from "./services/jobs/jobs.routes";
@@ -49,7 +49,7 @@ export function createApp() {
 
   app.use(helmet());
   app.use(cors({ origin: env.WEB_ORIGIN, credentials: true }));
-  app.use(pinoHttp({ logger, serializers: { req: serializeRequestForLog } }));
+  app.use(pinoHttp({ logger, serializers: { req: serializeRequestForLog, res: serializeResponseForLog } }));
   // The gateway signs the raw bytes, so this route must be registered before the JSON parser.
   app.post("/api/v1/webhooks/stripe", express.raw({ type: "application/json", limit: "1mb" }), stripeWebhookHandler);
   app.post("/api/v1/webhooks/razorpay/:companyId", express.raw({ type: "application/json", limit: "1mb" }), razorpayWebhookHandler);
