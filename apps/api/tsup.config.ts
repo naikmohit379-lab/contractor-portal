@@ -10,6 +10,7 @@ export default defineConfig({
     "@roofdesk/shared",
     "@roofdesk/estimate-engine",
     "@vercel/blob",
+    "@upstash/qstash",
     "bcryptjs",
     "hash-wasm",
     "cookie-parser",
