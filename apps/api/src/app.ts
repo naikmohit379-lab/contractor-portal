@@ -39,6 +39,8 @@ import { waiversRouter } from "./services/waivers/waivers.routes";
 import { operationsRouter } from "./services/operations/operations.routes";
 import { teamRouter } from "./services/team/team.routes";
 import { adminRouter } from "./services/admin/admin.routes";
+import { measurementQueueHandler } from "./services/measurements/measurementQueue.routes";
+import { MEASUREMENT_QUEUE_PATH } from "./services/measurements/measurementQueue";
 import { Job } from "./models/Job";
 import { requireAuth } from "./core/auth";
 import { asyncHandler } from "./core/http";
@@ -53,6 +55,9 @@ export function createApp() {
   // The gateway signs the raw bytes, so this route must be registered before the JSON parser.
   app.post("/api/v1/webhooks/stripe", express.raw({ type: "application/json", limit: "1mb" }), stripeWebhookHandler);
   app.post("/api/v1/webhooks/razorpay/:companyId", express.raw({ type: "application/json", limit: "1mb" }), razorpayWebhookHandler);
+  app.post(MEASUREMENT_QUEUE_PATH, express.raw({ type: "application/json", limit: "4kb" }), (req, res) => {
+    void measurementQueueHandler(req, res);
+  });
 
   app.use(express.json({ limit: "1mb" }));
   app.use(cookieParser());

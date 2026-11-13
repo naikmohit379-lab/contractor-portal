@@ -9,6 +9,8 @@ const measurementSchema = new Schema(
     providerOrderId: String,
     providerJobId: String,
     providerCheckedAt: Date,
+    queueJobKey: String,
+    queueStartedAt: Date,
     idempotencyKey: String,
     status: { type: String, enum: MEASUREMENT_STATUSES, default: "ordered" },
     preliminary: { type: Boolean, default: false },

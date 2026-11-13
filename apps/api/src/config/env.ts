@@ -27,6 +27,15 @@ const schema = z.object({
   ROOFV_ENABLED: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
   ROOFV_API_KEY: z.string().optional(),
   ROOFV_API_BASE: z.string().url().default("https://roofv.ai/api/public/v1"),
+  // RoofV report retrieval runs through QStash so Vercel does not depend on fire-and-forget work.
+  MEASUREMENT_QUEUE_ENABLED: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  QSTASH_TOKEN: z.string().optional(),
+  QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
+  QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
+  MEASUREMENT_QUEUE_CALLBACK_URL: z.string().url().optional(),
+  // Vercel injects this selected automation-bypass secret into the server runtime.
+  VERCEL_AUTOMATION_BYPASS_SECRET: z.string().optional(),
+  VERCEL: z.string().optional(),
   // Vercel Cron uses this bearer secret to authenticate scheduled reminder runs.
   CRON_SECRET: z.string().min(16).optional(),
   // File storage for photos and documents. Blob storage is private and suited to Vercel.
@@ -53,6 +62,8 @@ if (isProd) {
   if (env.RAZORPAY_API_ENABLED && (!env.RAZORPAY_CREDENTIALS_ENCRYPTION_KEY || !/^[A-Za-z0-9+/]{43}=$/.test(env.RAZORPAY_CREDENTIALS_ENCRYPTION_KEY))) problems.push("RAZORPAY_API_ENABLED requires a base64 32-byte RAZORPAY_CREDENTIALS_ENCRYPTION_KEY");
   if (env.EMAIL_PROVIDER === "resend" && !env.RESEND_API_KEY) problems.push("Resend is selected but RESEND_API_KEY is missing");
   if (env.ROOFV_ENABLED && !env.ROOFV_API_KEY) problems.push("ROOFV_API_KEY is required when ROOFV_ENABLED=true");
+  if (env.MEASUREMENT_QUEUE_ENABLED && (!env.QSTASH_TOKEN || !env.QSTASH_CURRENT_SIGNING_KEY || !env.QSTASH_NEXT_SIGNING_KEY || !env.MEASUREMENT_QUEUE_CALLBACK_URL?.startsWith("https://"))) problems.push("MEASUREMENT_QUEUE_ENABLED requires QSTASH_TOKEN, both QStash signing keys, and an HTTPS MEASUREMENT_QUEUE_CALLBACK_URL");
+  if (env.MEASUREMENT_QUEUE_ENABLED && env.VERCEL === "1" && !env.VERCEL_AUTOMATION_BYPASS_SECRET) problems.push("MEASUREMENT_QUEUE_ENABLED on Vercel requires a Protection Bypass for Automation secret so QStash can reach the protected callback");
   if (env.STORAGE_DRIVER === "local") console.warn("STORAGE_DRIVER=local: files live on this server's disk. Keep STORAGE_DIR on a persistent, backed-up volume, or use s3.");
   if (env.STORAGE_DRIVER === "vercel-blob" && !env.BLOB_READ_WRITE_TOKEN) problems.push("BLOB_READ_WRITE_TOKEN is required when STORAGE_DRIVER=vercel-blob");
   if (problems.length) throw new Error(`Unsafe production configuration:\n - ${problems.join("\n - ")}`);

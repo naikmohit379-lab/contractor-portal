@@ -100,6 +100,12 @@ The Measurements tab includes **Check RoofV free quota**. It calls the authentic
 
 Pending RoofV reports are read by their existing `roof_id`, at most every five minutes while the job is open. If a read times out, use **Check existing RoofV report** to retry the free lookup; it does not place another measurement order.
 
+### Durable RoofV report processing
+
+RoofV reads and automatic PDF retrieval are dispatched to the Upstash QStash queue `roofora-measurements` in production; they are not run with fire-and-forget work inside a Vercel request. The signed callback is `POST /api/v1/internal/measurements/process` and accepts only QStash-signed messages. Configure Preview environment variables `MEASUREMENT_QUEUE_ENABLED=true`, `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, and `MEASUREMENT_QUEUE_CALLBACK_URL` (the final HTTPS Preview URL plus the callback path). On protected Vercel deployments, configure a Vercel Protection Bypass for Automation secret; Vercel injects it as `VERCEL_AUTOMATION_BYPASS_SECRET`, and QStash forwards it in a header while redacting it from message logs. Keep all credentials server-side. QStash may retry messages; the callback claims the matching report/job key and ignores stale or duplicate deliveries. Check QStash message logs and the DLQ when a report remains in progress or fails. Do not submit another RoofV measurement to troubleshoot an existing report.
+
+The queue integration is implemented in source. API typecheck, build, and tests pass locally (136 tests across 26 files); the Vercel bypass header is forwarded by QStash and redacted from message logs. The three QStash credentials are saved in Vercel Preview, but currently apply to Preview generally rather than only `staging`. The code change is not deployed yet, and the queue feature flag and callback URL remain unset. Narrow credentials to `staging` before enabling the queue. Vercel Preview deployment and live QStash callback delivery remain unverified.
+
 Staging validation on 2026-10-31 returned a preliminary, unreviewed RoofV area of 110.93 m² for the Koramangala sample. The 6/12 pitch was the value supplied by the user interface; RoofV does not infer pitch from satellite imagery. Verify the roof and pitch on site before estimating or ordering. The report did not include linear edge lengths or an imagery date, so Roofora now labels those as unavailable instead of displaying false zero lengths or today's date.
 
 ### Razorpay staging webhook relay

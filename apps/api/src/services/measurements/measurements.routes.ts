@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { isValidObjectId } from "mongoose";
 import { z } from "zod";
 import { measurementOrderSchema, manualMeasurementSchema, metersToFeet, squareMetersToSquareFeet, type MeasurementDTO } from "@roofdesk/shared";
@@ -19,6 +19,8 @@ import { detectFileType } from "../documents/fileType";
 import { getStorage } from "../documents/storageFactory";
 import { newStorageKey } from "../documents/storage";
 import { fetchRoofVReportPdf } from "./providers/roofVProvider";
+import { enqueueMeasurementReport, isMeasurementQueueConfigured } from "./measurementQueue";
+import { requestContext } from "../../core/context";
 
 export const measurementsRouter = Router({ mergeParams: true });
 measurementsRouter.use(requireAuth);
@@ -49,10 +51,6 @@ const toDTO = (m: any): MeasurementDTO => ({
   createdAt: m.createdAt.toISOString(),
 });
 
-/**
- * Step 4 stub: processing runs in-process. Replace with a BullMQ job on the `integrations`
- * queue (retries, backoff, webhook/polling) as described in the architecture doc, section 6.4.
- */
 async function processReport(reportId: string, address: string) {
   try {
     const report = await MeasurementReport.findById(reportId);
@@ -132,6 +130,52 @@ async function processReport(reportId: string, address: string) {
   }
 }
 
+async function dispatchReport(report: any, address: string): Promise<void> {
+  if (report.provider === "roofv" && isMeasurementQueueConfigured()) {
+    const jobKey = `roofv:${report.id}:${randomUUID()}`;
+    report.status = "processing";
+    report.providerCheckedAt = new Date();
+    report.queueJobKey = jobKey;
+    report.queueStartedAt = undefined;
+    await report.save();
+    await enqueueMeasurementReport(report.id, jobKey);
+    return;
+  }
+  if (report.provider === "roofv" && env.NODE_ENV === "production") {
+    throw new AppError(503, "measurement_queue_unavailable", "RoofV report processing is not configured. Contact the administrator; do not order another measurement.");
+  }
+  setImmediate(() => void processReport(report.id, address));
+}
+
+/** QStash delivery entry point. Claims each message and restores the tenant context from its report. */
+export async function processQueuedMeasurementReport(reportId: string, jobKey: string): Promise<"processed" | "duplicate" | "missing"> {
+  const query = MeasurementReport.findById(reportId).setOptions({ skipTenant: true });
+  const record = await query;
+  if (!record) return "missing";
+  if (record.queueJobKey !== jobKey || record.status !== "processing") return "duplicate";
+
+  const staleBefore = new Date(Date.now() - 5 * 60_000);
+  const claim = await MeasurementReport.updateOne({
+    _id: record._id,
+    companyId: record.companyId,
+    status: "processing",
+    queueJobKey: jobKey,
+    $or: [{ queueStartedAt: { $exists: false } }, { queueStartedAt: { $lte: staleBefore } }],
+  }, { $set: { queueStartedAt: new Date() } }).setOptions({ skipTenant: true });
+  if (!claim.modifiedCount) {
+    const current = await MeasurementReport.findById(reportId).setOptions({ skipTenant: true });
+    if (!current || current.queueJobKey !== jobKey || current.status !== "processing") return "duplicate";
+    // Ask QStash to retry after the current worker's lease can expire instead of acknowledging lost work.
+    throw new Error("Measurement report is already being processed");
+  }
+
+  const companyId = String(record.companyId);
+  const userId = String(record.createdBy ?? record.companyId);
+  const address = record.addressSnapshot ?? "Roof property";
+  await requestContext.run({ companyId, userId, role: "admin" }, () => processReport(reportId, address));
+  return "processed";
+}
+
 measurementsRouter.get(
   "/",
   requirePermission("job:read"),
@@ -151,7 +195,12 @@ measurementsRouter.get(
         }, { $set: { providerCheckedAt: new Date() } });
         if (claimed.modifiedCount) {
           refreshing.add(item.id);
-          setImmediate(() => void processReport(item.id, item.addressSnapshot ?? "").finally(() => refreshing.delete(item.id)));
+          const latest = await MeasurementReport.findById(item._id);
+          if (latest) {
+            void dispatchReport(latest, item.addressSnapshot ?? "")
+              .catch((err) => logger.error({ err, reportId: item.id }, "could not enqueue measurement report refresh"))
+              .finally(() => refreshing.delete(item.id));
+          } else refreshing.delete(item.id);
         }
       }
     }
@@ -190,13 +239,24 @@ measurementsRouter.post(
     if (!["failed", "processing", "ordered", "delivered"].includes(report.status)) {
       throw new AppError(409, "measurement_not_refreshable", "This RoofV report cannot be checked again.");
     }
+    if (report.provider === "roofv" && !isMeasurementQueueConfigured() && env.NODE_ENV === "production") {
+      throw new AppError(503, "measurement_queue_unavailable", "RoofV report processing is not configured. Contact the administrator; do not order another measurement.");
+    }
     report.status = "processing";
     report.error = undefined;
     report.providerCheckedAt = new Date();
     await report.save();
     if (!refreshing.has(report.id)) {
       refreshing.add(report.id);
-      setImmediate(() => void processReport(report.id, report.addressSnapshot ?? "").finally(() => refreshing.delete(report.id)));
+      try { await dispatchReport(report, report.addressSnapshot ?? ""); }
+      catch (err) {
+        report.status = "failed";
+        report.error = "The existing RoofV report could not be queued. Contact the administrator; do not order another measurement.";
+        await report.save();
+        refreshing.delete(report.id);
+        throw err;
+      }
+      finally { refreshing.delete(report.id); }
     }
     res.status(202).json(toDTO(report));
   }),
@@ -267,6 +327,7 @@ measurementsRouter.post(
       : undefined;
     if (req.body.provider === "roofv") {
       if (!env.ROOFV_ENABLED || !env.ROOFV_API_KEY) throw new AppError(503, "roofv_disabled", "RoofV is not enabled on this server yet. Add the server-side API key and enable it in Preview first.");
+      if (env.NODE_ENV === "production" && !isMeasurementQueueConfigured()) throw new AppError(503, "measurement_queue_unavailable", "RoofV report processing is not configured. Contact the administrator before ordering; no measurement was submitted.");
       if (!req.body.roofvConsent) throw new AppError(400, "roofv_consent_required", "Confirm that the property location will be sent to RoofV and may use your workspace measurement allowance.");
       if (property.country !== "IN") throw new AppError(400, "roofv_india_only", "The Roofora RoofV integration is currently configured for Indian properties.");
       if (!coordinates) throw new AppError(409, "coordinates_required", "Add verified property coordinates before requesting a RoofV measurement.");
@@ -289,7 +350,13 @@ measurementsRouter.post(
     await audit(req, "measurement.ordered", "MeasurementReport", report._id, { provider: provider.name });
     touchJob(req.auth!.companyId, job.id, "measurements");
 
-    setImmediate(() => void processReport(report.id, address)); // keeps the tenant context via AsyncLocalStorage
+    try { await dispatchReport(report, address); }
+    catch (err) {
+      report.status = "failed";
+      report.error = "This report was created but could not be queued. Refresh this existing report; do not order another measurement.";
+      await report.save();
+      throw err;
+    }
     res.status(202).json(toDTO(report));
   }),
 );
