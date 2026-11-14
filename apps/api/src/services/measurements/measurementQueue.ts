@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Client } from "@upstash/qstash";
 import { env } from "../../config/env";
 import { logger } from "../../core/logger";
@@ -80,7 +81,8 @@ export async function enqueueMeasurementReport(reportId: string, jobKey: string)
         : undefined,
       retries: 3,
       label: ["roofora", "roofv-report"],
-      deduplicationId: jobKey,
+      // QStash rejects ':' in deduplication IDs; keep the value deterministic and URL-safe.
+      deduplicationId: createHash("sha256").update(jobKey).digest("hex"),
     });
   } catch (error) {
     const details = getMeasurementQueueFailureDetails(error);

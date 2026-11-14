@@ -41,6 +41,7 @@ describe("QStash measurement queue delivery", () => {
     expect(mocks.enqueueJSON).toHaveBeenCalledWith(expect.objectContaining({
       headers: { "x-vercel-protection-bypass": "test-vercel-bypass-secret" },
       redact: { header: ["x-vercel-protection-bypass"] },
+      deduplicationId: expect.stringMatching(/^[a-f0-9]{64}$/),
     }));
   });
 
