@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   enqueueJSON: vi.fn(),
   upsert: vi.fn(),
+  loggerError: vi.fn(),
   env: {
     MEASUREMENT_QUEUE_ENABLED: true,
     QSTASH_TOKEN: "test-qstash-token",
@@ -22,8 +23,9 @@ vi.mock("@upstash/qstash", () => ({
   },
 }));
 vi.mock("../../config/env", () => ({ env: mocks.env }));
+vi.mock("../../core/logger", () => ({ logger: { error: mocks.loggerError } }));
 
-import { enqueueMeasurementReport } from "./measurementQueue";
+import { enqueueMeasurementReport, getMeasurementQueueFailureDetails } from "./measurementQueue";
 
 describe("QStash measurement queue delivery", () => {
   beforeEach(() => {
@@ -51,5 +53,30 @@ describe("QStash measurement queue delivery", () => {
       headers: undefined,
       redact: undefined,
     }));
+  });
+
+  it("extracts a useful provider reason while redacting secrets and URLs", () => {
+    expect(getMeasurementQueueFailureDetails({
+      status: 400,
+      message: JSON.stringify({
+        error: "Invalid callback https://roofora.example/callback?token=secret",
+        token: "test-qstash-token",
+      }),
+    })).toEqual({ status: 400, reason: "Invalid callback [url]" });
+  });
+
+  it("logs the sanitized QStash rejection but keeps the public error generic", async () => {
+    mocks.enqueueJSON.mockRejectedValueOnce({
+      status: 400,
+      message: JSON.stringify({ error: "Invalid request: test-vercel-bypass-secret" }),
+    });
+
+    await expect(enqueueMeasurementReport("report-id", "roofv-report-job-3"))
+      .rejects.toThrow("QStash did not accept the measurement job");
+
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      { status: 400, reason: "Invalid request: [redacted]", reportId: "report-id" },
+      "QStash rejected the measurement job",
+    );
   });
 });
